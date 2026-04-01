@@ -1,0 +1,13 @@
+import logging
+
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+app = FastAPI(title="NekoClaw LLM Proxy", docs_url=None, redoc_url=None)
+
+
+@app.get("/health")
+async def health():
+    return JSONResponse({"status": "ok"})

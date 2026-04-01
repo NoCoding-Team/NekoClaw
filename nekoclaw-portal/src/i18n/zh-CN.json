@@ -1,0 +1,24 @@
+{
+  "common": {
+    "login": "登录",
+    "logout": "退出",
+    "settings": "设置",
+    "workspace": "猫窝",
+    "instance": "猫咪",
+    "geneMarket": "训练场",
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "loading": "加载中..."
+  },
+  "nav": {
+    "workspace": "猫窝",
+    "geneMarket": "训练场",
+    "orgSettings": "设置"
+  },
+  "login": {
+    "title": "欢迎回来",
+    "subtitle": "登录你的 NekoClaw 账户"
+  }
+}

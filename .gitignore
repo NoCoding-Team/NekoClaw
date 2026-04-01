@@ -1,0 +1,40 @@
+# EE 模块（私有仓库）
+ee/
+
+# 环境 & 密钥
+.env
+.env.*
+!.env.example
+
+# Python / 后端
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+.eggs/
+*.egg
+htmlcov/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / 前端
+node_modules/
+dist/
+dist-ssr/
+*.local
+logs/
+*.log
+npm-debug.log*
+
+# 编辑器 & 系统
+.DS_Store
+.idea/
+*.suo
+*.sw?
+Thumbs.db
+
+# 数据
+pg_data/

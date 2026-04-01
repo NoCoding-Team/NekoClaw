@@ -1,0 +1,24 @@
+{
+  "common": {
+    "login": "Login",
+    "logout": "Logout",
+    "settings": "Settings",
+    "workspace": "Cat Nest",
+    "instance": "Cat",
+    "geneMarket": "Training Ground",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "loading": "Loading..."
+  },
+  "nav": {
+    "workspace": "Nest",
+    "geneMarket": "Training",
+    "orgSettings": "Settings"
+  },
+  "login": {
+    "title": "Welcome Back",
+    "subtitle": "Sign in to your NekoClaw account"
+  }
+}

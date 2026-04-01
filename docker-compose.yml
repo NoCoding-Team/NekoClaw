@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nekoclaw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nekoclaw}
+      POSTGRES_DB: ${POSTGRES_DB:-nekoclaw}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nekoclaw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  nekoclaw-backend:
+    build:
+      context: .
+      dockerfile: nekoclaw-backend/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+    env_file:
+      - ./nekoclaw-backend/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://nekoclaw:nekoclaw@postgres:5432/nekoclaw}
+      DATABASE_NAME_SUFFIX: ""
+      LLM_PROXY_URL: http://llm-proxy:8080
+      LLM_PROXY_INTERNAL_URL: http://llm-proxy:8080
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  llm-proxy:
+    build:
+      context: nekoclaw-llm-proxy
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+    env_file:
+      - ./nekoclaw-llm-proxy/.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://nekoclaw:nekoclaw@postgres:5432/nekoclaw}
+    ports:
+      - "${LLM_PROXY_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  portal:
+    build:
+      context: nekoclaw-portal
+    depends_on:
+      - nekoclaw-backend
+    ports:
+      - "${PORTAL_PORT:-80}:80"
+    restart: unless-stopped
+
+volumes:
+  pg_data:
