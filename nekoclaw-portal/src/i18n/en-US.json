@@ -10,7 +10,19 @@
     "cancel": "Cancel",
     "save": "Save",
     "delete": "Delete",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "search": "Search",
+    "back": "Back",
+    "create": "Create",
+    "edit": "Edit",
+    "status": "Status",
+    "name": "Name",
+    "description": "Description",
+    "no_data": "No data",
+    "total": "{count} total",
+    "active": "Online",
+    "inactive": "Offline",
+    "retry": "Retry"
   },
   "nav": {
     "workspace": "Nest",
@@ -19,6 +31,114 @@
   },
   "login": {
     "title": "Welcome Back",
-    "subtitle": "Sign in to your NekoClaw account"
+    "subtitle": "Sign in to your NekoClaw account",
+    "email": "Email",
+    "password": "Password",
+    "sso_feishu": "Sign in with Feishu",
+    "login_button": "Sign In",
+    "logging_in": "Signing in..."
+  },
+  "instance": {
+    "list_title": "My Cats",
+    "create_title": "Adopt a New Cat",
+    "detail_title": "Cat Detail",
+    "name": "Cat Name",
+    "breed": "Breed",
+    "personality": "Personality",
+    "theme_color": "Theme Color",
+    "service_type": "Service Type",
+    "status": "Status",
+    "replicas": "Replicas",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "storage": "Storage",
+    "adopt": "Adopt",
+    "adopting": "Adopting...",
+    "release": "Release",
+    "release_confirm": "Release cat \"{name}\"?",
+    "restart": "Restart",
+    "restart_confirm": "Restart cat \"{name}\"?"
+  },
+  "cat_state": {
+    "sleeping": "Sleeping",
+    "idle": "Idle",
+    "working": "Working",
+    "learning": "Learning",
+    "playing": "Playing",
+    "error": "Sick",
+    "upgrading": "Evolving",
+    "creating": "Hatching",
+    "unknown": "Unknown"
+  },
+  "deploy": {
+    "progress_title": "Adoption Progress",
+    "step_namespace": "Preparing nest",
+    "step_configmap": "Preparing cat food config",
+    "step_pvc": "Preparing storage locker",
+    "step_deployment": "Waking up the cat",
+    "step_service": "Opening the cat flap",
+    "step_ingress": "Hanging the doorplate",
+    "step_network_policy": "Setting up the fence",
+    "step_wait_ready": "Waiting for the cat to wake up",
+    "step_health_check": "Health check",
+    "completed": "Adoption complete!",
+    "failed": "Adoption failed",
+    "timeout": "Adoption timed out, please check cat status later"
+  },
+  "workspace": {
+    "list_title": "My Nests",
+    "create_title": "Create Nest",
+    "name": "Nest Name",
+    "description": "Description",
+    "members": "Members",
+    "agents": "Resident Cats",
+    "objectives": "Objectives",
+    "blackboard": "Blackboard",
+    "topology": "Topology View",
+    "messages": "Messages"
+  },
+  "gene": {
+    "market_title": "Training Ground",
+    "name": "Trick Name",
+    "category": "Category",
+    "source": "Source",
+    "rating": "Rating",
+    "install_count": "Installs",
+    "install": "Learn",
+    "uninstall": "Forget",
+    "installed": "Learned",
+    "genome": "Trick Set",
+    "apply_genome": "Learn Full Set"
+  },
+  "errors": {
+    "common": {
+      "not_found": "Resource not found",
+      "forbidden": "Permission denied",
+      "bad_request": "Invalid request",
+      "conflict": "Resource conflict",
+      "unknown": "Unknown error"
+    },
+    "auth": {
+      "token_invalid": "Session expired, please sign in again",
+      "login_failed": "Login failed, please check your credentials"
+    },
+    "instance": {
+      "not_found": "Cat not found",
+      "name_conflict": "Cat \"{name}\" already exists",
+      "invalid_transition": "This action is not allowed in the current state"
+    },
+    "deploy": {
+      "already_running": "An adoption is already in progress",
+      "cluster_unavailable": "Cluster unavailable"
+    },
+    "k8s": {
+      "operation_failed": "K8s operation failed",
+      "connection_failed": "Cluster connection failed"
+    },
+    "system": {
+      "internal_error": "Internal server error",
+      "backend_unreachable": "Backend service unavailable, please try again later",
+      "backend_starting": "Backend service is starting, please wait"
+    }
   }
 }

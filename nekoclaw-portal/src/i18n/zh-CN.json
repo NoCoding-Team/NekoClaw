@@ -10,7 +10,19 @@
     "cancel": "取消",
     "save": "保存",
     "delete": "删除",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "search": "搜索",
+    "back": "返回",
+    "create": "创建",
+    "edit": "编辑",
+    "status": "状态",
+    "name": "名称",
+    "description": "描述",
+    "no_data": "暂无数据",
+    "total": "共 {count} 条",
+    "active": "在线",
+    "inactive": "离线",
+    "retry": "重试"
   },
   "nav": {
     "workspace": "猫窝",
@@ -19,6 +31,114 @@
   },
   "login": {
     "title": "欢迎回来",
-    "subtitle": "登录你的 NekoClaw 账户"
+    "subtitle": "登录你的 NekoClaw 账户",
+    "email": "邮箱",
+    "password": "密码",
+    "sso_feishu": "飞书登录",
+    "login_button": "登录",
+    "logging_in": "登录中..."
+  },
+  "instance": {
+    "list_title": "我的猫咪",
+    "create_title": "领养新猫咪",
+    "detail_title": "猫咪详情",
+    "name": "猫咪名称",
+    "breed": "品种",
+    "personality": "性格标签",
+    "theme_color": "主题色",
+    "service_type": "服务类型",
+    "status": "状态",
+    "replicas": "副本数",
+    "cpu": "CPU",
+    "memory": "内存",
+    "storage": "存储",
+    "adopt": "领养",
+    "adopting": "领养中...",
+    "release": "放归",
+    "release_confirm": "确认放归猫咪「{name}」？",
+    "restart": "重启",
+    "restart_confirm": "确认重启猫咪「{name}」？"
+  },
+  "cat_state": {
+    "sleeping": "睡觉中",
+    "idle": "发呆中",
+    "working": "工作中",
+    "learning": "学习中",
+    "playing": "玩耍中",
+    "error": "生病了",
+    "upgrading": "进化中",
+    "creating": "孵化中",
+    "unknown": "未知"
+  },
+  "deploy": {
+    "progress_title": "领养进度",
+    "step_namespace": "准备猫窝",
+    "step_configmap": "准备猫粮配置",
+    "step_pvc": "准备储物柜",
+    "step_deployment": "唤醒猫咪",
+    "step_service": "开通猫道",
+    "step_ingress": "挂上门牌",
+    "step_network_policy": "设置围栏",
+    "step_wait_ready": "等待猫咪苏醒",
+    "step_health_check": "健康检查",
+    "completed": "领养成功！",
+    "failed": "领养失败",
+    "timeout": "领养超时，请稍后查看猫咪状态"
+  },
+  "workspace": {
+    "list_title": "我的猫窝",
+    "create_title": "创建猫窝",
+    "name": "猫窝名称",
+    "description": "描述",
+    "members": "成员",
+    "agents": "驻猫",
+    "objectives": "目标",
+    "blackboard": "留言板",
+    "topology": "拓扑视图",
+    "messages": "消息"
+  },
+  "gene": {
+    "market_title": "训练场",
+    "name": "猫技名称",
+    "category": "分类",
+    "source": "来源",
+    "rating": "评分",
+    "install_count": "安装次数",
+    "install": "学习",
+    "uninstall": "遗忘",
+    "installed": "已学会",
+    "genome": "技能套装",
+    "apply_genome": "一键学习套装"
+  },
+  "errors": {
+    "common": {
+      "not_found": "资源不存在",
+      "forbidden": "无权限",
+      "bad_request": "请求参数错误",
+      "conflict": "资源冲突",
+      "unknown": "未知错误"
+    },
+    "auth": {
+      "token_invalid": "登录已过期，请重新登录",
+      "login_failed": "登录失败，请检查账号和密码"
+    },
+    "instance": {
+      "not_found": "猫咪不存在",
+      "name_conflict": "猫咪「{name}」已存在",
+      "invalid_transition": "当前状态不允许此操作"
+    },
+    "deploy": {
+      "already_running": "已有领养任务在进行中",
+      "cluster_unavailable": "集群不可用"
+    },
+    "k8s": {
+      "operation_failed": "K8s 操作失败",
+      "connection_failed": "集群连接失败"
+    },
+    "system": {
+      "internal_error": "服务器内部错误",
+      "backend_unreachable": "后端服务不可用，请稍后重试",
+      "backend_starting": "后端服务正在启动，请稍候"
+    }
   }
 }

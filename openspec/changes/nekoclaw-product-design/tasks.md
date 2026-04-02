@@ -106,10 +106,10 @@
 
 ## 12. 国际化、测试与交付
 
-- [ ] 12.1 建立 zh-CN 与 en-US 词条文件并统一猫咪术语体系
-- [ ] 12.2 实现后端错误 message_key 输出与前端本地翻译回退逻辑
-- [ ] 12.3 为核心服务补充单元测试：认证、实例、部署、FeatureGate
-- [ ] 12.4 为 Portal 核心页面补充组件或集成测试
-- [ ] 12.5 完成 Dockerfile、镜像构建脚本和 linux/amd64 目标配置
-- [ ] 12.6 完成 docker-compose 与 deploy/k8s 基础部署制品
-- [ ] 12.7 完成 README、开发指南和 MVP 启动验证清单
+- [x] 12.1 建立 zh-CN 与 en-US 词条文件并统一猫咪术语体系
+- [x] 12.2 实现后端错误 message_key 输出与前端本地翻译回退逻辑
+- [x] 12.3 为核心服务补充单元测试：认证、实例、部署、FeatureGate
+- [x] 12.4 为 Portal 核心页面补充组件或集成测试
+- [x] 12.5 完成 Dockerfile、镜像构建脚本和 linux/amd64 目标配置
+- [x] 12.6 完成 docker-compose 与 deploy/k8s 基础部署制品
+- [x] 12.7 完成 README、开发指南和 MVP 启动验证清单
