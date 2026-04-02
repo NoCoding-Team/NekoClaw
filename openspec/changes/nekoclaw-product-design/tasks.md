@@ -57,12 +57,12 @@
 
 ## 7. 猫窝系统与实时协同
 
-- [ ] 7.1 实现 Workspace、WorkspaceMember、WorkspaceMessage、WorkspaceObjective 等模型
-- [ ] 7.2 实现猫窝 CRUD、成员管理、角色权限和目标管理 API
-- [ ] 7.3 实现留言板系统：Blackboard、Post、Reply、附件能力
-- [ ] 7.4 实现 WorkspaceAgent 绑定关系与六边形坐标字段
-- [ ] 7.5 实现实时消息广播和任务委派通道
-- [ ] 7.6 设计人类节点与猫咪节点在同一拓扑中的展示数据结构
+- [x] 7.1 实现 Workspace、WorkspaceMember、WorkspaceMessage、WorkspaceObjective 等模型
+- [x] 7.2 实现猫窝 CRUD、成员管理、角色权限和目标管理 API
+- [x] 7.3 实现留言板系统：Blackboard、Post、Reply、附件能力
+- [x] 7.4 实现 WorkspaceAgent 绑定关系与六边形坐标字段
+- [x] 7.5 实现实时消息广播和任务委派通道
+- [x] 7.6 设计人类节点与猫咪节点在同一拓扑中的展示数据结构
 
 ## 8. 猫技系统与训练场
 
