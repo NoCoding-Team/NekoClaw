@@ -47,13 +47,13 @@
 
 ## 6. K8s 集成与领养部署流程
 
-- [ ] 6.1 实现 K8sClient、client manager 和集群连接测试能力
-- [ ] 6.2 实现 resource builder：Namespace、ConfigMap、PVC、Deployment、Service、Ingress、NetworkPolicy
-- [ ] 6.3 实现两阶段领养流程：同步创建记录 + 异步后台任务
-- [ ] 6.4 实现 9 步部署管道与失败回滚或失败标记逻辑
-- [ ] 6.5 实现 EventBus 发布订阅能力和 adopt_progress 事件模型
-- [ ] 6.6 实现 SSE 进度接口并与前端 fetch-event-source 对接
-- [ ] 6.7 实现部署日志记录、超时处理和最终状态收敛
+- [x] 6.1 实现 K8sClient、client manager 和集群连接测试能力
+- [x] 6.2 实现 resource builder：Namespace、ConfigMap、PVC、Deployment、Service、Ingress、NetworkPolicy
+- [x] 6.3 实现两阶段领养流程：同步创建记录 + 异步后台任务
+- [x] 6.4 实现 9 步部署管道与失败回滚或失败标记逻辑
+- [x] 6.5 实现 EventBus 发布订阅能力和 adopt_progress 事件模型
+- [x] 6.6 实现 SSE 进度接口并与前端 fetch-event-source 对接
+- [x] 6.7 实现部署日志记录、超时处理和最终状态收敛
 
 ## 7. 猫窝系统与实时协同
 
