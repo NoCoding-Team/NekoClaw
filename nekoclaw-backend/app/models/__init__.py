@@ -17,6 +17,7 @@ from app.models.gene import (
     Gene, Genome, InstanceGene, GeneEffectLog,
     GeneRating, GenomeRating, EvolutionEvent,
 )
+from app.models.llm_config import OrgLlmKey, UserLlmKey, UserLlmConfig, LlmUsageLog
 
 __all__ = [
     "Base", "BaseModel", "TimestampMixin", "not_deleted",
@@ -28,4 +29,5 @@ __all__ = [
     "WorkspaceAgent",
     "Gene", "Genome", "InstanceGene", "GeneEffectLog",
     "GeneRating", "GenomeRating", "EvolutionEvent",
+    "OrgLlmKey", "UserLlmKey", "UserLlmConfig", "LlmUsageLog",
 ]

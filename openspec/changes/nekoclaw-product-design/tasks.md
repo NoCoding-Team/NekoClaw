@@ -75,14 +75,14 @@
 
 ## 9. 猫道、猫粮站与铃铛
 
-- [ ] 9.1 实现内部猫道 WebSocket Tunnel 认证、心跳和重连机制
-- [ ] 9.2 实现钉钉猫道消息接入与回复链路
-- [ ] 9.3 实现训练猫道任务分发与结果回传
-- [ ] 9.4 定义 Channel 插件接口并完成核心插件注册机制
-- [ ] 9.5 实现 LLM Proxy 多 Provider 路由、代理鉴权和流式转发
-- [ ] 9.6 实现组织级 quota 检查与 token usage 记录
-- [ ] 9.7 实现多运行时安全层协议：TypeScript、Python、Rust
-- [ ] 9.8 实现安全层 kill switch 和 fail-open 降级逻辑
+- [x] 9.1 实现内部猫道 WebSocket Tunnel 认证、心跳和重连机制
+- [x] 9.2 实现钉钉猫道消息接入与回复链路
+- [x] 9.3 实现训练猫道任务分发与结果回传
+- [x] 9.4 定义 Channel 插件接口并完成核心插件注册机制
+- [x] 9.5 实现 LLM Proxy 多 Provider 路由、代理鉴权和流式转发
+- [x] 9.6 实现组织级 quota 检查与 token usage 记录
+- [x] 9.7 实现多运行时安全层协议：TypeScript、Python、Rust
+- [x] 9.8 实现安全层 kill switch 和 fail-open 降级逻辑
 
 ## 10. Portal 前端与猫咪主题体验
 
