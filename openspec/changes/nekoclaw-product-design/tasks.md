@@ -19,13 +19,13 @@
 
 ## 3. CE/EE 架构与功能开关
 
-- [ ] 3.1 实现 FeatureGate：ee 目录检测、features.yaml 加载、功能启停判断
-- [ ] 3.2 实现 DeploymentAdapter 抽象与 CE 基础实现
-- [ ] 3.3 实现 EmailTransport 抽象与 CE 基础实现
-- [ ] 3.4 实现 OrgProvider 抽象与 CE 基础实现
-- [ ] 3.5 实现 QuotaChecker 抽象与 CE 基础实现
-- [ ] 3.6 建立 EE 条件导入机制和 EE models 注册入口
-- [ ] 3.7 实现 Hooks 事件系统并预留审计日志等 EE 扩展点
+- [x] 3.1 实现 FeatureGate：ee 目录检测、features.yaml 加载、功能启停判断
+- [x] 3.2 实现 DeploymentAdapter 抽象与 CE 基础实现
+- [x] 3.3 实现 EmailTransport 抽象与 CE 基础实现
+- [x] 3.4 实现 OrgProvider 抽象与 CE 基础实现
+- [x] 3.5 实现 QuotaChecker 抽象与 CE 基础实现
+- [x] 3.6 建立 EE 条件导入机制和 EE models 注册入口
+- [x] 3.7 实现 Hooks 事件系统并预留审计日志等 EE 扩展点
 
 ## 4. 认证、组织与权限
 
