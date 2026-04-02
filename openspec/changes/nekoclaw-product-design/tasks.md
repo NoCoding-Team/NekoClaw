@@ -86,14 +86,14 @@
 
 ## 10. Portal 前端与猫咪主题体验
 
-- [ ] 10.1 搭建 portal 路由、main.ts、App.vue、Pinia、vue-i18n、Tailwind 入口
-- [ ] 10.2 实现 auth、org、workspace、cluster、gene store
-- [ ] 10.3 实现 Axios API 封装、请求拦截器、401 跳转和错误处理
-- [ ] 10.4 实现登录页、实例列表、实例详情、创建实例、领养进度等核心页面
-- [ ] 10.5 实现 useFeature 等 composables 和 EE route stub 机制
-- [ ] 10.6 实现猫咪状态动画、暖色主题变量和猫咪化操作文案
-- [ ] 10.7 实现领养进度页的孵化动画与 6 分钟超时保护
-- [ ] 10.8 实现猫窝 Three.js 3D 视图、hex grid、猫咪节点与装饰物渲染
+- [x] 10.1 搭建 portal 路由、main.ts、App.vue、Pinia、vue-i18n、Tailwind 入口
+- [x] 10.2 实现 auth、org、workspace、cluster、gene store
+- [x] 10.3 实现 Axios API 封装、请求拦截器、401 跳转和错误处理
+- [x] 10.4 实现登录页、实例列表、实例详情、创建实例、领养进度等核心页面
+- [x] 10.5 实现 useFeature 等 composables 和 EE route stub 机制
+- [x] 10.6 实现猫咪状态动画、暖色主题变量和猫咪化操作文案
+- [x] 10.7 实现领养进度页的孵化动画与 6 分钟超时保护
+- [x] 10.8 实现猫窝 Three.js 3D 视图、hex grid、猫咪节点与装饰物渲染
 
 ## 11. EE Admin 前端
 
