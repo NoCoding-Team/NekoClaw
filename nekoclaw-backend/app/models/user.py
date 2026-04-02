@@ -42,3 +42,5 @@ class User(BaseModel):
     current_org = relationship("Organization", foreign_keys=[current_org_id])
     memberships = relationship("OrgMembership", back_populates="user", cascade="all, delete-orphan")
     oauth_connections = relationship("UserOAuthConnection", back_populates="user", cascade="all, delete-orphan")
+    instances = relationship("Instance", back_populates="creator", foreign_keys="Instance.created_by")
+    clusters = relationship("Cluster", back_populates="creator", foreign_keys="Cluster.created_by")

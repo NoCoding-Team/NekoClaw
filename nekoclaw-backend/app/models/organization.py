@@ -24,3 +24,4 @@ class Organization(BaseModel):
 
     memberships = relationship("OrgMembership", back_populates="organization", cascade="all, delete-orphan")
     oauth_bindings = relationship("OrgOAuthBinding", back_populates="organization", cascade="all, delete-orphan")
+    instances = relationship("Instance", back_populates="organization")
