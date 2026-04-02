@@ -1,6 +1,18 @@
-# NekoClaw
+<div align="center">
+  <img src="docs/assets/NekoClaw.png" alt="NekoClaw" width="280" />
 
-**你的 AI 伙伴，不只是工具。** 领养一只 AI 猫咪，和它一起工作、一起成长。
+  # NekoClaw
+
+  **你的 AI 伙伴，不只是工具。** 领养一只 AI 猫咪，和它一起工作、一起成长。
+
+  [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+  [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](nekoclaw-backend/)
+  [![Vue](https://img.shields.io/badge/Vue-3-4FC08D?logo=vuedotjs&logoColor=white)](nekoclaw-portal/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](nekoclaw-backend/)
+  [![K8s](https://img.shields.io/badge/Kubernetes-326CE5?logo=kubernetes&logoColor=white)](deploy/k8s/)
+  [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+
+</div>
 
 NekoClaw 是一个人与 AI 共同经营的平台。每只猫咪都是一个独立的 AI 伙伴 -- 它有自己的猫窝、自己的技能、自己的成长轨迹。你负责方向，它负责执行，你们共同经营一件事。
 
