@@ -10,12 +10,12 @@
 
 ## 2. 后端核心框架
 
-- [ ] 2.1 实现 FastAPI 主入口、lifespan、日志配置和数据库连接初始化
-- [ ] 2.2 实现 core/config、core/exceptions、core/deps、core/hooks 基础模块
-- [ ] 2.3 实现 BaseModel、时间戳混入、软删除能力和 UUID 主键规范
-- [ ] 2.4 建立 Alembic 异步迁移配置和第一批基础迁移
-- [ ] 2.5 实现统一 ApiResponse schema 和公共响应封装
-- [ ] 2.6 建立 API 路由聚合入口与 v1 路由前缀结构
+- [x] 2.1 实现 FastAPI 主入口、lifespan、日志配置和数据库连接初始化
+- [x] 2.2 实现 core/config、core/exceptions、core/deps、core/hooks 基础模块
+- [x] 2.3 实现 BaseModel、时间戳混入、软删除能力和 UUID 主键规范
+- [x] 2.4 建立 Alembic 异步迁移配置和第一批基础迁移
+- [x] 2.5 实现统一 ApiResponse schema 和公共响应封装
+- [x] 2.6 建立 API 路由聚合入口与 v1 路由前缀结构
 
 ## 3. CE/EE 架构与功能开关
 
