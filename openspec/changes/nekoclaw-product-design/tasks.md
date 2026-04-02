@@ -29,12 +29,12 @@
 
 ## 4. 认证、组织与权限
 
-- [ ] 4.1 实现 User、Organization、OAuthConnection、OrgMembership 等核心模型
-- [ ] 4.2 实现 OAuth 登录流程、用户创建或同步、组织绑定逻辑
-- [ ] 4.3 实现 JWT access token、refresh token 和鉴权依赖
-- [ ] 4.4 实现 AuthActor 上下文和请求链路注入
-- [ ] 4.5 实现 KubeConfig AES-256-GCM 加密与解密能力
-- [ ] 4.6 实现组织级与实例级角色权限校验
+- [x] 4.1 实现 User、Organization、OAuthConnection、OrgMembership 等核心模型
+- [x] 4.2 实现 OAuth 登录流程、用户创建或同步、组织绑定逻辑
+- [x] 4.3 实现 JWT access token、refresh token 和鉴权依赖
+- [x] 4.4 实现 AuthActor 上下文和请求链路注入
+- [x] 4.5 实现 KubeConfig AES-256-GCM 加密与解密能力
+- [x] 4.6 实现组织级与实例级角色权限校验
 
 ## 5. 猫咪领域模型与实例生命周期
 

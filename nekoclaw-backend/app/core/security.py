@@ -1,0 +1,273 @@
+import base64
+import contextvars
+import os
+from datetime import datetime, timedelta, timezone
+from typing import NamedTuple
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from fastapi import Depends, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.core.config import settings
+from app.core.deps import get_db
+from app.models.user import User
+
+
+class AuthActor(NamedTuple):
+    actor_type: str
+    actor_id: str
+    actor_name: str
+
+
+_auth_actor: contextvars.ContextVar[AuthActor | None] = contextvars.ContextVar(
+    "_auth_actor", default=None,
+)
+
+
+def get_auth_actor() -> AuthActor | None:
+    return _auth_actor.get()
+
+
+def reset_auth_actor() -> None:
+    _auth_actor.set(None)
+
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def create_access_token(
+    user_id: str | None = None,
+    *,
+    subject: str | None = None,
+    extra_claims: dict | None = None,
+    expires_delta: timedelta | None = None,
+) -> str:
+    sub = subject or user_id or ""
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=settings.JWT_EXPIRE_HOURS))
+    payload: dict = {"sub": sub, "exp": expire, "type": "access"}
+    if extra_claims:
+        payload.update(extra_claims)
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_refresh_token(user_id: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
+    payload = {"sub": user_id, "exp": expire, "type": "refresh"}
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40101,
+                "message_key": "errors.auth.token_invalid_or_expired",
+                "message": "Token 无效或已过期",
+            },
+        )
+
+
+_ALLOWED_TOKEN_TYPES = {"access"}
+
+
+async def _get_user_by_token(
+    token: str,
+    db: AsyncSession,
+    *,
+    allowed_scopes: set[str] | None = None,
+) -> User:
+    payload = decode_token(token)
+
+    if payload.get("type") not in _ALLOWED_TOKEN_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40102,
+                "message_key": "errors.auth.token_type_invalid",
+                "message": "Token 类型错误",
+            },
+        )
+
+    scope = payload.get("scope")
+    if allowed_scopes and scope and scope not in allowed_scopes:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40103,
+                "message_key": "errors.auth.token_scope_forbidden",
+                "message": "Token scope 不允许",
+            },
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40104,
+                "message_key": "errors.auth.token_subject_missing",
+                "message": "Token 无效",
+            },
+        )
+
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.oauth_connections))
+        .where(User.id == user_id, User.deleted_at.is_(None))
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40105,
+                "message_key": "errors.auth.user_not_found_or_disabled",
+                "message": "用户不存在或已禁用",
+            },
+        )
+
+    return user
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40100,
+                "message_key": "errors.auth.credentials_missing",
+                "message": "未提供认证信息",
+            },
+        )
+    user = await _get_user_by_token(credentials.credentials, db)
+    _auth_actor.set(AuthActor("user", user.id, user.name))
+    if user.must_change_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": 40350,
+                "message_key": "errors.auth.password_change_required",
+                "message": "请先修改密码",
+            },
+        )
+    return user
+
+
+async def get_current_user_unchecked(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40100,
+                "message_key": "errors.auth.credentials_missing",
+                "message": "未提供认证信息",
+            },
+        )
+    user = await _get_user_by_token(credentials.credentials, db)
+    _auth_actor.set(AuthActor("user", user.id, user.name))
+    return user
+
+
+async def get_current_user_from_query(
+    token: str = Query(..., description="JWT access token"),
+) -> User:
+    from app.core.deps import async_session_factory
+
+    async with async_session_factory() as db:
+        user = await _get_user_by_token(token, db, allowed_scopes={"sse"})
+        db.expunge(user)
+    return user
+
+
+async def get_current_user_or_agent(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40100,
+                "message_key": "errors.auth.credentials_missing",
+                "message": "未提供认证信息",
+            },
+        )
+
+    token = credentials.credentials
+
+    try:
+        user = await _get_user_by_token(token, db)
+        _auth_actor.set(AuthActor("user", user.id, user.name))
+        return user
+    except HTTPException:
+        pass
+
+    from app.models.instance import Instance
+    result = await db.execute(
+        select(Instance).where(
+            Instance.proxy_token == token,
+            Instance.deleted_at.is_(None),
+        )
+    )
+    instance = result.scalar_one_or_none()
+    if instance is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40101,
+                "message_key": "errors.auth.token_invalid",
+                "message": "Token 无效",
+            },
+        )
+
+    user = (await db.execute(
+        select(User).where(User.id == instance.created_by, User.deleted_at.is_(None))
+    )).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error_code": 40105,
+                "message_key": "errors.auth.user_not_found_or_disabled",
+                "message": "用户不存在或已禁用",
+            },
+        )
+    _auth_actor.set(AuthActor("agent", instance.id, instance.name))
+    return user
+
+
+def _get_aes_key() -> bytes:
+    key = settings.ENCRYPTION_KEY.encode("utf-8")
+    return key[:32].ljust(32, b"0")
+
+
+def encrypt_sensitive(plaintext: str) -> str:
+    key = _get_aes_key()
+    nonce = os.urandom(12)
+    aesgcm = AESGCM(key)
+    ciphertext = aesgcm.encrypt(nonce, plaintext.encode("utf-8"), None)
+    return base64.b64encode(nonce + ciphertext).decode("utf-8")
+
+
+def decrypt_sensitive(encrypted: str) -> str:
+    key = _get_aes_key()
+    raw = base64.b64decode(encrypted)
+    nonce, ciphertext = raw[:12], raw[12:]
+    aesgcm = AESGCM(key)
+    plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+    return plaintext.decode("utf-8")

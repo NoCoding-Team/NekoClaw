@@ -1,0 +1,73 @@
+from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+class OAuthCallbackRequest(BaseModel):
+    provider: str
+    code: str
+    redirect_uri: str | None = None
+    client_id: str | None = None
+
+
+class EmailLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class AccountLoginRequest(BaseModel):
+    account: str = Field(min_length=1, max_length=200)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str | None = Field(default=None, max_length=200)
+    new_password: str = Field(min_length=6, max_length=200)
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int = 28800
+
+
+class OAuthConnectionInfo(BaseModel):
+    provider: str
+    provider_user_id: str
+
+    model_config = {"from_attributes": True}
+
+
+class UserInfo(BaseModel):
+    id: str
+    name: str
+    email: str | None = None
+    phone: str | None = None
+    username: str | None = None
+    avatar_url: str | None = None
+    role: str
+    is_active: bool = True
+    is_super_admin: bool = False
+    has_password: bool = False
+    must_change_password: bool = False
+    current_org_id: str | None = None
+    org_role: str | None = None
+    last_login_at: datetime | None = None
+    oauth_connections: list[OAuthConnectionInfo] = []
+
+    model_config = {"from_attributes": True}
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int = 28800
+    user: UserInfo
+    needs_org_setup: bool = False
+    provider: str | None = None

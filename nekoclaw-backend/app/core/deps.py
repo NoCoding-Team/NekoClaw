@@ -91,3 +91,104 @@ async def require_super_admin_dep(
             },
         )
     return user
+
+
+async def require_org_member(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(_get_current_user_dep()),
+):
+    from app.models.org_membership import OrgMembership
+
+    if not user.current_org_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error_code": 40010,
+                "message_key": "errors.org.user_has_no_org",
+                "message": "用户未加入任何猫舍",
+            },
+        )
+
+    result = await db.execute(
+        select(OrgMembership).where(
+            OrgMembership.user_id == user.id,
+            OrgMembership.org_id == user.current_org_id,
+            OrgMembership.deleted_at.is_(None),
+        )
+    )
+    membership = result.scalar_one_or_none()
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_code": 40311,
+                "message_key": "errors.org.not_a_member",
+                "message": "你不是该猫舍的成员",
+            },
+        )
+    return user, membership
+
+
+def require_org_role(min_role: str):
+    from app.models.org_membership import ORG_ROLE_LEVEL
+
+    async def _check(
+        db: AsyncSession = Depends(get_db),
+        user=Depends(_get_current_user_dep()),
+    ):
+        from app.models.org_membership import OrgMembership
+
+        if not user.current_org_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error_code": 40010,
+                    "message_key": "errors.org.user_has_no_org",
+                    "message": "用户未加入任何猫舍",
+                },
+            )
+
+        result = await db.execute(
+            select(OrgMembership).where(
+                OrgMembership.user_id == user.id,
+                OrgMembership.org_id == user.current_org_id,
+                OrgMembership.deleted_at.is_(None),
+            )
+        )
+        membership = result.scalar_one_or_none()
+        if membership is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": 40311,
+                    "message_key": "errors.org.not_a_member",
+                    "message": "你不是该猫舍的成员",
+                },
+            )
+
+        user_level = ORG_ROLE_LEVEL.get(membership.role, 0)
+        required_level = ORG_ROLE_LEVEL.get(min_role, 999)
+        if user_level < required_level:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": 40312,
+                    "message_key": "errors.org.insufficient_role",
+                    "message": f"至少需要 {min_role} 角色",
+                },
+            )
+        return user, membership
+
+    return _check
+
+
+def require_org_admin():
+    return require_org_role("admin")
+
+
+def require_org_manager():
+    return require_org_role("manager")
+
+
+def require_org_operator():
+    return require_org_role("operator")
