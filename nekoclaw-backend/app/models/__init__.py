@@ -13,6 +13,10 @@ from app.models.workspace_message import WorkspaceMessage
 from app.models.workspace_objective import WorkspaceObjective
 from app.models.blackboard import Blackboard, BlackboardPost, BlackboardReply
 from app.models.workspace_agent import WorkspaceAgent
+from app.models.gene import (
+    Gene, Genome, InstanceGene, GeneEffectLog,
+    GeneRating, GenomeRating, EvolutionEvent,
+)
 
 __all__ = [
     "Base", "BaseModel", "TimestampMixin", "not_deleted",
@@ -22,4 +26,6 @@ __all__ = [
     "Workspace", "WorkspaceMember", "WorkspaceMessage", "WorkspaceObjective",
     "Blackboard", "BlackboardPost", "BlackboardReply",
     "WorkspaceAgent",
+    "Gene", "Genome", "InstanceGene", "GeneEffectLog",
+    "GeneRating", "GenomeRating", "EvolutionEvent",
 ]

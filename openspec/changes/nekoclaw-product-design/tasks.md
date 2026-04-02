@@ -66,12 +66,12 @@
 
 ## 8. 猫技系统与训练场
 
-- [ ] 8.1 实现 Gene、Genome、InstanceGene、GeneEffectLog、GeneRating 模型
-- [ ] 8.2 实现猫技 CRUD、分类、标签、来源和可见性能力
-- [ ] 8.3 实现猫技安装流程和实例学习任务下发
-- [ ] 8.4 实现 learn、forget、create 三种进化流程状态管理
-- [ ] 8.5 实现训练场列表、搜索、评分和技能套装安装能力
-- [ ] 8.6 实现使用计数、自评记录和效果追踪
+- [x] 8.1 实现 Gene、Genome、InstanceGene、GeneEffectLog、GeneRating 模型
+- [x] 8.2 实现猫技 CRUD、分类、标签、来源和可见性能力
+- [x] 8.3 实现猫技安装流程和实例学习任务下发
+- [x] 8.4 实现 learn、forget、create 三种进化流程状态管理
+- [x] 8.5 实现训练场列表、搜索、评分和技能套装安装能力
+- [x] 8.6 实现使用计数、自评记录和效果追踪
 
 ## 9. 猫道、猫粮站与铃铛
 
