@@ -57,5 +57,19 @@ services:
       - "${PORTAL_PORT:-80}:80"
     restart: unless-stopped
 
+  # nekoclaw-tunnel-bridge: 仅 ZeroClaw / Nanobot 部署时开启，默认注释
+  # nekoclaw-tunnel-bridge:
+  #   build:
+  #     context: nekoclaw-tunnel-bridge
+  #   depends_on:
+  #     - nekoclaw-backend
+  #   environment:
+  #     NEKOCLAW_BACKEND_URL: http://nekoclaw-backend:8000
+  #     NEKOCLAW_API_TOKEN: ${NEKOCLAW_API_TOKEN:-}
+  #     NEKOCLAW_INSTANCE_ID: ${NEKOCLAW_INSTANCE_ID:-}
+  #     ZEROCLAW_GATEWAY_URL: ${ZEROCLAW_GATEWAY_URL:-http://zeroclaw:8080}
+  #   command: ["--runtime", "zeroclaw"]
+  #   restart: unless-stopped
+
 volumes:
   pg_data:

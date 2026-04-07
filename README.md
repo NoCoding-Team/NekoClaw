@@ -106,16 +106,22 @@ graph TD
 
 ```
 NekoClaw/
-├── nekoclaw-portal/        # 用户门户 -- Vue 3 + Tailwind CSS + Three.js
-├── nekoclaw-backend/       # 后端 API -- Python 3.12 + FastAPI + SQLAlchemy
-├── nekoclaw-llm-proxy/     # 猫粮站 -- LLM 代理与路由
-├── nekoclaw-artifacts/     # 镜像构建脚本
-├── features.yaml           # CE/EE 功能注册表
-├── ee/                     # 企业版模块（私有）
-│   ├── nekoclaw-frontend/  # 管理后台 -- Vue 3 + shadcn-vue
-│   ├── backend/            # EE 后端扩展
-│   └── frontend/portal/    # Portal EE 路由扩展
-└── deploy/k8s/             # K8s 部署清单
+├── nekoclaw-portal/                  # 用户门户 -- Vue 3 + Tailwind CSS + Three.js
+├── nekoclaw-backend/                 # 后端 API -- Python 3.12 + FastAPI + SQLAlchemy
+├── nekoclaw-llm-proxy/               # 猫粮站 -- LLM 代理与路由
+├── nekoclaw-artifacts/               # 镜像构建脚本
+├── openclaw-channel-nekoclaw/        # OpenClaw channel 插件（Tunnel + 工具 + MCP Server）
+├── openclaw-channel-dingtalk/        # OpenClaw DingTalk channel 插件（Stream 协议）
+├── openclaw-security-layer/          # OpenClaw 工具执行安全层插件（TypeScript）
+├── nanobot-security-layer/           # Nanobot 工具执行安全层（Python，monkey-patch）
+├── zeroclaw-security-layer/          # ZeroClaw 工具执行安全层（Rust crate）
+├── nekoclaw-tunnel-bridge/           # Tunnel 桥（ZeroClaw / Nanobot 进程桥接）
+├── features.yaml                     # CE/EE 功能注册表
+├── ee/                               # 企业版模块（私有）
+│   ├── nekoclaw-frontend/            # 管理后台 -- Vue 3 + shadcn-vue
+│   ├── backend/                      # EE 后端扩展
+│   └── frontend/portal/              # Portal EE 路由扩展
+└── deploy/k8s/                       # K8s 部署清单
 ```
 
 ## 文档

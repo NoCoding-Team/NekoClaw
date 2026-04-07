@@ -1,0 +1,23 @@
+{
+  "name": "nekoclaw",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenClaw channel plugin for NekoClaw AI cat companion platform",
+  "type": "module",
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "nekoclaw",
+      "label": "NekoClaw",
+      "selectionLabel": "NekoClaw (AI Cat Companion)",
+      "docsPath": "/channels/nekoclaw",
+      "blurb": "NekoClaw AI cat companion workspace channel.",
+      "aliases": ["neko", "cat"]
+    }
+  }
+}
