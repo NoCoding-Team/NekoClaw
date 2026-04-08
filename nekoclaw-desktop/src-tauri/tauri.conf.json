@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NekoClaw",
+  "version": "0.1.0",
+  "identifier": "com.nekoclaw.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "NekoClaw",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 480,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true
+      }
+    ],
+    "trayIcon": {
+      "id": "nekoclaw-tray",
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false
+    },
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": ["icons/*"],
+    "publisher": "NekoClaw Team",
+    "category": "Utility",
+    "shortDescription": "NekoClaw Desktop Client",
+    "longDescription": "NekoClaw 猫咪 AI 经营伙伴管理平台桌面客户端"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/NekoClaw-Team/NekoClaw/releases/latest/download/latest.json"
+      ]
+    },
+    "autostart": {
+      "args": []
+    }
+  }
+}

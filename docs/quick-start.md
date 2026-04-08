@@ -122,6 +122,37 @@ Admin: `http://localhost:4518`
 
 打开 `http://localhost:4517`，登录后领养你的第一只猫。
 
+## 桌面客户端
+
+`nekoclaw-desktop/` 是基于 Tauri 2 打包的跨平台桌面客户端，可连接任意 NekoClaw Backend 实例，免去浏览器直接访问的麻烦。
+
+### 功能
+
+- 账号管理：可配置多个 Backend 地址，一键切换
+- 内嵌 Portal：WebView 直接嵌入 NekoClaw 用户门户
+- 托盘常驻：关闭窗口不退出，托盘菜单快速访问
+- 开机自启：可选随系统启动
+- 自动更新：静默检查 GitHub Releases 推送更新通知
+
+### 本地开发
+
+```bash
+# 前置：安装 Rust + Cargo（https://rustup.rs）
+cd nekoclaw-desktop
+npm install
+npm run tauri dev
+```
+
+### 发布构建
+
+```bash
+npm run tauri build
+# 产物位于 nekoclaw-desktop/src-tauri/target/release/bundle/
+```
+
+> 推送 `v*.*.*` 版本 Tag 时，GitHub Actions 自动构建 Windows / macOS / Linux 安装包并发布到 Releases。
+> Backend 连接地址：默认 `http://localhost:8000`，也可填写公网或内网地址。
+
 ## K8s 部署
 
 ```bash

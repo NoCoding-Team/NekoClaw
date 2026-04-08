@@ -107,6 +107,7 @@ graph TD
 ```
 NekoClaw/
 ├── nekoclaw-portal/                  # 用户门户 -- Vue 3 + Tailwind CSS + Three.js
+├── nekoclaw-desktop/                 # 桌面客户端 -- Tauri 2 + Vue 3（跨平台 .exe / .dmg / .AppImage）
 ├── nekoclaw-backend/                 # 后端 API -- Python 3.12 + FastAPI + SQLAlchemy
 ├── nekoclaw-llm-proxy/               # 猫粮站 -- LLM 代理与路由
 ├── nekoclaw-artifacts/               # 镜像构建脚本
