@@ -93,7 +93,7 @@ function goToConfig() {
   <div class="portal-view">
     <div class="topbar">
       <div class="topbar-left">
-        <img src="/icons/icon.png" alt="NekoClaw" class="topbar-icon" />
+        <img src="/icon.png" alt="NekoClaw" class="topbar-icon" />
       </div>
       <div class="topbar-center">
         <button class="account-switcher" @click="showSwitcher = !showSwitcher">

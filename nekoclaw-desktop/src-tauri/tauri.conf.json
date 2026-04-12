@@ -55,8 +55,6 @@
         "https://github.com/NekoClaw-Team/NekoClaw/releases/latest/download/latest.json"
       ]
     },
-    "autostart": {
-      "args": []
-    }
+    "autostart": null
   }
 }

@@ -84,7 +84,7 @@ async function setActive(id: string) {
   <div class="config-view">
     <div class="header">
       <div class="logo">
-        <img src="/icons/icon.png" alt="NekoClaw" class="logo-icon" />
+        <img src="/icon.png" alt="NekoClaw" class="logo-icon" />
         <span class="logo-text">NekoClaw</span>
       </div>
       <p class="subtitle">配置 Backend 连接</p>

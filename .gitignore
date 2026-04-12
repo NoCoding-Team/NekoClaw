@@ -29,6 +29,9 @@ logs/
 *.log
 npm-debug.log*
 
+# Rust / Tauri
+target/
+
 # 编辑器 & 系统
 .DS_Store
 .idea/
