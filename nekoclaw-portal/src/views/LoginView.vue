@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { LogIn } from 'lucide-vue-next'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -18,11 +20,15 @@ async function handleLogin() {
   loading.value = true
   errorMsg.value = ''
   try {
-    await authStore.accountLogin(account.value, password.value)
+    const data = await authStore.accountLogin(account.value, password.value)
+    if (data.user?.must_change_password) {
+      router.push('/force-change-password')
+      return
+    }
     const redirect = (route.query.redirect as string) || '/'
     router.push(redirect)
   } catch (e: any) {
-    errorMsg.value = e.response?.data?.detail?.message || e.response?.data?.message || 'Login failed'
+    errorMsg.value = e.response?.data?.detail?.message || e.response?.data?.message || t('login.login_failed')
   } finally {
     loading.value = false
   }
@@ -40,7 +46,7 @@ function handleFeishuLogin() {
   <div class="flex items-center justify-center min-h-screen">
     <div class="w-full max-w-sm p-8 space-y-6">
       <div class="text-center space-y-2">
-        <img src="/logo.png" alt="NekoClaw" class="w-12 h-12 mx-auto" />
+        <img src="/logo.svg" alt="NekoClaw" class="w-12 h-12 mx-auto" />
         <h1 class="text-2xl font-bold">NekoClaw</h1>
         <p class="text-muted-foreground text-sm">{{ $t('login.subtitle') }}</p>
       </div>

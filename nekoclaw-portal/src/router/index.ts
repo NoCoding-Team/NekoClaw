@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { eePortalRoutes } from '@/router/ee-stub'
 
+const PUBLIC_ROUTES = ['/login', '/force-change-password']
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
@@ -13,6 +15,12 @@ const routes: RouteRecordRaw[] = [
     path: '/login/callback/:provider',
     name: 'OAuthCallback',
     component: () => import('@/views/OAuthCallback.vue'),
+    meta: { hideNav: true },
+  },
+  {
+    path: '/force-change-password',
+    name: 'ForceChangePassword',
+    component: () => import('@/views/ForceChangePasswordView.vue'),
     meta: { hideNav: true },
   },
   {
@@ -61,6 +69,18 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+router.beforeEach((to) => {
+  const isPublic =
+    PUBLIC_ROUTES.includes(to.path) || to.path.startsWith('/login/')
+  if (isPublic) return true
+
+  const hasToken = !!localStorage.getItem('portal_token')
+  if (!hasToken) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+  return true
 })
 
 export default router

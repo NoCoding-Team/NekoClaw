@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { invoke } from "@tauri-apps/api/core";
 import { useAccountsStore } from "../stores/accounts";
 
 const router = useRouter();
@@ -26,15 +27,17 @@ onMounted(async () => {
 });
 
 watch(
-  () => store.activeAccount,
-  (account) => {
-    if (!account) {
+  () => store.activeAccountId,
+  async (newId, oldId) => {
+    if (!newId) {
       router.replace("/config");
       return;
     }
-    loadError.value = false;
-    loading.value = true;
-    updateWindowTitle();
+    if (newId !== oldId) {
+      loadError.value = false;
+      loading.value = true;
+      updateWindowTitle();
+    }
   }
 );
 
@@ -59,8 +62,21 @@ function retry() {
   }
 }
 
-function onIframeLoad() {
+async function onIframeLoad() {
   loading.value = false;
+  await injectToken();
+}
+
+async function injectToken() {
+  const accountId = store.activeAccountId;
+  if (!accountId) return;
+  try {
+    const token = await invoke<string>("get_token", { accountId });
+    if (token && token.length > 0) {
+      await invoke("inject_token_to_webview", { token, accountId });
+    }
+  } catch {
+  }
 }
 
 function onIframeError() {
@@ -124,6 +140,7 @@ function goToConfig() {
 
       <iframe
         v-if="portalUrl && !loadError"
+        :key="store.activeAccountId"
         ref="webviewEl"
         :src="portalUrl"
         class="portal-iframe"

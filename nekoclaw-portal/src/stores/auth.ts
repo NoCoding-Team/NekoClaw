@@ -1,6 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/services/api'
+import { isTauriDesktop } from '@/utils/env'
+
+type TauriInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>
+
+function getTauriInvoke(): TauriInvoke | null {
+  if (!isTauriDesktop) return null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (window as any).__TAURI_INTERNALS__?.invoke ?? null
+}
 
 export interface PortalUser {
   id: string
@@ -55,14 +64,16 @@ export const useAuthStore = defineStore('auth', () => {
     const data = res.data.data
     setTokens(data.access_token, data.refresh_token)
     user.value = data.user
+    await syncTokenToDesktop(data.access_token)
     return data
   }
 
   async function accountLogin(account: string, password: string) {
-    const res = await api.post('/auth/login', { email: account, password })
+    const res = await api.post('/auth/login', { account, password })
     const data = res.data.data
     setTokens(data.access_token, data.refresh_token)
     user.value = data.user
+    await syncTokenToDesktop(data.access_token)
     return data
   }
 
@@ -85,7 +96,28 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    const invoke = getTauriInvoke()
+    if (invoke) {
+      const accountId = sessionStorage.getItem('nekoclaw_desktop_account_id')
+      if (accountId) {
+        try {
+          await invoke('delete_token_from_keychain_cmd', { accountId })
+        } catch {
+        }
+      }
+    }
     clearAuth()
+  }
+
+  async function syncTokenToDesktop(accessToken: string) {
+    const invoke = getTauriInvoke()
+    if (!invoke) return
+    const accountId = sessionStorage.getItem('nekoclaw_desktop_account_id')
+    if (!accountId) return
+    try {
+      await invoke('store_token_in_keychain_cmd', { accountId, token: accessToken })
+    } catch {
+    }
   }
 
   return {

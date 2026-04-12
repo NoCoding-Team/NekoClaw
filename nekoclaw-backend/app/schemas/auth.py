@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class OAuthCallbackRequest(BaseModel):
@@ -18,6 +18,13 @@ class EmailLoginRequest(BaseModel):
 class AccountLoginRequest(BaseModel):
     account: str = Field(min_length=1, max_length=200)
     password: str = Field(min_length=1, max_length=200)
+
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_account(cls, data):
+        if isinstance(data, dict) and 'account' not in data and 'email' in data:
+            data = {**data, 'account': data['email']}
+        return data
 
 
 class ChangePasswordRequest(BaseModel):

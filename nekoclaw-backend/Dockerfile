@@ -1,15 +1,15 @@
-FROM python:3.12-slim
+FROM crpi-pqzengdgydwtnauc.cn-shanghai.personal.cr.aliyuncs.com/mjxj-env/python:3.12
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+RUN pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ENV TZ=Asia/Shanghai
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+COPY nekoclaw-backend/pyproject.toml ./
+RUN uv sync --no-dev --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
-COPY . .
+COPY nekoclaw-backend/ .
 
 EXPOSE 8000
 

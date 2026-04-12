@@ -10,7 +10,7 @@ export function getCurrentLocale(): string {
 
 export function setCurrentLocale(locale: string): string {
   localStorage.setItem(LOCALE_KEY, locale)
-  i18n.global.locale.value = locale
+  i18n.global.locale.value = locale as 'zh-CN' | 'en-US'
   return locale
 }
 

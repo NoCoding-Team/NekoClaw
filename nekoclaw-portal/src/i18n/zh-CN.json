@@ -25,7 +25,9 @@
     "retry": "重试"
   },
   "nav": {
-    "workspace": "猫窝",
+    "home": "猫窝",
+    "instances": "我的猫咪",
+    "workspaces": "工作区",
     "geneMarket": "训练场",
     "orgSettings": "设置"
   },
@@ -34,15 +36,34 @@
     "subtitle": "登录你的 NekoClaw 账户",
     "email": "邮箱",
     "password": "密码",
+    "account_placeholder": "请输入用户名或邮箱",
+    "password_placeholder": "请输入密码",
     "sso_feishu": "飞书登录",
     "login_button": "登录",
-    "logging_in": "登录中..."
+    "logging_in": "登录中...",
+    "login_failed": "登录失败，请检查账号和密码"
+  },
+  "change_password": {
+    "title": "修改密码",
+    "subtitle": "首次登录请先修改初始密码",
+    "old_password": "当前密码",
+    "old_password_placeholder": "请输入当前密码",
+    "new_password": "新密码",
+    "new_password_placeholder": "请输入新密码（至少 6 位）",
+    "confirm_password": "确认新密码",
+    "confirm_password_placeholder": "再次输入新密码",
+    "submit": "确认修改",
+    "submitting": "提交中...",
+    "mismatch": "两次输入的密码不一致",
+    "too_short": "密码长度不能少于 6 位",
+    "failed": "修改失败，请检查当前密码是否正确"
   },
   "instance": {
     "list_title": "我的猫咪",
     "create_title": "领养新猫咪",
     "detail_title": "猫咪详情",
     "name": "猫咪名称",
+    "slug": "唯一标识（Slug）",
     "breed": "品种",
     "personality": "性格标签",
     "theme_color": "主题色",
@@ -54,6 +75,9 @@
     "storage": "存储",
     "adopt": "领养",
     "adopting": "领养中...",
+    "create": "领养新猫咪",
+    "search_placeholder": "搜索猫咪...",
+    "empty": "还没有猫咪，快领养一只吧",
     "release": "放归",
     "release_confirm": "确认放归猫咪「{name}」？",
     "restart": "重启",
@@ -96,6 +120,9 @@
     "blackboard": "留言板",
     "topology": "拓扑视图",
     "messages": "消息"
+  },
+  "home": {
+    "subtitle": "猫咪 AI 经营伙伴管理平台"
   },
   "gene": {
     "market_title": "训练场",

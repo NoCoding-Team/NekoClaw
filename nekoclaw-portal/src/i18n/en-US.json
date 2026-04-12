@@ -25,7 +25,9 @@
     "retry": "Retry"
   },
   "nav": {
-    "workspace": "Nest",
+    "home": "Nest",
+    "instances": "My Cats",
+    "workspaces": "Workspaces",
     "geneMarket": "Training",
     "orgSettings": "Settings"
   },
@@ -34,15 +36,34 @@
     "subtitle": "Sign in to your NekoClaw account",
     "email": "Email",
     "password": "Password",
+    "account_placeholder": "Username or email",
+    "password_placeholder": "Enter password",
     "sso_feishu": "Sign in with Feishu",
     "login_button": "Sign In",
-    "logging_in": "Signing in..."
+    "logging_in": "Signing in...",
+    "login_failed": "Login failed, please check your credentials"
+  },
+  "change_password": {
+    "title": "Change Password",
+    "subtitle": "Please change your initial password before continuing",
+    "old_password": "Current Password",
+    "old_password_placeholder": "Enter current password",
+    "new_password": "New Password",
+    "new_password_placeholder": "Enter new password (min 6 chars)",
+    "confirm_password": "Confirm New Password",
+    "confirm_password_placeholder": "Re-enter new password",
+    "submit": "Confirm",
+    "submitting": "Submitting...",
+    "mismatch": "Passwords do not match",
+    "too_short": "Password must be at least 6 characters",
+    "failed": "Failed to change password, please check your current password"
   },
   "instance": {
     "list_title": "My Cats",
     "create_title": "Adopt a New Cat",
     "detail_title": "Cat Detail",
     "name": "Cat Name",
+    "slug": "Slug",
     "breed": "Breed",
     "personality": "Personality",
     "theme_color": "Theme Color",
@@ -54,6 +75,9 @@
     "storage": "Storage",
     "adopt": "Adopt",
     "adopting": "Adopting...",
+    "create": "Adopt a New Cat",
+    "search_placeholder": "Search cats...",
+    "empty": "No cats yet, go adopt one!",
     "release": "Release",
     "release_confirm": "Release cat \"{name}\"?",
     "restart": "Restart",
@@ -96,6 +120,9 @@
     "blackboard": "Blackboard",
     "topology": "Topology View",
     "messages": "Messages"
+  },
+  "home": {
+    "subtitle": "AI Cat Business Partner Platform"
   },
   "gene": {
     "market_title": "Training Ground",

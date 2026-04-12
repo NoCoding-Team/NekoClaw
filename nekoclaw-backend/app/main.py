@@ -156,27 +156,28 @@ async def lifespan(app: FastAPI):
             await _target_conn.close()
 
     async def _auto_migrate():
-        from alembic.config import Config
-        from alembic import command
+        import sys
+        import concurrent.futures
 
-        def _run():
-            root_log = logging.getLogger()
-            saved_handlers = root_log.handlers[:]
-            saved_level = root_log.level
+        backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-            backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        def _run_in_new_loop():
+            import asyncio as _asyncio
+            from alembic.config import Config
+            from alembic import command
+
             cfg = Config(os.path.join(backend_root, "alembic.ini"))
             cfg.set_main_option("script_location", os.path.join(backend_root, "alembic"))
-            command.upgrade(cfg, "head")
 
-            root_log.handlers = saved_handlers
-            root_log.level = saved_level
-            for name in logging.Logger.manager.loggerDict:
-                obj = logging.Logger.manager.loggerDict[name]
-                if isinstance(obj, logging.Logger) and obj.disabled:
-                    obj.disabled = False
+            loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(loop)
+            try:
+                command.upgrade(cfg, "head")
+            finally:
+                loop.close()
 
-        await asyncio.to_thread(_run)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            await asyncio.get_event_loop().run_in_executor(pool, _run_in_new_loop)
 
     if os.environ.get("SKIP_AUTO_MIGRATE") == "1":
         logger.info("SKIP_AUTO_MIGRATE=1，跳过自动迁移")
@@ -187,7 +188,15 @@ async def lifespan(app: FastAPI):
             logger.info("数据库迁移完成")
         except Exception:
             logger.exception("数据库迁移失败，应用无法启动")
+            import traceback
+            print("=== 数据库迁移失败 ===", flush=True)
+            traceback.print_exc()
             raise
+
+    from app.core.deps import async_session_factory as _sf
+    from app.startup.seed import seed_admin
+    async with _sf() as _seed_db:
+        await seed_admin(_seed_db)
 
     logger.info(
         "NekoClaw 后端已启动 (edition=%s, version=%s)",

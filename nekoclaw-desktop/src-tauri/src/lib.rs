@@ -100,6 +100,34 @@ async fn get_token(account_id: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn store_token_in_keychain_cmd(account_id: String, token: String) -> Result<(), String> {
+    store_token_in_keychain(&account_id, &token)
+}
+
+#[tauri::command]
+async fn delete_token_from_keychain_cmd(account_id: String) -> Result<(), String> {
+    delete_token_from_keychain(&account_id)
+}
+
+#[tauri::command]
+async fn inject_token_to_webview(
+    app: AppHandle,
+    token: String,
+    account_id: String,
+) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let token_json = serde_json::to_string(&token).map_err(|e| e.to_string())?;
+    let account_id_json = serde_json::to_string(&account_id).map_err(|e| e.to_string())?;
+    let script = format!(
+        "(()=>{{const f=document.querySelector('.portal-iframe');if(f&&f.contentWindow)f.contentWindow.postMessage({{type:'nekoclaw:token-inject',token:{},accountId:{}}}, '*');}})()",
+        token_json, account_id_json
+    );
+    window.eval(&script).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn get_autostart(app: AppHandle) -> Result<bool, String> {
     app.autolaunch()
         .is_enabled()
@@ -256,6 +284,9 @@ pub fn run() {
             get_active_account_id,
             set_active_account_id,
             get_token,
+            store_token_in_keychain_cmd,
+            delete_token_from_keychain_cmd,
+            inject_token_to_webview,
             get_autostart,
             set_autostart,
         ])

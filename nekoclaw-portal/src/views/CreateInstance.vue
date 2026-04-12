@@ -59,17 +59,17 @@ async function handleCreate() {
 
     <form class="space-y-4" @submit.prevent="handleCreate">
       <div>
-        <label class="text-xs text-muted-foreground mb-1 block">Name</label>
+        <label class="text-xs text-muted-foreground mb-1 block">{{ $t('instance.name') }}</label>
         <input v-model="form.name" class="w-full px-3 py-2 rounded-md bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
       </div>
 
       <div>
-        <label class="text-xs text-muted-foreground mb-1 block">Slug</label>
+        <label class="text-xs text-muted-foreground mb-1 block">{{ $t('instance.slug') }}</label>
         <input v-model="form.slug" class="w-full px-3 py-2 rounded-md bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
       </div>
 
       <div>
-        <label class="text-xs text-muted-foreground mb-1 block">Service Type</label>
+        <label class="text-xs text-muted-foreground mb-1 block">{{ $t('instance.service_type') }}</label>
         <select v-model="form.service_type" class="w-full px-3 py-2 rounded-md bg-secondary border border-border text-sm">
           <option value="openclaw">OpenClaw</option>
           <option value="zeroclaw">ZeroClaw</option>
@@ -79,28 +79,28 @@ async function handleCreate() {
 
       <div class="grid grid-cols-3 gap-3">
         <div>
-          <label class="text-xs text-muted-foreground mb-1 block">CPU</label>
+          <label class="text-xs text-muted-foreground mb-1 block">{{ $t('instance.cpu') }}</label>
           <input v-model="form.cpu_request" class="w-full px-3 py-2 rounded-md bg-secondary border border-border text-sm" />
         </div>
         <div>
-          <label class="text-xs text-muted-foreground mb-1 block">Memory</label>
+          <label class="text-xs text-muted-foreground mb-1 block">{{ $t('instance.memory') }}</label>
           <input v-model="form.memory_request" class="w-full px-3 py-2 rounded-md bg-secondary border border-border text-sm" />
         </div>
         <div>
-          <label class="text-xs text-muted-foreground mb-1 block">Storage</label>
+          <label class="text-xs text-muted-foreground mb-1 block">{{ $t('instance.storage') }}</label>
           <input v-model="form.storage_size" class="w-full px-3 py-2 rounded-md bg-secondary border border-border text-sm" />
         </div>
       </div>
 
       <div>
         <label class="text-xs text-muted-foreground mb-1 block flex items-center gap-1">
-          <Cat class="w-3.5 h-3.5" /> Breed
+          <Cat class="w-3.5 h-3.5" /> {{ $t('instance.breed') }}
         </label>
         <input v-model="form.cat_breed" class="w-full px-3 py-2 rounded-md bg-secondary border border-border text-sm" />
       </div>
 
       <div>
-        <label class="text-xs text-muted-foreground mb-1 block">Personality Tags</label>
+        <label class="text-xs text-muted-foreground mb-1 block">{{ $t('instance.personality') }}</label>
         <div class="flex gap-2">
           <input
             v-model="tagInput"
