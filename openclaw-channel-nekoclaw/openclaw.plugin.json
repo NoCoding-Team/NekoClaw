@@ -1,9 +1,0 @@
-{
-  "id": "nekoclaw",
-  "channels": ["nekoclaw"],
-  "configSchema": {
-    "type": "object",
-    "additionalProperties": false,
-    "properties": {}
-  }
-}

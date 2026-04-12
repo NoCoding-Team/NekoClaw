@@ -1,8 +1,0 @@
-{
-  "id": "security-layer",
-  "configSchema": {
-    "type": "object",
-    "additionalProperties": false,
-    "properties": {}
-  }
-}
