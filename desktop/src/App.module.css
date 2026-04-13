@@ -8,10 +8,42 @@
 .login {
   height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: var(--bg-base);
+  position: relative;
 }
+
+.loginTitleBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 8px;
+  -webkit-app-region: drag;
+}
+
+.loginWindowControls {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+.loginWindowControls button {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.loginWindowControls button:hover { background: rgba(255,255,255,0.12); }
+.loginCloseBtn:hover { background: var(--danger) !important; color: #fff !important; }
 
 .loginCard {
   width: 360px;

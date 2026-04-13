@@ -48,6 +48,13 @@ function ConnectForm() {
 
   return (
     <div className={styles.login}>
+      <div className={styles.loginTitleBar}>
+        <div className={styles.loginWindowControls}>
+          <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
+          <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
+          <button className={styles.loginCloseBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+        </div>
+      </div>
       <div className={styles.loginCard}>
         <div className={styles.loginLogo}>🐾 NekoClaw</div>
         <p className={styles.connectSubtitle}>连接到后端服务器后，即可登录使用</p>
@@ -148,6 +155,13 @@ function LoginForm() {
 
   return (
     <div className={styles.login}>
+      <div className={styles.loginTitleBar}>
+        <div className={styles.loginWindowControls}>
+          <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
+          <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
+          <button className={styles.loginCloseBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+        </div>
+      </div>
       <div className={styles.loginCard}>
         <div className={styles.loginLogo}>🐾 NekoClaw</div>
         <div className={styles.serverBadge}>
