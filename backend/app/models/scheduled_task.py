@@ -1,20 +1,22 @@
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, Text, ForeignKey
-from sqlalchemy.orm import relationship
+import uuid
+from sqlalchemy import String, Boolean, Integer, DateTime, Text, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import BaseModel
 
 
 class ScheduledTask(BaseModel):
     __tablename__ = "scheduled_tasks"
 
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    title = Column(String(200), nullable=False)
-    description = Column(Text, nullable=False)        # 触发时发送给 AI 的消息
-    cron_expr = Column(String(100), nullable=True)    # cron 表达式，None 表示一次性
-    run_at = Column(DateTime(timezone=True), nullable=True)  # 一次性任务的执行时间
-    skill_id = Column(String(100), nullable=True)
-    is_enabled = Column(Boolean, default=True, nullable=False)
-    last_run_at = Column(DateTime(timezone=True), nullable=True)
-    next_run_at = Column(DateTime(timezone=True), nullable=True)
-    run_count = Column(Integer, default=0, nullable=False)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    cron_expr: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    run_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    skill_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_run_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_run_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    run_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     user = relationship("User", backref="scheduled_tasks")

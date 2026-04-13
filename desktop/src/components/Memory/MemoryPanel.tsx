@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import styles from './MemoryPanel.module.css'
 import { useAppStore } from '../../store/app'
+import { useToast, throwIfError } from '../../hooks/useToast'
+import Toast from '../Toast/Toast'
 
 interface Memory {
   id: number
@@ -20,22 +22,21 @@ export default function MemoryPanel() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [importText, setImportText] = useState('')
   const [showImport, setShowImport] = useState(false)
-  const [error, setError] = useState('')
+  const { toast, showToast, dismissToast } = useToast()
 
   const fetchMemories = useCallback(async () => {
     if (!token) return
     setLoading(true)
-    setError('')
     try {
       const url = activeTab === 'all'
         ? `${serverUrl}/api/memory`
         : `${serverUrl}/api/memory?category=${activeTab}`
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) throw new Error(await res.text())
+      await throwIfError(res)
       const data = await res.json()
       setMemories(data)
     } catch (e: any) {
-      setError(e.message)
+      showToast(e.message)
     } finally {
       setLoading(false)
     }
@@ -49,11 +50,11 @@ export default function MemoryPanel() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error(await res.text())
+      await throwIfError(res)
       setMemories(prev => prev.filter(m => m.id !== id))
       setDeleteTarget(null)
     } catch (e: any) {
-      setError(e.message)
+      showToast(e.message)
     }
   }
 
@@ -62,7 +63,7 @@ export default function MemoryPanel() {
       const res = await fetch(`${serverUrl}/api/memory/export`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error(await res.text())
+      await throwIfError(res)
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -71,13 +72,13 @@ export default function MemoryPanel() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e: any) {
-      setError(e.message)
+      showToast(e.message)
     }
   }
 
   async function handleImport() {
     if (!importText.trim()) return
-    // 解析 MD 格式：每行 "- [category] content"
+    // 解析 MD 格式：每�?"- [category] content"
     const lines = importText.split('\n').filter(l => l.trim().startsWith('-'))
     const items = lines.map(line => {
       const match = line.match(/^-\s*\[(\w+)\]\s*(.+)$/)
@@ -103,6 +104,7 @@ export default function MemoryPanel() {
 
   return (
     <div className={styles.panel}>
+      <Toast message={toast} onClose={dismissToast} />
       <div className={styles.header}>
         <span className={styles.title}>记忆库</span>
         <div className={styles.actions}>
@@ -127,8 +129,6 @@ export default function MemoryPanel() {
           </button>
         ))}
       </div>
-
-      {error && <div className={styles.error}>{error}</div>}
 
       {loading ? (
         <div className={styles.loading}>加载中…</div>
@@ -156,7 +156,7 @@ export default function MemoryPanel() {
         </ul>
       )}
 
-      {/* 删除确认对话框 */}
+      {/* 删除确认对话�?*/}
       {deleteTarget !== null && (
         <div className={styles.overlay}>
           <div className={styles.dialog}>
@@ -169,7 +169,7 @@ export default function MemoryPanel() {
         </div>
       )}
 
-      {/* 导入对话框 */}
+      {/* 导入对话�?*/}
       {showImport && (
         <div className={styles.overlay}>
           <div className={styles.dialog}>

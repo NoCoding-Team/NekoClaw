@@ -1,0 +1,25 @@
+services:
+
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # 代码通过 volume 挂载，修改代码后重启容器即生效
+    volumes:
+      - ./backend/app:/app/app:ro
+    env_file:
+      - ./backend/.env
+    # backend 所有配置读自 backend/.env（本地开发与容器统一使用同一份）
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      # 允许容器内通过 host.docker.internal 访问宿主机（外部 PG 在宿主机时使用）
+      - "host.docker.internal:host-gateway"
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app/app

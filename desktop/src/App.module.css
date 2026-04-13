@@ -70,3 +70,21 @@
 }
 .loginBtn:hover:not(:disabled) { background: var(--accent-dim); }
 .loginBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.loginSwitch {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.loginSwitchBtn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 4px;
+  font-family: inherit;
+}
+.loginSwitchBtn:hover { text-decoration: underline; }

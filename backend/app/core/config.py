@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import list
+from typing import List
 
 
 class Settings(BaseSettings):
@@ -10,7 +10,11 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     LLM_API_KEY_ENCRYPTION_KEY: str
     TAVILY_API_KEY: str = ""
-    CORS_ORIGINS: list[str] = ["http://localhost:5173"]
+    CORS_ORIGINS: str = "http://localhost:5173"
+
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

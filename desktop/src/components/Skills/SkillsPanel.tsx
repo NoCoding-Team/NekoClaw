@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import styles from './SkillsPanel.module.css'
 import { useAppStore } from '../../store/app'
+import { useToast, throwIfError } from '../../hooks/useToast'
+import Toast from '../Toast/Toast'
 
 interface Skill {
   id: string
@@ -38,19 +40,18 @@ export default function SkillsPanel() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ ...DEFAULT_FORM })
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const { toast, showToast, dismissToast } = useToast()
   const [saving, setSaving] = useState(false)
 
   const fetchSkills = useCallback(async () => {
     if (!token) return
     setLoading(true)
-    setError('')
     try {
       const res = await fetch(`${serverUrl}/api/skills`, { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) throw new Error(await res.text())
+      await throwIfError(res)
       setSkills(await res.json())
     } catch (e: any) {
-      setError(e.message)
+      showToast(e.message)
     } finally {
       setLoading(false)
     }
@@ -79,11 +80,10 @@ export default function SkillsPanel() {
 
   async function handleSave() {
     if (!form.name.trim() || !form.system_prompt.trim()) {
-      setError('名称和系统提示不能为空')
+      showToast('名称和系统提示不能为空')
       return
     }
     setSaving(true)
-    setError('')
     try {
       const url = editingId
         ? `${serverUrl}/api/skills/${editingId}`
@@ -94,11 +94,11 @@ export default function SkillsPanel() {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      if (!res.ok) throw new Error(await res.text())
+      await throwIfError(res)
       setShowForm(false)
       fetchSkills()
     } catch (e: any) {
-      setError(e.message)
+      showToast(e.message)
     } finally {
       setSaving(false)
     }
@@ -110,12 +110,12 @@ export default function SkillsPanel() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error(await res.text())
+      await throwIfError(res)
       setSkills(prev => prev.filter(s => s.id !== id))
       setDeleteTarget(null)
       if (activeSkillId === id) setActiveSkillId(null)
     } catch (e: any) {
-      setError(e.message)
+      showToast(e.message)
     }
   }
 
@@ -133,12 +133,11 @@ export default function SkillsPanel() {
 
   return (
     <div className={styles.panel}>
+      <Toast message={toast} onClose={dismissToast} />
       <div className={styles.header}>
         <span className={styles.title}>技能库</span>
         <button className={styles.btnPrimary} onClick={openCreate}>+ 新建技能</button>
       </div>
-
-      {error && <div className={styles.error}>{error}</div>}
 
       {loading ? (
         <div className={styles.loading}>加载中…</div>
@@ -257,8 +256,6 @@ export default function SkillsPanel() {
               </div>
             </div>
 
-            {error && <div className={styles.formError}>{error}</div>}
-
             <div className={styles.formFooter}>
               <button className={styles.btnPrimary} onClick={handleSave} disabled={saving}>
                 {saving ? '保存中…' : '保存'}
@@ -310,7 +307,7 @@ function SkillCard({
       </div>
       {!isBuiltin && (
         <div className={styles.cardActions} onClick={e => e.stopPropagation()}>
-          <button className={styles.icnBtn} onClick={onEdit} title="编辑">✏</button>
+          <button className={styles.icnBtn} onClick={onEdit} title="编辑">✏️</button>
           <button className={styles.icnBtn} onClick={onDelete} title="删除">🗑</button>
         </div>
       )}
