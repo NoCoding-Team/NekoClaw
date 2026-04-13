@@ -50,7 +50,7 @@ async def _authenticate(websocket: WebSocket) -> str:
     token = websocket.query_params.get("token")
     if not token:
         await websocket.close(code=4001)
-        raise UnauthorizedError("Missing token")
+        raise UnauthorizedError("缺少认证令牌")
     try:
         return decode_token(token, expected_type="access")
     except UnauthorizedError:

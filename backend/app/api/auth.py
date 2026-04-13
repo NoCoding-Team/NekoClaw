@@ -24,7 +24,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         select(User).where(User.username == body.username, User.deleted_at.is_(None))
     )
     if result.scalar_one_or_none():
-        raise ConflictError("Username already exists")
+        raise ConflictError("用户名已存在")
 
     user = User(
         id=str(uuid.uuid4()),
@@ -48,7 +48,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     )
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.hashed_password):
-        raise UnauthorizedError("Invalid username or password")
+        raise UnauthorizedError("用户名或密码错误")
 
     return TokenResponse(
         access_token=create_access_token(user.id),
@@ -64,7 +64,7 @@ async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)
     )
     user = result.scalar_one_or_none()
     if not user:
-        raise UnauthorizedError("User not found")
+        raise UnauthorizedError("用户不存在")
 
     return TokenResponse(
         access_token=create_access_token(user.id),

@@ -15,7 +15,7 @@ router = APIRouter(prefix="/skills", tags=["skills"])
 async def _get_skill_or_404(skill_id: str, db: AsyncSession) -> Skill:
     skill = await db.get(Skill, skill_id)
     if not skill or skill.is_deleted:
-        raise NotFoundError(f"Skill {skill_id} not found")
+        raise NotFoundError("技能不存在")
     return skill
 
 
@@ -60,9 +60,9 @@ async def update_skill(
 ):
     skill = await _get_skill_or_404(skill_id, db)
     if skill.is_builtin and not current_user.is_admin:
-        raise ForbiddenError("Cannot modify builtin skill")
+        raise ForbiddenError("内置技能不可修改")
     if skill.owner_id and skill.owner_id != current_user.id and not current_user.is_admin:
-        raise ForbiddenError("Cannot modify another user's skill")
+        raise ForbiddenError("无权修改其他用户的技能")
 
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(skill, field, value)
@@ -79,9 +79,9 @@ async def delete_skill(
 ):
     skill = await _get_skill_or_404(skill_id, db)
     if skill.is_builtin:
-        raise ForbiddenError("Cannot delete builtin skill")
+        raise ForbiddenError("内置技能不可删除")
     if skill.owner_id != current_user.id and not current_user.is_admin:
-        raise ForbiddenError("Cannot delete another user's skill")
+        raise ForbiddenError("无权删除其他用户的技能")
 
     from datetime import datetime, timezone
     skill.deleted_at = datetime.now(timezone.utc)

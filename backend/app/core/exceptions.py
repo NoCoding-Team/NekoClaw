@@ -7,25 +7,25 @@ class AppException(HTTPException):
 
 
 class NotFoundError(AppException):
-    def __init__(self, message: str = "Resource not found"):
+    def __init__(self, message: str = "资源不存在"):
         super().__init__(status.HTTP_404_NOT_FOUND, "NOT_FOUND", message)
 
 
 class ForbiddenError(AppException):
-    def __init__(self, message: str = "Forbidden"):
+    def __init__(self, message: str = "无权限访问"):
         super().__init__(status.HTTP_403_FORBIDDEN, "FORBIDDEN", message)
 
 
 class BadRequestError(AppException):
-    def __init__(self, message: str = "Bad request"):
+    def __init__(self, message: str = "请求参数错误"):
         super().__init__(status.HTTP_400_BAD_REQUEST, "BAD_REQUEST", message)
 
 
 class ConflictError(AppException):
-    def __init__(self, message: str = "Conflict"):
+    def __init__(self, message: str = "数据冲突"):
         super().__init__(status.HTTP_409_CONFLICT, "CONFLICT", message)
 
 
 class UnauthorizedError(AppException):
-    def __init__(self, message: str = "Unauthorized"):
+    def __init__(self, message: str = "未登录或登录已过期"):
         super().__init__(status.HTTP_401_UNAUTHORIZED, "UNAUTHORIZED", message)

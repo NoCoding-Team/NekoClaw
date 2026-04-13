@@ -17,9 +17,9 @@ router = APIRouter(prefix="/memory", tags=["memory"])
 async def _get_memory_or_404(memory_id: str, db: AsyncSession, user_id: str) -> Memory:
     mem = await db.get(Memory, memory_id)
     if not mem or mem.is_deleted:
-        raise NotFoundError(f"Memory {memory_id} not found")
+        raise NotFoundError("记忆条目不存在")
     if mem.user_id != user_id:
-        raise ForbiddenError("Access denied")
+        raise ForbiddenError("无权访问此记忆条目")
     return mem
 
 
