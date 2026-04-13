@@ -126,6 +126,14 @@
 .sendBtn:disabled { opacity: 0.35; cursor: not-allowed; }
 .sendBtn:not(:disabled):hover { background: var(--accent-dim); }
 
+.emptyWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
 .emptyState {
   flex: 1;
   display: flex;

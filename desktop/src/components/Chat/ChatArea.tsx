@@ -41,9 +41,18 @@ export function ChatArea() {
 
   if (!activeSessionId) {
     return (
-      <div className={styles.emptyState}>
-        <CatAvatar state="idle" size={160} />
-        <p className={styles.emptyText}>选择一个对话，或新建一个开始吧 ฅ^•ﻌ•^ฅ</p>
+      <div className={styles.emptyWrap}>
+        <div className={styles.topBar}>
+          <div className={styles.windowControls}>
+            <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
+            <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
+            <button className={styles.closeBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+          </div>
+        </div>
+        <div className={styles.emptyState}>
+          <CatAvatar state="idle" size={160} />
+          <p className={styles.emptyText}>选择一个对话，或新建一个开始吧 ฅ^•ﻌ•^ฅ</p>
+        </div>
       </div>
     )
   }
