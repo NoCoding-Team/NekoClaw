@@ -1,6 +1,6 @@
 import uuid
 from app.models.base import engine, Base, AsyncSessionLocal
-from app.models import user, session, message, llm_config, skill, memory  # noqa: F401 - ensure all models are registered
+from app.models import user, session, message, llm_config, skill, memory, scheduled_task  # noqa: F401 - ensure all models are registered
 
 _BUILTIN_SKILLS = [
     {

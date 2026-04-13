@@ -60,7 +60,7 @@ export interface AppState {
   setWsStatus: (s: 'disconnected' | 'connecting' | 'connected') => void
 
   // Sidebar
-  sidebarTab: 'sessions' | 'skills' | 'memory' | 'settings'
+  sidebarTab: 'sessions' | 'tasks' | 'skills' | 'memory' | 'settings'
   setSidebarTab: (tab: AppState['sidebarTab']) => void
 
   // Selected skill

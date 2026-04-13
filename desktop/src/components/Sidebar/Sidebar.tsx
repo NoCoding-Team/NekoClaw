@@ -1,8 +1,12 @@
 import styles from './Sidebar.module.css'
 import { useAppStore } from '../../store/app'
+import MemoryPanel from '../Memory/MemoryPanel'
+import SkillsPanel from '../Skills/SkillsPanel'
+import ScheduledTasksPanel from '../ScheduledTasks/ScheduledTasksPanel'
 
 const NAV_ITEMS = [
   { id: 'sessions', icon: '💬', label: '对话' },
+  { id: 'tasks', icon: '⏰', label: '定时' },
   { id: 'skills', icon: '⚡', label: '技能库' },
   { id: 'memory', icon: '🧠', label: '记忆' },
   { id: 'settings', icon: '⚙️', label: '设置' },
@@ -12,7 +16,6 @@ export function Sidebar() {
   const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession } = useAppStore()
 
   const createNewSession = async () => {
-    // Optimistic: create locally first, server sync via API
     const id = `local-${Date.now()}`
     addSession({ id, title: '新对话' })
     setActiveSession(id)
@@ -52,6 +55,32 @@ export function Sidebar() {
               <span className={styles.sessionTitle}>{s.title}</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {sidebarTab === 'tasks' && (
+        <div className={styles.panelContainer}>
+          <ScheduledTasksPanel />
+        </div>
+      )}
+
+      {sidebarTab === 'memory' && (
+        <div className={styles.panelContainer}>
+          <MemoryPanel />
+        </div>
+      )}
+
+      {sidebarTab === 'skills' && (
+        <div className={styles.panelContainer}>
+          <SkillsPanel />
+        </div>
+      )}
+
+      {sidebarTab === 'settings' && (
+        <div className={styles.settingsPlaceholder}>
+          <span>⚙️</span>
+          <p>设置页面</p>
+          <small>即将推出</small>
         </div>
       )}
     </aside>

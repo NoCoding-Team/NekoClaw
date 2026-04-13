@@ -76,12 +76,24 @@
 
 .inputArea {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 10px 16px 14px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 16px 14px;
   border-top: 1px solid var(--border);
   background: var(--bg-surface);
   flex-shrink: 0;
+}
+
+.inputToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inputRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .textarea {

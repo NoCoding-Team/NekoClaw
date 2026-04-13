@@ -1,10 +1,10 @@
-import { useRef, useEffect, KeyboardEvent } from 'react'
+import { useRef, useEffect, KeyboardEvent, useState } from 'react'
 import { useAppStore } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
-import { useState } from 'react'
+import { SkillSelector } from './SkillSelector'
 
 export function ChatArea() {
   const {
@@ -75,21 +75,26 @@ export function ChatArea() {
 
       {/* Input */}
       <div className={styles.inputArea}>
-        <textarea
-          className={styles.textarea}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="有什么我可以帮你的？（Ctrl+Enter 发送）"
-          rows={3}
-        />
-        <button
-          className={styles.sendBtn}
-          onClick={handleSend}
-          disabled={!input.trim()}
-        >
-          ➤
-        </button>
+        <div className={styles.inputToolbar}>
+          <SkillSelector />
+        </div>
+        <div className={styles.inputRow}>
+          <textarea
+            className={styles.textarea}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="有什么我可以帮你的？（Ctrl+Enter 发送）"
+            rows={3}
+          />
+          <button
+            className={styles.sendBtn}
+            onClick={handleSend}
+            disabled={!input.trim()}
+          >
+            ➤
+          </button>
+        </div>
       </div>
     </div>
   )

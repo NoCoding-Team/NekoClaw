@@ -87,3 +87,32 @@
 .sessionItem.sessionActive { background: var(--bg-elevated); color: var(--text-primary); }
 
 .sessionTitle { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+.panelContainer {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.settingsPlaceholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 32px;
+}
+
+.settingsPlaceholder p {
+  font-size: 14px;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.settingsPlaceholder small {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
