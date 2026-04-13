@@ -5,6 +5,7 @@ import { ChatMessage } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
+import { AssetsPanel } from './AssetsPanel'
 
 const WindowControls = () => (
   <div className={styles.windowControls}>
@@ -27,6 +28,7 @@ export function ChatArea() {
   const { sendMessage } = useWebSocket(activeSessionId)
 
   const [input, setInput] = useState('')
+  const [showAssets, setShowAssets] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -68,8 +70,19 @@ export function ChatArea() {
       <div className={styles.chatArea}>
         <div className={styles.topBar}>
           <WsStatusPill status={wsStatus} />
+          <span className={styles.topBarSpacer} />
+          <button
+            className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
+            onClick={() => setShowAssets(v => !v)}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M2 2h5v5H2zm7 0h5v5H9zm-7 7h5v5H2zm7 0h5v5H9z" opacity=".85"/>
+            </svg>
+            资产
+          </button>
           <WindowControls />
         </div>
+        {showAssets && <AssetsPanel onClose={() => setShowAssets(false)} />}
         <div className={styles.welcomeCenter}>
           <CatAvatar state={catState} size={100} />
           <h2 className={styles.welcomeGreeting}>嗯，有什么需要我帮忙的？</h2>
@@ -97,8 +110,19 @@ export function ChatArea() {
     <div className={styles.chatArea}>
       <div className={styles.topBar}>
         <WsStatusPill status={wsStatus} />
+        <span className={styles.topBarSpacer} />
+        <button
+          className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
+          onClick={() => setShowAssets(v => !v)}
+        >
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 2h5v5H2zm7 0h5v5H9zm-7 7h5v5H2zm7 0h5v5H9z" opacity=".85"/>
+          </svg>
+          资产
+        </button>
         <WindowControls />
       </div>
+      {showAssets && <AssetsPanel onClose={() => setShowAssets(false)} />}
       <div className={styles.messages}>
         {messages.map((m) => (
           <ChatMessage key={m.id} message={m} />

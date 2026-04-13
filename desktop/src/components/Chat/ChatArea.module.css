@@ -4,6 +4,7 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--bg-base);
+  position: relative;
 }
 
 .topBar {
@@ -289,4 +290,34 @@
 .emptyText {
   color: var(--text-muted);
   font-size: 14px;
+}
+
+/* ── Assets button ───────────────────────────────────────────────────────── */
+.assetsBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  margin-right: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+  transition: background 0.15s, color 0.15s;
+}
+.assetsBtn:hover {
+  background: rgba(255,255,255,0.10);
+  color: var(--text-primary);
+}
+.assetsBtnActive {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+.topBarSpacer {
+  flex: 1;
+  -webkit-app-region: drag;
 }
