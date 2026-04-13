@@ -45,7 +45,8 @@ export interface AppState {
   // Auth
   token: string | null
   userId: string | null
-  setAuth: (token: string, userId: string) => void
+  username: string | null
+  setAuth: (token: string, userId: string, username?: string) => void
   clearAuth: () => void
 
   // Server URL
@@ -92,8 +93,9 @@ export interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   token: null,
   userId: null,
-  setAuth: (token, userId) => set({ token, userId }),
-  clearAuth: () => set({ token: null, userId: null }),
+  username: null,
+  setAuth: (token, userId, username) => set({ token, userId, username: username ?? null }),
+  clearAuth: () => set({ token: null, userId: null, username: null }),
 
   serverUrl: loadServerUrl(),
   setServerUrl: (url) => {

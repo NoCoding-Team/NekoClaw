@@ -6,6 +6,14 @@ import { useWebSocket } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 
+const WindowControls = () => (
+  <div className={styles.windowControls}>
+    <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
+    <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
+    <button className={styles.closeBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+  </div>
+)
+
 export function ChatArea() {
   const {
     activeSessionId,
@@ -39,54 +47,66 @@ export function ChatArea() {
     }
   }
 
+  // ── 无会话选中 ──────────────────────────────────────────────────────────────
   if (!activeSessionId) {
     return (
       <div className={styles.emptyWrap}>
         <div className={styles.topBar}>
-          <div className={styles.windowControls}>
-            <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
-            <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
-            <button className={styles.closeBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
-          </div>
+          <WindowControls />
         </div>
         <div className={styles.emptyState}>
-          <CatAvatar state="idle" size={160} />
+          <CatAvatar state="idle" size={120} />
           <p className={styles.emptyText}>选择一个对话，或新建一个开始吧 ฅ^•ﻌ•^ฅ</p>
         </div>
       </div>
     )
   }
 
-  return (
-    <div className={styles.chatArea}>
-      {/* Top bar */}
-      <div className={styles.topBar}>
-        <WsStatusPill status={wsStatus} />
-        <div className={styles.windowControls}>
-          <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
-          <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
-          <button className={styles.closeBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+  // ── 会话已选，无消息（居中欢迎 + 浮动输入框）─────────────────────────────────
+  if (messages.length === 0) {
+    return (
+      <div className={styles.chatArea}>
+        <div className={styles.topBar}>
+          <WsStatusPill status={wsStatus} />
+          <WindowControls />
+        </div>
+        <div className={styles.welcomeCenter}>
+          <CatAvatar state={catState} size={100} />
+          <h2 className={styles.welcomeGreeting}>嗯，有什么需要我帮忙的？</h2>
+          <div className={styles.welcomeInput}>
+            <div className={styles.welcomeToolbar}><SkillSelector /></div>
+            <div className={styles.inputRow}>
+              <textarea
+                className={styles.textarea}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="有什么我可以帮你的？（Ctrl+Enter 发送）"
+                rows={2}
+              />
+              <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim()}>➤</button>
+            </div>
+          </div>
         </div>
       </div>
+    )
+  }
 
-      {/* Cat avatar area */}
-      <div className={styles.catZone}>
-        <CatAvatar state={catState} size={120} />
+  // ── 正常对话 ────────────────────────────────────────────────────────────────
+  return (
+    <div className={styles.chatArea}>
+      <div className={styles.topBar}>
+        <WsStatusPill status={wsStatus} />
+        <WindowControls />
       </div>
-
-      {/* Messages */}
       <div className={styles.messages}>
         {messages.map((m) => (
           <ChatMessage key={m.id} message={m} />
         ))}
         <div ref={bottomRef} />
       </div>
-
-      {/* Input */}
       <div className={styles.inputArea}>
-        <div className={styles.inputToolbar}>
-          <SkillSelector />
-        </div>
+        <div className={styles.inputToolbar}><SkillSelector /></div>
         <div className={styles.inputRow}>
           <textarea
             className={styles.textarea}
@@ -96,13 +116,7 @@ export function ChatArea() {
             placeholder="有什么我可以帮你的？（Ctrl+Enter 发送）"
             rows={3}
           />
-          <button
-            className={styles.sendBtn}
-            onClick={handleSend}
-            disabled={!input.trim()}
-          >
-            ➤
-          </button>
+          <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim()}>➤</button>
         </div>
       </div>
     </div>

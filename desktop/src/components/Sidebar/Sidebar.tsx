@@ -1,88 +1,86 @@
 import styles from './Sidebar.module.css'
 import { useAppStore } from '../../store/app'
-import MemoryPanel from '../Memory/MemoryPanel'
-import SkillsPanel from '../Skills/SkillsPanel'
-import ScheduledTasksPanel from '../ScheduledTasks/ScheduledTasksPanel'
 
-const NAV_ITEMS = [
-  { id: 'sessions', icon: '💬', label: '对话' },
-  { id: 'tasks', icon: '⏰', label: '定时' },
-  { id: 'skills', icon: '⚡', label: '技能库' },
-  { id: 'memory', icon: '🧠', label: '记忆' },
-  { id: 'settings', icon: '⚙️', label: '设置' },
-] as const
+type Tab = 'sessions' | 'tasks' | 'skills' | 'memory' | 'settings'
+
+const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
+  { id: 'tasks',    icon: '⏰', label: '定时任务' },
+  { id: 'skills',   icon: '⚡', label: '技能库'   },
+  { id: 'memory',   icon: '🧠', label: '记忆'     },
+  { id: 'settings', icon: '⚙️', label: '个性化设置' },
+]
 
 export function Sidebar() {
   const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession } = useAppStore()
 
-  const createNewSession = async () => {
+  const createNewSession = () => {
     const id = `local-${Date.now()}`
     addSession({ id, title: '新对话' })
     setActiveSession(id)
+    setSidebarTab('sessions')
   }
 
   return (
     <aside className={styles.sidebar}>
+      {/* Logo */}
       <div className={styles.logo}>
         <span className={styles.logoIcon}>🐾</span>
         <span className={styles.logoText}>NekoClaw</span>
       </div>
 
+      {/* New session */}
+      <div className={styles.topActions}>
+        <button className={styles.newBtn} onClick={createNewSession}>
+          <span className={styles.newBtnPlus}>＋</span>
+          <span>新建对话</span>
+        </button>
+      </div>
+
+      {/* Panel nav */}
       <nav className={styles.nav}>
-        {NAV_ITEMS.map((item) => (
+        {PANEL_ITEMS.map((item) => (
           <button
             key={item.id}
             className={`${styles.navItem} ${sidebarTab === item.id ? styles.active : ''}`}
             onClick={() => setSidebarTab(item.id)}
           >
             <span className={styles.navIcon}>{item.icon}</span>
-            <span className={styles.navLabel}>{item.label}</span>
+            <span>{item.label}</span>
           </button>
         ))}
       </nav>
 
-      {sidebarTab === 'sessions' && (
-        <div className={styles.sessionList}>
-          <button className={styles.newBtn} onClick={createNewSession}>
-            <span>＋</span> 新建对话
-          </button>
-          {sessions.map((s) => (
+      {/* Divider */}
+      <div className={styles.divider} />
+
+      {/* Session list */}
+      <div className={styles.sectionLabel}>所有对话</div>
+      <div className={styles.sessionList}>
+        {sessions.length === 0 ? (
+          <div className={styles.emptyHint}>暂无对话</div>
+        ) : (
+          sessions.map((s) => (
             <button
               key={s.id}
-              className={`${styles.sessionItem} ${activeSessionId === s.id ? styles.sessionActive : ''}`}
-              onClick={() => setActiveSession(s.id)}
+              className={`${styles.sessionItem} ${activeSessionId === s.id && sidebarTab === 'sessions' ? styles.sessionActive : ''}`}
+              onClick={() => { setActiveSession(s.id); setSidebarTab('sessions') }}
             >
+              <span className={styles.sessionIcon}>🗨</span>
               <span className={styles.sessionTitle}>{s.title}</span>
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
-      {sidebarTab === 'tasks' && (
-        <div className={styles.panelContainer}>
-          <ScheduledTasksPanel />
-        </div>
-      )}
-
-      {sidebarTab === 'memory' && (
-        <div className={styles.panelContainer}>
-          <MemoryPanel />
-        </div>
-      )}
-
-      {sidebarTab === 'skills' && (
-        <div className={styles.panelContainer}>
-          <SkillsPanel />
-        </div>
-      )}
-
-      {sidebarTab === 'settings' && (
-        <div className={styles.settingsPlaceholder}>
-          <span>⚙️</span>
-          <p>设置页面</p>
-          <small>即将推出</small>
-        </div>
-      )}
+      {/* Bottom bar */}
+      <div className={styles.bottomBar}>
+        <button
+          className={`${styles.bottomBtn} ${sidebarTab === 'settings' ? styles.bottomBtnActive : ''}`}
+          onClick={() => setSidebarTab('settings')}
+        >
+          ⚙ 设置
+        </button>
+      </div>
     </aside>
   )
 }

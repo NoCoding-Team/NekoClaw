@@ -1,19 +1,48 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { ChatArea } from './components/Chat/ChatArea'
 import { useAppStore } from './store/app'
 import styles from './App.module.css'
+import ScheduledTasksPanel from './components/ScheduledTasks/ScheduledTasksPanel'
+import SkillsPanel from './components/Skills/SkillsPanel'
+import MemoryPanel from './components/Memory/MemoryPanel'
+import { SettingsPanel } from './components/Settings/SettingsPanel'
 
 export default function App() {
   const { token, serverConnected } = useAppStore()
-
   if (!serverConnected) return <ConnectForm />
   if (!token) return <LoginForm />
-
   return (
     <div className={styles.layout}>
       <Sidebar />
-      <ChatArea />
+      <MainContent />
+    </div>
+  )
+}
+
+// ─── 主内容区路由 ──────────────────────────────────────────────────────────────
+
+function MainContent() {
+  const { sidebarTab } = useAppStore()
+  if (sidebarTab === 'tasks')    return <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>
+  if (sidebarTab === 'skills')   return <PanelView title="技能库"><SkillsPanel /></PanelView>
+  if (sidebarTab === 'memory')   return <PanelView title="记忆库"><MemoryPanel /></PanelView>
+  if (sidebarTab === 'settings') return <SettingsPanel />
+  return <ChatArea />
+}
+
+function PanelView({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className={styles.panelView}>
+      <div className={styles.panelTopBar}>
+        <span className={styles.panelTitle}>{title}</span>
+        <div className={styles.panelControls}>
+          <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
+          <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
+          <button className={styles.panelCloseBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+        </div>
+      </div>
+      <div className={styles.panelBody}>{children}</div>
     </div>
   )
 }
@@ -46,15 +75,35 @@ function ConnectForm() {
     }
   }
 
-  return (
-    <div className={styles.login}>
-      <div className={styles.loginTitleBar}>
-        <div className={styles.loginWindowControls}>
-          <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
-          <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
-          <button className={styles.loginCloseBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+  const TitleBar = () => (
+    <div className={styles.loginTitleBar}>
+      <div className={styles.loginWindowControls}>
+        <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
+        <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
+        <button className={styles.loginCloseBtn} onClick={() => window.nekoBridge?.window.close()}>✕</button>
+      </div>
+    </div>
+  )
+
+  if (status === 'checking') {
+    return (
+      <div className={styles.login}>
+        <TitleBar />
+        <div className={styles.connectingFull}>
+          <div className={styles.connectingLogo}>🐾</div>
+          <div className={styles.connectingAppName}>NekoClaw</div>
+          <div className={styles.connectingMsg}>
+            <span className={styles.spinner} />
+            正在连接服务器…
+          </div>
         </div>
       </div>
+    )
+  }
+
+  return (
+    <div className={styles.login}>
+      <TitleBar />
       <div className={styles.loginCard}>
         <div className={styles.loginLogo}>🐾 NekoClaw</div>
         <p className={styles.connectSubtitle}>连接到后端服务器后，即可登录使用</p>
@@ -68,18 +117,14 @@ function ConnectForm() {
             spellCheck={false}
           />
           {errMsg && <div className={styles.loginError}>{errMsg}</div>}
-          <button type="submit" className={styles.loginBtn} disabled={status === 'checking'}>
-            {status === 'checking' ? '连接中…' : '连接'}
-          </button>
+          <button type="submit" className={styles.loginBtn}>连接</button>
         </form>
         {recentServers.length > 0 && (
           <div className={styles.recentServers}>
             <div className={styles.recentLabel}>最近连接</div>
             <div className={styles.recentList}>
               {recentServers.map((s) => (
-                <button key={s} className={styles.recentItem} onClick={() => tryConnect(s)}>
-                  {s}
-                </button>
+                <button key={s} className={styles.recentItem} onClick={() => tryConnect(s)}>{s}</button>
               ))}
             </div>
           </div>
@@ -103,10 +148,7 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (mode === 'register' && password !== confirm) {
-      setError('两次密码不一致')
-      return
-    }
+    if (mode === 'register' && password !== confirm) { setError('两次密码不一致'); return }
     setLoading(true)
     try {
       if (mode === 'login') {
@@ -115,29 +157,23 @@ function LoginForm() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
         })
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.detail || '登录失败')
-        }
+        if (!res.ok) throw new Error((await res.json()).detail || '登录失败')
         const data = await res.json()
-        setAuth(data.access_token, data.user_id)
+        setAuth(data.access_token, data.user_id, username)
       } else {
         const res = await fetch(`${serverUrl}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
         })
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.detail || '注册失败')
-        }
+        if (!res.ok) throw new Error((await res.json()).detail || '注册失败')
         const loginRes = await fetch(`${serverUrl}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
         })
         const loginData = await loginRes.json()
-        setAuth(loginData.access_token, loginData.user_id)
+        setAuth(loginData.access_token, loginData.user_id, username)
       }
     } catch (err) {
       setError((err as Error).message)
@@ -148,9 +184,7 @@ function LoginForm() {
 
   const switchMode = () => {
     setMode((m) => (m === 'login' ? 'register' : 'login'))
-    setError('')
-    setPassword('')
-    setConfirm('')
+    setError(''); setPassword(''); setConfirm('')
   }
 
   return (
@@ -166,41 +200,21 @@ function LoginForm() {
         <div className={styles.loginLogo}>🐾 NekoClaw</div>
         <div className={styles.serverBadge}>
           <span className={styles.serverBadgeUrl}>{serverUrl}</span>
-          <button className={styles.serverSwitchBtn} onClick={() => setServerConnected(false)}>
-            切换
-          </button>
+          <button className={styles.serverSwitchBtn} onClick={() => setServerConnected(false)}>切换</button>
         </div>
         <form onSubmit={handleSubmit} className={styles.loginForm}>
-          <input
-            className={styles.loginInput}
-            placeholder="用户名"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-          />
-          <input
-            className={styles.loginInput}
-            type="password"
-            placeholder="密码"
-            value={password}
+          <input className={styles.loginInput} placeholder="用户名" value={username}
+            onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+          <input className={styles.loginInput} type="password" placeholder="密码" value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          />
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
           {mode === 'register' && (
-            <input
-              className={styles.loginInput}
-              type="password"
-              placeholder="确认密码"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              autoComplete="new-password"
-            />
+            <input className={styles.loginInput} type="password" placeholder="确认密码" value={confirm}
+              onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
           )}
           {error && <div className={styles.loginError}>{error}</div>}
           <button type="submit" className={styles.loginBtn} disabled={loading}>
-            {loading
-              ? mode === 'login' ? '登录中…' : '注册中…'
-              : mode === 'login' ? '登录' : '注册'}
+            {loading ? (mode === 'login' ? '登录中…' : '注册中…') : (mode === 'login' ? '登录' : '注册')}
           </button>
         </form>
         <div className={styles.loginSwitch}>
