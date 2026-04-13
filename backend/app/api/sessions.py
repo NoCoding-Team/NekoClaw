@@ -10,7 +10,7 @@ from app.models.message import Message
 from app.models.user import User
 from app.schemas.session import SessionCreate, SessionResponse, MessageResponse
 
-router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
 @router.get("", response_model=list[SessionResponse])
