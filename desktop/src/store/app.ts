@@ -1,5 +1,20 @@
 import { create } from 'zustand'
 
+const STORAGE_SERVER = 'neko_server_url'
+const STORAGE_RECENT = 'neko_recent_servers'
+
+function loadServerUrl(): string {
+  return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
+}
+
+function loadRecentServers(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_RECENT) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
 export type CatState = 'idle' | 'thinking' | 'working' | 'success' | 'error'
 
 export interface ChatMessage {
@@ -36,6 +51,12 @@ export interface AppState {
   // Server URL
   serverUrl: string
   setServerUrl: (url: string) => void
+
+  // Server connection
+  serverConnected: boolean
+  setServerConnected: (v: boolean) => void
+  recentServers: string[]
+  addRecentServer: (url: string) => void
 
   // Sessions
   sessions: Session[]
@@ -74,8 +95,21 @@ export const useAppStore = create<AppState>((set) => ({
   setAuth: (token, userId) => set({ token, userId }),
   clearAuth: () => set({ token: null, userId: null }),
 
-  serverUrl: 'http://localhost:8000',
-  setServerUrl: (url) => set({ serverUrl: url }),
+  serverUrl: loadServerUrl(),
+  setServerUrl: (url) => {
+    localStorage.setItem(STORAGE_SERVER, url)
+    set({ serverUrl: url })
+  },
+
+  serverConnected: false,
+  setServerConnected: (serverConnected) => set({ serverConnected }),
+  recentServers: loadRecentServers(),
+  addRecentServer: (url) =>
+    set((s) => {
+      const list = [url, ...s.recentServers.filter((u) => u !== url)].slice(0, 5)
+      localStorage.setItem(STORAGE_RECENT, JSON.stringify(list))
+      return { recentServers: list }
+    }),
 
   sessions: [],
   activeSessionId: null,

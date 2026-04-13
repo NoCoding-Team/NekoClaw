@@ -5,11 +5,10 @@ import { useAppStore } from './store/app'
 import styles from './App.module.css'
 
 export default function App() {
-  const { token } = useAppStore()
+  const { token, serverConnected } = useAppStore()
 
-  if (!token) {
-    return <LoginForm />
-  }
+  if (!serverConnected) return <ConnectForm />
+  if (!token) return <LoginForm />
 
   return (
     <div className={styles.layout}>
@@ -19,8 +18,74 @@ export default function App() {
   )
 }
 
+// ─── 连接服务器 ────────────────────────────────────────────────────────────────
+
+function ConnectForm() {
+  const { serverUrl, setServerUrl, setServerConnected, recentServers, addRecentServer } = useAppStore()
+  const [url, setUrl] = useState(serverUrl)
+  const [status, setStatus] = useState<'idle' | 'checking' | 'error'>('idle')
+  const [errMsg, setErrMsg] = useState('')
+
+  const tryConnect = async (targetUrl: string) => {
+    const trimmed = targetUrl.trim().replace(/\/+$/, '')
+    if (!trimmed) return
+    setUrl(trimmed)
+    setStatus('checking')
+    setErrMsg('')
+    try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 6000)
+      await fetch(`${trimmed}/`, { signal: ctrl.signal })
+      clearTimeout(timer)
+      setServerUrl(trimmed)
+      addRecentServer(trimmed)
+      setServerConnected(true)
+    } catch {
+      setStatus('error')
+      setErrMsg('无法连接到服务器，请检查地址是否正确')
+    }
+  }
+
+  return (
+    <div className={styles.login}>
+      <div className={styles.loginCard}>
+        <div className={styles.loginLogo}>🐾 NekoClaw</div>
+        <p className={styles.connectSubtitle}>连接到后端服务器后，即可登录使用</p>
+        <form onSubmit={(e) => { e.preventDefault(); tryConnect(url) }} className={styles.loginForm}>
+          <input
+            className={styles.loginInput}
+            placeholder="http://localhost:8000"
+            value={url}
+            onChange={(e) => { setUrl(e.target.value); setStatus('idle'); setErrMsg('') }}
+            autoComplete="url"
+            spellCheck={false}
+          />
+          {errMsg && <div className={styles.loginError}>{errMsg}</div>}
+          <button type="submit" className={styles.loginBtn} disabled={status === 'checking'}>
+            {status === 'checking' ? '连接中…' : '连接'}
+          </button>
+        </form>
+        {recentServers.length > 0 && (
+          <div className={styles.recentServers}>
+            <div className={styles.recentLabel}>最近连接</div>
+            <div className={styles.recentList}>
+              {recentServers.map((s) => (
+                <button key={s} className={styles.recentItem} onClick={() => tryConnect(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── 登录 / 注册 ───────────────────────────────────────────────────────────────
+
 function LoginForm() {
-  const { setAuth, serverUrl, setServerUrl } = useAppStore()
+  const { setAuth, serverUrl, setServerConnected } = useAppStore()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -59,7 +124,6 @@ function LoginForm() {
           const data = await res.json()
           throw new Error(data.detail || '注册失败')
         }
-        // 注册成功后自动登录
         const loginRes = await fetch(`${serverUrl}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -76,7 +140,7 @@ function LoginForm() {
   }
 
   const switchMode = () => {
-    setMode(m => m === 'login' ? 'register' : 'login')
+    setMode((m) => (m === 'login' ? 'register' : 'login'))
     setError('')
     setPassword('')
     setConfirm('')
@@ -86,13 +150,13 @@ function LoginForm() {
     <div className={styles.login}>
       <div className={styles.loginCard}>
         <div className={styles.loginLogo}>🐾 NekoClaw</div>
+        <div className={styles.serverBadge}>
+          <span className={styles.serverBadgeUrl}>{serverUrl}</span>
+          <button className={styles.serverSwitchBtn} onClick={() => setServerConnected(false)}>
+            切换
+          </button>
+        </div>
         <form onSubmit={handleSubmit} className={styles.loginForm}>
-          <input
-            className={styles.loginInput}
-            placeholder="服务器地址"
-            value={serverUrl}
-            onChange={(e) => setServerUrl(e.target.value)}
-          />
           <input
             className={styles.loginInput}
             placeholder="用户名"
@@ -120,7 +184,9 @@ function LoginForm() {
           )}
           {error && <div className={styles.loginError}>{error}</div>}
           <button type="submit" className={styles.loginBtn} disabled={loading}>
-            {loading ? (mode === 'login' ? '登录中…' : '注册中…') : (mode === 'login' ? '登录' : '注册')}
+            {loading
+              ? mode === 'login' ? '登录中…' : '注册中…'
+              : mode === 'login' ? '登录' : '注册'}
           </button>
         </form>
         <div className={styles.loginSwitch}>
