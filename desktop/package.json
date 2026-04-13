@@ -1,0 +1,48 @@
+{
+  "name": "nekoclaw-desktop",
+  "version": "0.1.0",
+  "description": "NekoClaw Desktop Client",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"cross-env VITE_DEV_SERVER_URL=http://localhost:5173 vite\" \"wait-on tcp:5173 && electron .\"",
+    "build": "vite build && electron-builder",
+    "build:vite": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "cross-env NODE_ENV=development electron ."
+  },
+  "build": {
+    "appId": "com.nekoclaw.desktop",
+    "productName": "NekoClaw",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "dist-electron/**/*"],
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "lottie-react": "^2.4.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^15.6.1",
+    "remark-gfm": "^4.0.1",
+    "uuid": "^11.1.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^35.1.2",
+    "electron-builder": "^25.1.8",
+    "typescript": "~5.7.2",
+    "vite": "^6.3.2",
+    "vite-plugin-electron": "^0.29.0",
+    "wait-on": "^8.0.3"
+  }
+}

@@ -1,4 +1,4 @@
-# AGENTS.md - NekoClaw 开发指南
+# AGENTS.md - Git 规范
 
 ## Git 规范
 

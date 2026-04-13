@@ -1,0 +1,129 @@
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 4px 0;
+}
+
+.userRow { flex-direction: row-reverse; }
+
+.catAvatar {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.userBubble {
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: var(--radius-md) var(--radius-md) 4px var(--radius-md);
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 70%;
+  word-break: break-word;
+}
+
+.aiBubble {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 4px;
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 85%;
+  word-break: break-word;
+}
+
+.aiBubble p { margin: 0 0 8px; }
+.aiBubble p:last-child { margin: 0; }
+.aiBubble pre { margin: 8px 0; border-radius: var(--radius-sm); overflow: hidden; }
+.aiBubble ul, .aiBubble ol { padding-left: 20px; margin: 4px 0; }
+.aiBubble table { border-collapse: collapse; width: 100%; }
+.aiBubble th, .aiBubble td { border: 1px solid var(--border); padding: 4px 8px; font-size: 13px; }
+
+.inlineCode {
+  background: rgba(255,255,255,0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 0.88em;
+}
+
+/* Tool call card */
+.toolCard {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  max-width: 600px;
+  width: 100%;
+  font-size: 13px;
+}
+
+.toolHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.toolIcon { font-size: 14px; }
+.toolName { font-weight: 600; flex: 1; }
+.riskBadge { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+.toolStatus { font-size: 11px; color: var(--text-muted); }
+
+.toolArgs {
+  background: rgba(0,0,0,0.25);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: auto;
+  max-height: 160px;
+  margin: 0;
+}
+
+.toolReason {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--warn);
+}
+
+.toolActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.confirmBtn, .denyBtn {
+  padding: 5px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.confirmBtn { background: var(--accent); color: #fff; }
+.confirmBtn:hover { background: var(--accent-dim); }
+.denyBtn { background: rgba(255,255,255,0.07); color: var(--text-secondary); }
+.denyBtn:hover { background: rgba(255,255,255,0.12); }
+
+.toolResult {
+  margin-top: 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: auto;
+  max-height: 120px;
+}
