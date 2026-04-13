@@ -92,7 +92,7 @@ export default function ScheduledTasksPanel() {
 
   async function handleSave() {
     if (!form.title.trim() || !form.description.trim()) {
-      showToast('标题和描述不能为�?)
+      showToast('标题和描述不能为空')
       return
     }
     if (form.type === 'once' && !form.run_at) {
@@ -100,7 +100,7 @@ export default function ScheduledTasksPanel() {
       return
     }
     if (form.type === 'cron' && !form.cron_expr.trim()) {
-      showToast('请输�?Cron 表达�?)
+      showToast('请输入 Cron 表达式')
       return
     }
 
@@ -182,7 +182,7 @@ export default function ScheduledTasksPanel() {
       </div>
 
       {loading ? (
-        <div className={styles.loading}>加载中�?/div>
+        <div className={styles.loading}>加载中…</div>
       ) : tasks.length === 0 ? (
         <div className={styles.empty}>暂无定时任务</div>
       ) : (
@@ -192,19 +192,19 @@ export default function ScheduledTasksPanel() {
               <div className={styles.itemHeader}>
                 <span className={styles.itemTitle}>{t.title}</span>
                 <div className={styles.itemActions}>
-                  <button className={styles.icnBtn} onClick={() => handleTrigger(t.id)} title="立即执行">�?/button>
+                  <button className={styles.icnBtn} onClick={() => handleTrigger(t.id)} title="立即执行">⚡</button>
                   <button className={styles.icnBtn} onClick={() => handleToggle(t)} title={t.is_enabled ? '暂停' : '启用'}>
-                    {t.is_enabled ? '�? : '▶️'}
+                    {t.is_enabled ? '⏸️' : '▶️'}
                   </button>
-                  <button className={styles.icnBtn} onClick={() => openEdit(t)} title="编辑">�?/button>
+                  <button className={styles.icnBtn} onClick={() => openEdit(t)} title="编辑">✏️</button>
                   <button className={styles.icnBtn} onClick={() => setDeleteTarget(t.id)} title="删除">🗑</button>
                 </div>
               </div>
               <div className={styles.itemDesc}>{t.description}</div>
               <div className={styles.itemMeta}>
                 {t.cron_expr && <span className={styles.cronTag}>{t.cron_expr}</span>}
-                {t.run_at && <span className={styles.cronTag}>一次�? {new Date(t.run_at).toLocaleString('zh-CN')}</span>}
-                <span className={styles.metaItem}>执行 {t.run_count} �?/span>
+                {t.run_at && <span className={styles.cronTag}>一次性 {new Date(t.run_at).toLocaleString('zh-CN')}</span>}
+                <span className={styles.metaItem}>执行 {t.run_count} 次</span>
                 {t.last_run_at && (
                   <span className={styles.metaItem}>
                     上次: {new Date(t.last_run_at).toLocaleString('zh-CN')}
@@ -222,7 +222,7 @@ export default function ScheduledTasksPanel() {
           <div className={styles.formDialog}>
             <div className={styles.formHeader}>
               <span>{editingId ? '编辑任务' : '新建定时任务'}</span>
-              <button className={styles.closeBtn} onClick={() => setShowForm(false)}>�?/button>
+              <button className={styles.closeBtn} onClick={() => setShowForm(false)}>✕</button>
             </div>
             <div className={styles.formBody}>
               <div className={styles.field}>
@@ -240,7 +240,7 @@ export default function ScheduledTasksPanel() {
                   className={styles.textarea}
                   value={form.description}
                   onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  placeholder="请帮我总结今天的工作进展�?
+                  placeholder="请帮我总结今天的工作进展…
                   rows={3}
                 />
               </div>
@@ -250,11 +250,11 @@ export default function ScheduledTasksPanel() {
                   <button
                     className={`${styles.typeBtn} ${form.type === 'once' ? styles.typeBtnActive : ''}`}
                     onClick={() => setForm(p => ({ ...p, type: 'once' }))}
-                  >一次�?/button>
+                  >一次性</button>
                   <button
                     className={`${styles.typeBtn} ${form.type === 'cron' ? styles.typeBtnActive : ''}`}
                     onClick={() => setForm(p => ({ ...p, type: 'cron' }))}
-                  >周期�?(Cron)</button>
+                  >周期性 (Cron)</button>
                 </div>
               </div>
               {form.type === 'once' ? (
@@ -269,20 +269,20 @@ export default function ScheduledTasksPanel() {
                 </div>
               ) : (
                 <div className={styles.field}>
-                  <label>Cron 表达�?/label>
+                  <label>Cron 表达式</label>
                   <input
                     className={styles.input}
                     value={form.cron_expr}
                     onChange={e => setForm(p => ({ ...p, cron_expr: e.target.value }))}
                     placeholder="0 9 * * 1-5  (每工作日 9:00)"
                   />
-                  <small className={styles.hint}>�?�?�?�?�?/small>
+                  <small className={styles.hint}>分 时 日 月 周</small>
                 </div>
               )}
             </div>
             <div className={styles.formFooter}>
               <button className={styles.btnPrimary} onClick={handleSave} disabled={saving}>
-                {saving ? '保存中�? : '保存'}
+                {saving ? '保存中…' : '保存'}
               </button>
               <button className={styles.btnSecondary} onClick={() => setShowForm(false)}>取消</button>
             </div>
