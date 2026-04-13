@@ -1,0 +1,57 @@
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+.topBar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  -webkit-app-region: drag;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.topTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  -webkit-app-region: no-drag;
+}
+.windowControls {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+.windowControls button {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.windowControls button:hover { background: rgba(255,255,255,0.12); }
+.closeBtn:hover { background: var(--danger) !important; color: #fff !important; }
+
+.body {
+  flex: 1;
+  padding: 32px 36px;
+  overflow-y: auto;
+}
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+.placeholder {
+  color: var(--text-muted);
+  font-size: 14px;
+}

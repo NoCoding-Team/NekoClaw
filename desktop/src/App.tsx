@@ -7,6 +7,7 @@ import ScheduledTasksPanel from './components/ScheduledTasks/ScheduledTasksPanel
 import SkillsPanel from './components/Skills/SkillsPanel'
 import MemoryPanel from './components/Memory/MemoryPanel'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
+import { PersonalizationPanel } from './components/Settings/PersonalizationPanel'
 
 export default function App() {
   const { token, serverConnected } = useAppStore()
@@ -24,10 +25,11 @@ export default function App() {
 
 function MainContent() {
   const { sidebarTab } = useAppStore()
-  if (sidebarTab === 'tasks')    return <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>
-  if (sidebarTab === 'skills')   return <PanelView title="技能库"><SkillsPanel /></PanelView>
-  if (sidebarTab === 'memory')   return <PanelView title="记忆库"><MemoryPanel /></PanelView>
-  if (sidebarTab === 'settings') return <SettingsPanel />
+  if (sidebarTab === 'tasks')           return <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>
+  if (sidebarTab === 'skills')          return <PanelView title="技能库"><SkillsPanel /></PanelView>
+  if (sidebarTab === 'memory')          return <PanelView title="记忆库"><MemoryPanel /></PanelView>
+  if (sidebarTab === 'personalization') return <PersonalizationPanel />
+  if (sidebarTab === 'settings')        return <SettingsPanel />
   return <ChatArea />
 }
 
