@@ -78,28 +78,46 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 0 40px 60px;
+  gap: 24px;
+  padding: 0 40px 10%;
+  position: relative;
+  z-index: 1;
 }
 .welcomeGreeting {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 26px;
+  font-weight: 500;
   color: var(--text-primary);
   text-align: center;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  margin-bottom: 12px;
 }
 .welcomeInput {
   width: 100%;
-  max-width: 560px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 12px 14px 10px;
+  max-width: 680px;
+  background: rgba(40, 42, 50, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-.welcomeToolbar { display: flex; align-items: center; gap: 8px; }
+.welcomeInput:focus-within {
+  background: rgba(45, 48, 56, 0.7);
+  border-color: rgba(140, 150, 255, 0.3);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(140, 150, 255, 0.15) inset, 0 0 30px rgba(140, 150, 255, 0.1);
+  transform: translateY(-2px);
+}
+.welcomeToolbar { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+}
 
 /* ── Normal chat ─────────────────────────────────────────────────────────── */
 .messages {
@@ -113,42 +131,66 @@
 .inputArea {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 16px 14px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-surface);
+  gap: 8px;
+  padding: 14px 20px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(30, 30, 36, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   flex-shrink: 0;
 }
 .inputToolbar { display: flex; align-items: center; gap: 8px; }
-.inputRow { display: flex; align-items: flex-end; gap: 8px; }
+.inputRow { display: flex; align-items: flex-end; gap: 12px; position: relative; }
 .textarea {
   flex: 1;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  background: transparent !important;
+  border: none !important;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
-  padding: 10px 12px;
+  padding: 10px 0;
   resize: none;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s;
+  min-height: 52px;
 }
-.textarea:focus { border-color: var(--accent); }
-.textarea::placeholder { color: var(--text-muted); }
-.sendBtn {
-  width: 44px; height: 44px;
+.textarea::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+/* Inside .inputArea we might still want a background for textarea since inputArea itself is a block */
+.inputArea .textarea {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: var(--radius-md);
-  background: var(--accent);
+  padding: 12px 14px;
+  transition: border-color 0.2s;
+}
+.inputArea .textarea:focus { border-color: rgba(140, 150, 255, 0.4) !important; }
+
+.sendBtn {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6c7fff 0%, #4a5cff 100%);
+  box-shadow: 0 4px 12px rgba(108, 127, 255, 0.3);
   color: #fff;
-  font-size: 18px;
+  font-size: 20px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: background 0.15s, opacity 0.15s;
+  transition: transform 0.2s, background 0.2s, opacity 0.2s, box-shadow 0.2s;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 2px;
 }
-.sendBtn:disabled { opacity: 0.35; cursor: not-allowed; }
-.sendBtn:not(:disabled):hover { background: var(--accent-dim); }
+.sendBtn:disabled { 
+  opacity: 0.35; 
+  cursor: not-allowed; 
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.3);
+}
+.sendBtn:not(:disabled):hover { 
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(108, 127, 255, 0.4);
+}
 
 
 .topBar {

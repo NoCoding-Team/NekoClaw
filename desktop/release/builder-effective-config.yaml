@@ -1,0 +1,40 @@
+directories:
+  output: release
+  buildResources: build
+appId: com.nekoclaw.desktop
+productName: NekoClaw
+copyright: Copyright © 2025 NekoClaw
+files:
+  - filter:
+      - dist/**/*
+      - dist-electron/**/*
+      - public/**/*
+extraResources:
+  - from: public/animations
+    to: animations
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: build/icon.png
+  category: public.app-category.productivity
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  icon: build/icon.png
+  category: Utility
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+electronVersion: 35.7.5
