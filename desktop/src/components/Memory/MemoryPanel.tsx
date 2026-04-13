@@ -78,7 +78,7 @@ export default function MemoryPanel() {
 
   async function handleImport() {
     if (!importText.trim()) return
-    // 解析 MD 格式：每�?"- [category] content"
+    // 解析 MD 格式：每行 "- [category] content"
     const lines = importText.split('\n').filter(l => l.trim().startsWith('-'))
     const items = lines.map(line => {
       const match = line.match(/^-\s*\[(\w+)\]\s*(.+)$/)
@@ -156,7 +156,7 @@ export default function MemoryPanel() {
         </ul>
       )}
 
-      {/* 删除确认对话�?*/}
+      {/* 删除确认对话框 */}
       {deleteTarget !== null && (
         <div className={styles.overlay}>
           <div className={styles.dialog}>
@@ -169,7 +169,7 @@ export default function MemoryPanel() {
         </div>
       )}
 
-      {/* 导入对话�?*/}
+      {/* 导入对话框 */}
       {showImport && (
         <div className={styles.overlay}>
           <div className={styles.dialog}>

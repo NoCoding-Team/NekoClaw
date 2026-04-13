@@ -1,27 +1,2 @@
-"use strict";
-Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const electron = require("electron");
-const nekoBridge = {
-  file: {
-    read: (path) => electron.ipcRenderer.invoke("file:read", path),
-    write: (path, content) => electron.ipcRenderer.invoke("file:write", path, content),
-    list: (dir) => electron.ipcRenderer.invoke("file:list", dir),
-    delete: (path) => electron.ipcRenderer.invoke("file:delete", path)
-  },
-  shell: {
-    exec: (command) => electron.ipcRenderer.invoke("shell:exec", command),
-    openExternal: (url) => electron.ipcRenderer.invoke("shell:openExternal", url)
-  },
-  storage: {
-    encrypt: (plaintext) => electron.ipcRenderer.invoke("storage:encrypt", plaintext),
-    decrypt: (b64) => electron.ipcRenderer.invoke("storage:decrypt", b64)
-  },
-  window: {
-    minimize: () => electron.ipcRenderer.send("window:minimize"),
-    maximize: () => electron.ipcRenderer.send("window:maximize"),
-    close: () => electron.ipcRenderer.send("window:close")
-  }
-};
-electron.contextBridge.exposeInMainWorld("nekoBridge", nekoBridge);
-exports.nekoBridge = nekoBridge;
+"use strict";Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});const i=require("electron"),r={file:{read:e=>i.ipcRenderer.invoke("file:read",e),write:(e,n)=>i.ipcRenderer.invoke("file:write",e,n),list:e=>i.ipcRenderer.invoke("file:list",e),delete:e=>i.ipcRenderer.invoke("file:delete",e)},shell:{exec:e=>i.ipcRenderer.invoke("shell:exec",e),openExternal:e=>i.ipcRenderer.invoke("shell:openExternal",e)},storage:{encrypt:e=>i.ipcRenderer.invoke("storage:encrypt",e),decrypt:e=>i.ipcRenderer.invoke("storage:decrypt",e)},window:{minimize:()=>i.ipcRenderer.send("window:minimize"),maximize:()=>i.ipcRenderer.send("window:maximize"),close:()=>i.ipcRenderer.send("window:close")}};i.contextBridge.exposeInMainWorld("nekoBridge",r);exports.nekoBridge=r;
 //# sourceMappingURL=preload.js.map

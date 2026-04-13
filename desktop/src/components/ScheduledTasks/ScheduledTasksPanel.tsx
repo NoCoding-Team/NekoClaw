@@ -240,7 +240,7 @@ export default function ScheduledTasksPanel() {
                   className={styles.textarea}
                   value={form.description}
                   onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  placeholder="请帮我总结今天的工作进展…
+                  placeholder="请帮我总结今天的工作进展…"
                   rows={3}
                 />
               </div>
