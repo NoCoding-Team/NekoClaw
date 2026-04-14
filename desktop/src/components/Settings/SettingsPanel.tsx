@@ -46,14 +46,37 @@ function ModelCenterTab() {
 
   const handleSave = async () => {
     if (!model.trim()) { setErr('模型 ID 不能为空'); return }
-    // API key is required if not already configured locally
     if (!localLLMConfig && !apiKey.trim()) { setErr('API Key 不能为空'); return }
     setSaving(true); setErr(''); setOk('')
     try {
-      // Encrypt and persist API key locally (Electron safeStorage or base64 fallback)
       const keyToStore = apiKey.trim()
         ? await encryptKey(apiKey.trim())
         : localLLMConfig?.apiKeyB64 ?? ''
+
+      // Real connectivity test using the plain-text key from input (skip if not re-entering key)
+      const testKey = apiKey.trim()
+      if (testKey) {
+        const resolvedBase = (baseUrl.trim() || (PROVIDERS.find(p => p.value === provider)?.placeholder ?? '')).replace(/\/$/, '')
+        const isAnthropic = provider === 'anthropic'
+        const testUrl = isAnthropic
+          ? resolvedBase + '/v1/messages'
+          : resolvedBase + '/chat/completions'
+        const testHeaders: Record<string, string> = isAnthropic
+          ? { 'Content-Type': 'application/json', 'x-api-key': testKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+          : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${testKey}` }
+        const testBody = JSON.stringify(isAnthropic
+          ? { model: model.trim(), max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] }
+          : { model: model.trim(), max_tokens: 1, messages: [{ role: 'user', content: 'hi' }], stream: false })
+        const testRes = await fetch(testUrl, { method: 'POST', headers: testHeaders, body: testBody })
+        // 400/422 means server understood the request (auth/format issue), not a network issue
+        if (!testRes.ok && testRes.status < 400) {
+          throw new Error(`无法连接到 ${resolvedBase}\n请检查 Base URL 和网络`)
+        }
+        if (testRes.status === 401 || testRes.status === 403) {
+          const txt = await testRes.text().catch(() => '')
+          throw new Error(`API Key 验证失败 (${testRes.status})：${txt.slice(0, 120)}`)
+        }
+      }
 
       setLocalLLMConfig({
         provider,
@@ -63,7 +86,7 @@ function ModelCenterTab() {
         maxTokens: parseInt(maxTokens) || 8192,
         temperature: parseFloat(temperature) || 0.7,
       })
-      setOk('已保存并连接 ✓')
+      setOk(testKey ? '连接测试通过，已保存 ✓' : '已保存 ✓')
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : '保存失败')
     } finally {
