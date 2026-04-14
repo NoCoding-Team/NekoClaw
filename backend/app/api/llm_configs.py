@@ -13,7 +13,7 @@ from app.schemas.llm_config import LLMConfigCreate, LLMConfigResponse, LLMConfig
 router = APIRouter(tags=["llm-configs"])
 
 
-@router.get("/api/llm-configs", response_model=list[LLMConfigResponse])
+@router.get("/llm-configs", response_model=list[LLMConfigResponse])
 async def list_llm_configs(
     _: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -25,7 +25,7 @@ async def list_llm_configs(
     return result.scalars().all()
 
 
-@router.post("/api/admin/llm-configs", response_model=LLMConfigResponse, status_code=201)
+@router.post("/admin/llm-configs", response_model=LLMConfigResponse, status_code=201)
 async def create_llm_config(
     body: LLMConfigCreate,
     _: User = Depends(require_admin),
@@ -48,7 +48,7 @@ async def create_llm_config(
     return config
 
 
-@router.put("/api/admin/llm-configs/{config_id}", response_model=LLMConfigResponse)
+@router.put("/admin/llm-configs/{config_id}", response_model=LLMConfigResponse)
 async def update_llm_config(
     config_id: str,
     body: LLMConfigUpdate,
@@ -82,7 +82,7 @@ async def update_llm_config(
     return config
 
 
-@router.delete("/api/admin/llm-configs/{config_id}", status_code=204)
+@router.delete("/admin/llm-configs/{config_id}", status_code=204)
 async def delete_llm_config(
     config_id: str,
     _: User = Depends(require_admin),
