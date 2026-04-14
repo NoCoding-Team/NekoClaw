@@ -25,3 +25,8 @@ class MessageResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MessageCreate(BaseModel):
+    role: str   # 'user' | 'assistant'
+    content: str

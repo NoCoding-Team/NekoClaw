@@ -150,6 +150,24 @@ async function streamAnthropic(
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────
+async function persistMessage(
+  serverUrl: string,
+  token: string,
+  sessionId: string,
+  role: 'user' | 'assistant',
+  content: string,
+) {
+  try {
+    await fetch(`${serverUrl}/api/sessions/${sessionId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ role, content }),
+    })
+  } catch {
+    // best-effort — don't block UI if server is unreachable
+  }
+}
+
 export function useLocalLLM(sessionId: string | null) {
   const {
     localLLMConfig,
@@ -167,6 +185,12 @@ export function useLocalLLM(sessionId: string | null) {
 
       // Append user message first
       appendMessage(sessionId, { id: uuidv4(), role: 'user', content })
+
+      // Persist user message to backend (best-effort)
+      const { serverUrl, token } = useAppStore.getState()
+      if (token && !sessionId.startsWith('local-')) {
+        persistMessage(serverUrl, token, sessionId, 'user', content)
+      }
 
       // Read history from store *after* appending, to avoid stale closure
       const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
@@ -217,7 +241,13 @@ export function useLocalLLM(sessionId: string | null) {
         const msgs = useAppStore.getState().messagesBySession[sessionId] ?? []
         const last = msgs[msgs.length - 1]
         if (last?.streaming) {
-          setMessages(sessionId, [...msgs.slice(0, -1), { ...last, streaming: false }])
+          const finalMsg = { ...last, streaming: false }
+          setMessages(sessionId, [...msgs.slice(0, -1), finalMsg])
+          // Persist assistant message to backend (best-effort)
+          const { serverUrl, token } = useAppStore.getState()
+          if (token && !sessionId.startsWith('local-')) {
+            persistMessage(serverUrl, token, sessionId, 'assistant', finalMsg.content)
+          }
         }
         setCatState('idle')
       } catch (e: unknown) {

@@ -8,7 +8,7 @@ from app.core.exceptions import NotFoundError, ForbiddenError
 from app.models.session import Session
 from app.models.message import Message
 from app.models.user import User
-from app.schemas.session import SessionCreate, SessionResponse, MessageResponse
+from app.schemas.session import SessionCreate, SessionResponse, MessageResponse, MessageCreate
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -85,3 +85,30 @@ async def list_messages(
         .order_by(Message.created_at.asc())
     )
     return msgs.scalars().all()
+
+
+@router.post("/{session_id}/messages", response_model=MessageResponse, status_code=201)
+async def create_message(
+    session_id: str,
+    body: MessageCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Session).where(Session.id == session_id, Session.deleted_at.is_(None))
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise NotFoundError("Session not found")
+    if session.user_id != current_user.id:
+        raise ForbiddenError()
+
+    msg = Message(
+        session_id=session_id,
+        role=body.role,
+        content=body.content,
+    )
+    db.add(msg)
+    await db.commit()
+    await db.refresh(msg)
+    return msg
