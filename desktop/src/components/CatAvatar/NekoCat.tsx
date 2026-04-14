@@ -9,56 +9,60 @@ const CSS = `
 .nk-root {
   display: block;
   overflow: visible;
-  font-family: system-ui, sans-serif;
 }
 
-/* Core floating animation */
-.nk-body-anim { animation: float-body 4s ease-in-out infinite; transform-origin: center; }
-.nk-paw-anim { animation: float-paw 4s ease-in-out infinite; transform-origin: center; }
+.nk-float {
+  animation: float 4s ease-in-out infinite;
+  transform-origin: center;
+}
 
-/* State: Working */
-.nk-root.working .nk-paw-anim { animation: tap-paw 0.5s ease-in-out infinite; }
-.nk-root.working .nk-body-anim { animation: bob-head 1.5s ease-in-out infinite; }
+.nk-wave {
+  animation: wave 3s ease-in-out infinite;
+  transform-origin: 35px 125px;
+}
 
-/* State: Thinking */
-.nk-root.thinking .nk-body-anim { transform: translateY(-4px); animation: float-body-slow 6s ease-in-out infinite; }
-.nk-root.thinking .nk-paw-anim { transform: translateY(-4px); animation: float-paw-slow 6s ease-in-out infinite; }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
 
-/* State: Success */
-.nk-root.success .nk-body-anim { animation: jump-head 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
-.nk-root.success .nk-paw-anim { animation: jump-paw 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(12deg); }
+}
 
-/* State: Error */
-.nk-root.error .nk-body-anim { animation: shake-head 0.45s ease-in-out 2; }
-.nk-root.error .nk-paw-anim { transform: translateY(8px); animation: none; }
+.nk-blink {
+  animation: blink 4.5s infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
 
-/* Keyframes */
-@keyframes float-body { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-@keyframes float-paw { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@keyframes float-body-slow { 0%, 100% { transform: translateY(-4px); } 50% { transform: translateY(-8px); } }
-@keyframes float-paw-slow { 0%, 100% { transform: translateY(-4px); } 50% { transform: translateY(-6px); } }
+@keyframes blink {
+  0%, 94%, 100% { transform: scaleY(1); }
+  97% { transform: scaleY(0.05); }
+}
 
-@keyframes tap-paw { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-6px) rotate(-4deg); } }
-@keyframes bob-head { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+/* State: Working (Typing) */
+.working .nk-tap { animation: tap 0.35s ease-in-out infinite alternate; }
+.working .nk-float { animation: bob 1.5s ease-in-out infinite; }
+@keyframes tap { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 
-@keyframes jump-head { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
-@keyframes jump-paw { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-22px); } }
+/* State: Success (Happy jump) */
+.success .nk-float { animation: jump 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+.success .nk-wave { animation: fast-wave 0.5s ease-in-out 3; }
+@keyframes jump { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
+@keyframes fast-wave { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(20deg); } }
 
-@keyframes shake-head { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+/* State: Error (Sad shake) */
+.error .nk-float { animation: shake 0.5s ease-in-out 2; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
-/* Blinking Eyes */
-.nk-blink { animation: blink 5s infinite; transform-origin: center; transform-box: fill-box; }
-@keyframes blink { 0%, 90%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
-
-/* Thinking Dots */
-.nk-dot-anim circle { animation: dot-fade 1.5s infinite; opacity: 0.3; }
-.nk-dot-anim .delay-1 { animation-delay: 0.2s; }
-.nk-dot-anim .delay-2 { animation-delay: 0.4s; }
-@keyframes dot-fade { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
-
-/* Working Spinner */
-.nk-spin { animation: spin 1.2s linear infinite; transform-origin: 0px 0px; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
+/* Effects */
+.nk-fade { animation: fade 1.5s infinite alternate; }
+.nk-fade.delay1 { animation-delay: 0.3s; }
+.nk-fade.delay2 { animation-delay: 0.6s; }
+@keyframes fade { 0% { opacity: 0.2; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1.1); } }
 `
 
 export function NekoCat({ state, size = 180 }: Props) {
@@ -72,125 +76,142 @@ export function NekoCat({ state, size = 180 }: Props) {
       <defs>
         <style>{CSS}</style>
         
+        {/* Exact logo eye gradient */}
         <linearGradient id="eyeGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1E3A8A"/>
-          <stop offset="100%" stopColor="#38BDF8"/>
+          <stop offset="0%" stopColor="#4a6cb3"/>     {/* Deep Blue */}
+          <stop offset="50%" stopColor="#7aa4e8"/>    {/* Mid Blue */}
+          <stop offset="100%" stopColor="#b4e4ff"/>   {/* Light Cyan */}
         </linearGradient>
 
-        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
-          <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="#000000" floodOpacity="0.35"/>
-        </filter>
-
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
-          <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#38BDF8" floodOpacity="0.6"/>
-        </filter>
+        <linearGradient id="boardGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#cce8fa"/>
+          <stop offset="100%" stopColor="#b0dafa"/>
+        </linearGradient>
       </defs>
 
       <g className={`nk-root ${state}`}>
         
-        <g className="nk-body-anim" filter="url(#softShadow)">
-          {/* Back ears */}
-          <path d="M 50 85 L 50 40 L 85 65 Z" fill="#ffffff" stroke="#ffffff" strokeWidth="4" strokeLinejoin="round"/>
-          <path d="M 54 78 L 54 48 L 78 64 Z" fill="#FFB6C1"/>
+        <g className="nk-float">
+          
+          {/* === EARS === */}
+          {/* Left Ear */}
+          <path d="M 40 85 L 50 35 Q 55 20 65 30 L 85 50" fill="#ffffff" stroke="#d6cde5" strokeWidth="4.5" strokeLinejoin="round"/>
+          {/* Left Inner Ear */}
+          <path d="M 49 76 L 55 42 Q 58 32 64 40 L 77 53" fill="#ffcce0"/>
+          
+          {/* Right Ear */}
+          <path d="M 160 85 L 150 35 Q 145 20 135 30 L 115 50" fill="#ffffff" stroke="#d6cde5" strokeWidth="4.5" strokeLinejoin="round"/>
+          {/* Right Inner Ear */}
+          <path d="M 151 76 L 145 42 Q 142 32 136 40 L 123 53" fill="#ffcce0"/>
 
-          <path d="M 150 85 L 150 40 L 115 65 Z" fill="#ffffff" stroke="#ffffff" strokeWidth="4" strokeLinejoin="round"/>
-          <path d="M 146 78 L 146 48 L 122 64 Z" fill="#FFB6C1"/>
+          {/* === HEAD === */}
+          <path d="M 30 100 C 30 50, 60 40, 100 40 C 140 40, 170 50, 170 100 C 170 155, 145 165, 100 165 C 55 165, 30 155, 30 100 Z" 
+                fill="#ffffff" stroke="#d6cde5" strokeWidth="4.5" />
 
-          {/* Head Base ("Squircle") */}
-          <rect x="40" y="60" width="120" height="90" rx="45" fill="#ffffff"/>
+          {/* Blush */}
+          <ellipse cx="48" cy="120" rx="12" ry="6" fill="#ffb6c1" opacity="0.45"/>
+          <ellipse cx="152" cy="120" rx="12" ry="6" fill="#ffb6c1" opacity="0.45"/>
 
-          {/* Eyes */}
+          {/* === EYES === */}
           {!isSuccess && !isError && (
             <g className="nk-blink">
-              <ellipse cx="75" cy="100" rx="10" ry="14" fill="url(#eyeGrad)"/>
-              <circle cx="71" cy="94" r="4" fill="#ffffff"/>
-              <circle cx="78" cy="106" r="2" fill="#ffffff" opacity="0.8"/>
-
-              <ellipse cx="125" cy="100" rx="10" ry="14" fill="url(#eyeGrad)"/>
-              <circle cx="121" cy="94" r="4" fill="#ffffff"/>
-              <circle cx="128" cy="106" r="2" fill="#ffffff" opacity="0.8"/>
+              {/* Left Eye */}
+              <ellipse cx="70" cy="105" rx="15" ry="19" fill="url(#eyeGrad)" />
+              <circle cx="64" cy="95" r="5.5" fill="#ffffff"/>
+              <circle cx="76" cy="115" r="2.5" fill="#ffffff" opacity="0.9"/>
+              
+              {/* Right Eye */}
+              <ellipse cx="130" cy="105" rx="15" ry="19" fill="url(#eyeGrad)" />
+              <circle cx="124" cy="95" r="5.5" fill="#ffffff"/>
+              <circle cx="136" cy="115" r="2.5" fill="#ffffff" opacity="0.9"/>
             </g>
           )}
 
           {/* Success Eyes ^ ^ */}
           {isSuccess && (
-            <g stroke="#1E3A8A" strokeWidth="4" strokeLinecap="round" fill="none">
-              <path d="M 67 104 Q 75 90 83 104" />
-              <path d="M 117 104 Q 125 90 133 104" />
+            <g stroke="#4a6cb3" strokeWidth="4.5" strokeLinecap="round" fill="none">
+              <path d="M 58 108 Q 70 92 82 108" />
+              <path d="M 118 108 Q 130 92 142 108" />
             </g>
           )}
 
           {/* Error Eyes > < */}
           {isError && (
-            <g stroke="#1E3A8A" strokeWidth="4" strokeLinecap="round" fill="none">
-              <path d="M 68 95 L 82 108 M 82 95 L 68 108" />
-              <path d="M 118 95 L 132 108 M 132 95 L 118 108" />
+            <g>
+              <g stroke="#4a6cb3" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                <path d="M 62 100 L 74 108 L 62 116" />
+                <path d="M 138 100 L 126 108 L 138 116" />
+              </g>
+              {/* Blue Tears */}
+              <ellipse cx="70" cy="125" rx="4" ry="6" fill="#7aa4e8"/>
+              <ellipse cx="130" cy="125" rx="4" ry="6" fill="#7aa4e8"/>
             </g>
           )}
 
-          {/* Blushes */}
-          <ellipse cx="55" cy="112" rx="8" ry="5" fill="#FFB6C1" opacity="0.35"/>
-          <ellipse cx="145" cy="112" rx="8" ry="5" fill="#FFB6C1" opacity="0.35"/>
-
-          {/* Nose & Mouth */}
-          <path d="M 97 112 L 103 112 L 100 115 Z" fill="#FFB6C1"/>
-          {isSuccess ? (
-            <path d="M 94 118 Q 100 126 106 118" stroke="#FFB6C1" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-          ) : isError ? (
-            <path d="M 94 122 Q 100 116 106 122" stroke="#FFB6C1" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-          ) : (
-            <path d="M 93 118 Q 96.5 122 100 118 Q 103.5 122 107 118" stroke="#FFB6C1" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-          )}
-        </g>
-
-        {/* The Sleek "DeskClaw/NekoClaw" Sign Board */}
-        <g filter="url(#softShadow)">
-          <rect x="25" y="145" width="150" height="32" rx="16" fill="#1C2130" stroke="rgba(108, 127, 255, 0.4)" strokeWidth="3"/>
-          {/* Inner tech glowing rim */}
-          <rect x="29" y="148" width="142" height="6" rx="3" fill="rgba(255, 255, 255, 0.08)"/>
-        </g>
-
-        {/* The Signature Cat Paw */}
-        <g className="nk-paw-anim" filter="url(#softShadow)">
-          <path d="M 75 130 v 20 a 25 25 0 0 0 50 0 v -20 z" fill="#ffffff"/>
+          {/* Nose */}
+          <path d="M 98 118 Q 100 120 102 118" fill="none" stroke="#FFA8B6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
           
-          {/* Pink Beans */}
-          <circle cx="83" cy="146" r="4" fill="#FFB6C1"/>
-          <circle cx="94" cy="140" r="4.5" fill="#FFB6C1"/>
-          <circle cx="106" cy="140" r="4.5" fill="#FFB6C1"/>
-          <circle cx="117" cy="146" r="4" fill="#FFB6C1"/>
-          <path d="M 87 156 C 95 166, 105 166, 113 156 A 10 10 0 0 1 87 156 Z" fill="#FFB6C1"/>
+          {/* Mouth */}
+          {isSuccess ? (
+            <path d="M 92 125 Q 100 135 108 125" fill="none" stroke="#FFA8B6" strokeWidth="2.5" strokeLinecap="round"/>
+          ) : isError ? (
+            <path d="M 94 128 Q 100 122 106 128" fill="none" stroke="#FFA8B6" strokeWidth="2.5" strokeLinecap="round"/>
+          ) : (
+            <path d="M 93 125 Q 96.5 130 100 125 Q 103.5 130 107 125" fill="none" stroke="#FFA8B6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          )}
+
+          {/* === THE FLUFFY WAVING PAW (Left) === */}
+          <g className="nk-wave">
+            {/* Outline & fill of paw */}
+            <path d="M 15 130 Q 10 95 35 95 Q 60 95 55 130 Q 50 152 35 155 Q 20 152 15 130 Z" fill="#ffffff" stroke="#d6cde5" strokeWidth="4.5"/>
+            {/* Pink Beans */}
+            <path d="M 28 130 C 32 125, 38 125, 42 130 A 6 6 0 0 1 28 130 Z" fill="#FFA8B6"/>
+            <circle cx="22" cy="120" r="4.5" fill="#FFA8B6"/>
+            <circle cx="30" cy="110" r="5" fill="#FFA8B6"/>
+            <circle cx="40" cy="110" r="5" fill="#FFA8B6"/>
+            <circle cx="48" cy="120" r="4.5" fill="#FFA8B6"/>
+          </g>
+
         </g>
 
-        {/* Decor: Thinking Bubble */}
+        {/* === THE BOTTOM SIGN BOARD === */}
+        {/* Exact same shape and pastel blue as the logo's NekoClaw sign */}
+        <g transform="translate(0, 10)">
+          <rect x="18" y="150" width="164" height="32" rx="16" fill="url(#boardGrad)" stroke="#d6cde5" strokeWidth="4"/>
+          {/* Inner white rim */}
+          <rect x="24" y="154" width="152" height="24" rx="12" fill="none" stroke="#ffffff" strokeWidth="3" opacity="0.6"/>
+        </g>
+
+        {/* === RESTING PAW (Right) === */}
+        {/* Taps on the board while working */}
+        <g className="nk-tap">
+          <path d="M 115 155 C 110 135, 155 135, 150 155 C 148 175, 118 175, 115 155 Z" fill="#ffffff" stroke="#d6cde5" strokeWidth="4.5"/>
+          {/* Tiny toe lines */}
+          <path d="M 125 160 L 125 168 M 133 162 L 133 170 M 141 160 L 141 168" stroke="#d6cde5" strokeWidth="2.5" strokeLinecap="round" opacity="0.7"/>
+        </g>
+
+        {/* === DECORATIONS / EFFECTS === */}
+        {/* Thinking Bubbles */}
         {isThinking && (
-          <g className="nk-thought" filter="url(#softShadow)">
-            <circle cx="155" cy="74" r="4" fill="#ffffff" />
-            <circle cx="168" cy="59" r="6" fill="#ffffff" />
-            <rect x="150" y="24" width="38" height="24" rx="12" fill="#ffffff" />
-            <g fill="#1E3A8A" className="nk-dot-anim">
-              <circle cx="159" cy="36" r="1.5" />
-              <circle cx="169" cy="36" r="1.5" className="delay-1" />
-              <circle cx="179" cy="36" r="1.5" className="delay-2" />
+          <g fill="#ffffff" stroke="#d6cde5" strokeWidth="2">
+            <circle cx="150" cy="65" r="5" className="nk-fade"/>
+            <circle cx="165" cy="50" r="8" className="nk-fade delay1"/>
+            <g className="nk-fade delay2">
+              <rect x="155" y="10" width="36" height="24" rx="12" />
+              <text x="173" y="27" fontSize="16" fill="#8898b8" stroke="none" fontWeight="bold" textAnchor="middle">?</text>
             </g>
           </g>
         )}
 
-        {/* Decor: Working Spinner */}
-        {isWorking && (
-          <g transform="translate(170, 36)" filter="url(#glow)">
-            <circle cx="0" cy="0" r="10" fill="none" stroke="rgba(56, 189, 248, 0.2)" strokeWidth="3"/>
-            <path d="M 0 -10 A 10 10 0 0 1 10 0" fill="none" stroke="#38BDF8" strokeWidth="3" strokeLinecap="round" className="nk-spin"/>
+        {/* Success Sparkles */}
+        {isSuccess && (
+          <g fill="#ffe57f">
+            <circle cx="40" cy="55" r="4" className="nk-fade"/>
+            <circle cx="165" cy="60" r="5" className="nk-fade delay1"/>
+            <circle cx="145" cy="30" r="3" className="nk-fade delay2"/>
           </g>
         )}
 
-        {/* Decor: Error Sweat Drop */}
-        {isError && (
-          <g filter="url(#softShadow)">
-            <path d="M 140 120 Q 135 130 140 135 Q 145 130 140 120 Z" fill="#38BDF8"/>
-          </g>
-        )}
-        
       </g>
     </svg>
   )

@@ -14,7 +14,7 @@ export function Sidebar() {
   const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession } = useAppStore()
 
   const createNewSession = () => {
-    const id = local- + Date.now()
+    const id = `local-${Date.now()}`
     addSession({ id, title: '新对话' })
     setActiveSession(id)
     setSidebarTab('sessions')
@@ -41,7 +41,7 @@ export function Sidebar() {
         {PANEL_ITEMS.map((item) => (
           <button
             key={item.id}
-            className={${styles.navItem} }
+            className={`${styles.navItem} ${sidebarTab === item.id ? styles.active : ''}`}
             onClick={() => setSidebarTab(item.id)}
           >
             <span className={styles.navIcon}>{item.icon}</span>
@@ -62,7 +62,7 @@ export function Sidebar() {
           sessions.map((s) => (
             <button
               key={s.id}
-              className={${styles.sessionItem} }
+              className={`${styles.sessionItem} ${activeSessionId === s.id && sidebarTab === 'sessions' ? styles.sessionActive : ''}`}
               onClick={() => { setActiveSession(s.id); setSidebarTab('sessions') }}
             >
               <span className={styles.sessionIcon}>💬</span>
@@ -74,7 +74,7 @@ export function Sidebar() {
 
       {/* Bottom bar */}
       <div className={styles.bottomBar}>
-        <div className={${styles.bottomBarInner} }>
+        <div className={`${styles.bottomBarInner} ${sidebarTab === 'settings' ? styles.bottomBarActive : ''}`}>
           <button
             className={styles.bottomBtn}
             onClick={() => setSidebarTab('settings')}
