@@ -98,7 +98,10 @@ function ConnectForm() {
     try {
       const ctrl = new AbortController()
       const timer = setTimeout(() => ctrl.abort(), 6000)
-      await fetch(`${trimmed}/`, { signal: ctrl.signal })
+      // Use 'no-cors' so Chromium skips CORS enforcement for this health check.
+      // The response will be opaque (status 0) but a successful fetch means the
+      // server is reachable. Any network error still throws and is caught below.
+      await fetch(`${trimmed}/`, { signal: ctrl.signal, mode: 'no-cors' })
       clearTimeout(timer)
       setServerUrl(trimmed)
       addRecentServer(trimmed)
