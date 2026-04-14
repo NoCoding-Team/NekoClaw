@@ -85,6 +85,10 @@ export interface AppState {
   sidebarTab: 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings'
   setSidebarTab: (tab: AppState['sidebarTab']) => void
 
+  // Settings modal
+  settingsOpen: boolean
+  setSettingsOpen: (v: boolean) => void
+
   // Selected skill
   activeSkillId: string | null
   setActiveSkillId: (id: string | null) => void
@@ -160,6 +164,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   sidebarTab: 'sessions',
   setSidebarTab: (sidebarTab) => set({ sidebarTab }),
+
+  settingsOpen: false,
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
 
   activeSkillId: null,
   setActiveSkillId: (activeSkillId) => set({ activeSkillId }),

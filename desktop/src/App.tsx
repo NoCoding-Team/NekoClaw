@@ -17,6 +17,7 @@ export default function App() {
     <div className={styles.layout}>
       <Sidebar />
       <MainContent />
+      <SettingsPanel />
     </div>
   )
 }
@@ -29,7 +30,6 @@ function MainContent() {
   if (sidebarTab === 'skills')          return <PanelView title="技能库"><SkillsPanel /></PanelView>
   if (sidebarTab === 'memory')          return <PanelView title="记忆库"><MemoryPanel /></PanelView>
   if (sidebarTab === 'personalization') return <PersonalizationPanel />
-  if (sidebarTab === 'settings')        return <SettingsPanel />
   return <ChatArea />
 }
 

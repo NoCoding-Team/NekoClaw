@@ -11,7 +11,7 @@ const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
 ]
 
 export function Sidebar() {
-  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession } = useAppStore()
+  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession, setSettingsOpen } = useAppStore()
 
   const createNewSession = () => {
     const id = `local-${Date.now()}`
@@ -76,8 +76,8 @@ export function Sidebar() {
       <div className={styles.bottomBar}>
         <div className={styles.bottomBarInner}>
           <button
-            className={`${styles.bottomBtn} ${sidebarTab === 'settings' ? styles.bottomBtnActive : ''}`}
-            onClick={() => setSidebarTab('settings')}
+            className={styles.bottomBtn}
+            onClick={() => setSettingsOpen(true)}
             title="设置"
           >
             <span className={styles.bottomIcon}>⚙️</span>
