@@ -170,7 +170,20 @@ async def run_llm_pipeline(
 
 
 async def _build_system_prompt(user_id: str, skill: Any | None) -> str:
-    base = skill.system_prompt if skill else "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。"
+    if skill:
+        base = skill.system_prompt
+    else:
+        base = (
+            "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。\n\n"
+            "## 工具执行环境说明\n"
+            "你可以使用以下工具直接完成任务，**无需让用户手动操作**：\n"
+            "- `shell_exec`、`file_read`、`file_write`、`file_list`、`file_delete`、"
+            "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`：\n"
+            "  这些工具在**用户的本地电脑**上执行，通过桌面客户端的 IPC 桥接运行。"
+            "你可以直接调用它们来操作用户的本机文件系统、终端命令、浏览器等，无需用户自己手动操作。\n"
+            "- `web_search`、`http_request`：在服务端执行，用于联网搜索和接口请求。\n\n"
+            "当用户请求需要使用工具时，**直接调用对应工具**，不要告诉用户去手动操作。"
+        )
 
     # Inject memory
     memory_context = await _load_memory(user_id)
