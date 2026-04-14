@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, safeStorage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
@@ -12,6 +12,9 @@ if (process.platform === 'win32') {
 }
 
 function createWindow() {
+  const iconPath = path.join(__dirname, '../build/icon.ico')
+  const appIcon = nativeImage.createFromPath(iconPath)
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -20,7 +23,7 @@ function createWindow() {
     backgroundColor: '#0f0f13',
     titleBarStyle: 'hiddenInset',
     frame: false,
-    icon: path.join(__dirname, '../build/icon.ico'),
+    icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -28,6 +31,9 @@ function createWindow() {
       sandbox: false, // needed for preload modules
     },
   })
+
+  // Explicitly set icon after window creation to ensure taskbar shows correct icon
+  win.setIcon(appIcon)
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
