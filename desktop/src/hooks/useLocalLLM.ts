@@ -157,7 +157,6 @@ export function useLocalLLM(sessionId: string | null) {
     updateLastAssistantToken,
     setMessages,
     setCatState,
-    messagesBySession,
   } = useAppStore()
 
   const sendMessage = useCallback(
@@ -166,14 +165,12 @@ export function useLocalLLM(sessionId: string | null) {
 
       setCatState('thinking')
 
-      // Append user message
+      // Append user message first
       appendMessage(sessionId, { id: uuidv4(), role: 'user', content })
 
-      // Build conversation history for the API call
-      const history = [
-        ...(messagesBySession[sessionId] ?? []),
-        { id: '_tmp', role: 'user' as const, content },
-      ]
+      // Read history from store *after* appending, to avoid stale closure
+      const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+      const history = allMsgs
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role, content: m.content }))
 
@@ -227,7 +224,11 @@ export function useLocalLLM(sessionId: string | null) {
         const msgs = useAppStore.getState().messagesBySession[sessionId] ?? []
         const last = msgs[msgs.length - 1]
         if (last?.streaming) {
-          const errText = e instanceof Error ? e.message : String(e)
+          let errText = e instanceof Error ? e.message : String(e)
+          if (errText === 'Failed to fetch') {
+            const url = localLLMConfig.baseUrl || '（未配置）'
+            errText = `无法连接到 ${url}\n请检查：① 服务是否运行 ② Base URL 是否正确 ③ 网络是否通畅`
+          }
           setMessages(sessionId, [
             ...msgs.slice(0, -1),
             { ...last, streaming: false, content: last.content || `❌ ${errText}` },
