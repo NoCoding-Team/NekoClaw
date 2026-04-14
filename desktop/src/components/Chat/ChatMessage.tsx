@@ -44,7 +44,7 @@ export function ChatMessage({ message }: Props) {
   // Assistant
   return (
     <div className={styles.row}>
-      <div className={styles.catAvatar}>🐱</div>
+      <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
       <div className={styles.aiBubble + ' selectable'}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
