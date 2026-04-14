@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { ChatArea } from './components/Chat/ChatArea'
 import { useAppStore } from './store/app'
@@ -10,7 +10,39 @@ import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { PersonalizationPanel } from './components/Settings/PersonalizationPanel'
 
 export default function App() {
-  const { token, serverConnected } = useAppStore()
+  const { token, serverConnected, serverUrl, setSessions, setActiveSession } = useAppStore()
+
+  // 登录后自动从服务器拉取 sessions，并选中最新的一条
+  useEffect(() => {
+    if (!token) return
+    ;(async () => {
+      try {
+        const res = await fetch(`${serverUrl}/api/sessions`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return
+        const data: Array<{ id: string; title: string; skill_id: string | null }> = await res.json()
+        if (data.length > 0) {
+          setSessions(data.map((s) => ({ id: s.id, title: s.title, skillId: s.skill_id ?? undefined })))
+          setActiveSession(data[0].id)
+        } else {
+          const newRes = await fetch(`${serverUrl}/api/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ title: '新对话' }),
+          })
+          if (newRes.ok) {
+            const s: { id: string; title: string; skill_id: string | null } = await newRes.json()
+            setSessions([{ id: s.id, title: s.title, skillId: s.skill_id ?? undefined }])
+            setActiveSession(s.id)
+          }
+        }
+      } catch {
+        // 网络异常时静默忽略，用户可手动创建
+      }
+    })()
+  }, [token])
+
   if (!serverConnected) return <ConnectForm />
   if (!token) return <LoginForm />
   return (
