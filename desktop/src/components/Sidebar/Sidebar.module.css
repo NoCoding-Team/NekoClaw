@@ -122,38 +122,35 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: var(--radius-sm);
-  padding: 4px;
-  transition: background 0.15s;
-  background: var(--bg-surface);
-}
-
-.bottomBarInner:hover {
-  background: var(--bg-hover);
-}
-
-.bottomBarActive {
-  background: var(--bg-hover);
+  padding: 2px;
+  gap: 2px;
 }
 
 .bottomBtn {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 6px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 13px;
-  transition: color 0.15s;
+  transition: background 0.15s, color 0.15s;
   flex: 1;
 }
 
 .bottomBtn:hover {
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.bottomBarActive .bottomBtn {
-  color: var(--accent);
+.bottomBtnActive {
+  background: var(--accent-glow);
+  color: var(--accent) !important;
+  font-weight: 500;
+}
+
+.bottomBtnActive:hover {
+  background: var(--accent-glow);
 }
 
 .bottomIcon {
