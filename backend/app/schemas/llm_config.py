@@ -31,6 +31,7 @@ class LLMConfigResponse(BaseModel):
     is_default: bool
     context_limit: int
     temperature: float
+    owner_id: str | None = None  # None = global config; user_id = personal config
     # api_key intentionally omitted
 
     model_config = {"from_attributes": True}

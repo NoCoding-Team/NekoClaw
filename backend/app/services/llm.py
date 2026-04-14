@@ -49,11 +49,25 @@ async def run_llm_pipeline(
         if active_skill_id:
             skill = await db.get(Skill, active_skill_id)
 
-        # Load default LLM config
+        # Load default LLM config: prefer user's own default, fall back to global default
         result = await db.execute(
-            select(LLMConfig).where(LLMConfig.is_default == True, LLMConfig.deleted_at.is_(None))
+            select(LLMConfig).where(
+                LLMConfig.owner_id == user_id,
+                LLMConfig.is_default == True,
+                LLMConfig.deleted_at.is_(None),
+            )
         )
         llm_config = result.scalar_one_or_none()
+
+        if not llm_config:
+            result = await db.execute(
+                select(LLMConfig).where(
+                    LLMConfig.owner_id.is_(None),
+                    LLMConfig.is_default == True,
+                    LLMConfig.deleted_at.is_(None),
+                )
+            )
+            llm_config = result.scalar_one_or_none()
 
         # Load message history
         msgs_result = await db.execute(

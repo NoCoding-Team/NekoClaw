@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Boolean, Text
+from sqlalchemy import String, Boolean, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -17,3 +17,8 @@ class LLMConfig(BaseModel):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     context_limit: Mapped[int] = mapped_column(default=128000, nullable=False)
     temperature: Mapped[float] = mapped_column(default=0.7, nullable=False)
+    # owner_id = None  →  global/admin config visible to all users
+    # owner_id = <user_id>  →  personal config, only used by that user
+    owner_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, default=None, index=True
+    )
