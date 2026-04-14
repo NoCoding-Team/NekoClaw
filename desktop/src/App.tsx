@@ -10,7 +10,16 @@ import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { PersonalizationPanel } from './components/Settings/PersonalizationPanel'
 
 export default function App() {
-  const { token, serverConnected, serverUrl, setSessions, setActiveSession } = useAppStore()
+  const { token, serverConnected, serverUrl, setSessions, setActiveSession, setProfile } = useAppStore()
+
+  // 登录状态恢复时拉取用户信息
+  useEffect(() => {
+    if (!token) return
+    fetch(`${serverUrl}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(me => { if (me) setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null) })
+      .catch(() => {})
+  }, [token]) // eslint-disable-line
 
   // 登录后自动从服务器拉取 sessions，并选中最新的一条
   useEffect(() => {
@@ -177,13 +186,24 @@ function ConnectForm() {
 // ─── 登录 / 注册 ───────────────────────────────────────────────────────────────
 
 function LoginForm() {
-  const { setAuth, serverUrl, setServerConnected } = useAppStore()
+  const { setAuth, setProfile, serverUrl, setServerConnected } = useAppStore()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [nickname, setNickname] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const avatarInputRef = React.useRef<HTMLInputElement>(null)
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setAvatarPreview(reader.result as string)
+    reader.readAsDataURL(file)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -199,12 +219,20 @@ function LoginForm() {
         })
         if (!res.ok) throw new Error((await res.json()).detail || '登录失败')
         const data = await res.json()
-        setAuth(data.access_token, data.user_id, username)
+        setAuth(data.access_token, '', username)
+        // 获取完整用户信息
+        const meRes = await fetch(`${serverUrl}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${data.access_token}` },
+        })
+        if (meRes.ok) {
+          const me = await meRes.json()
+          setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null)
+        }
       } else {
         const res = await fetch(`${serverUrl}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ username, password, nickname: nickname.trim() || null }),
         })
         if (!res.ok) throw new Error((await res.json()).detail || '注册失败')
         const loginRes = await fetch(`${serverUrl}/api/auth/login`, {
@@ -213,7 +241,23 @@ function LoginForm() {
           body: JSON.stringify({ username, password }),
         })
         const loginData = await loginRes.json()
-        setAuth(loginData.access_token, loginData.user_id, username)
+        setAuth(loginData.access_token, '', username)
+        // 上传头像（如有）并获取完整用户信息
+        let token = loginData.access_token
+        if (avatarPreview) {
+          await fetch(`${serverUrl}/api/auth/me`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ avatar_data: avatarPreview }),
+          })
+        }
+        const meRes = await fetch(`${serverUrl}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (meRes.ok) {
+          const me = await meRes.json()
+          setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null)
+        }
       }
     } catch (err) {
       setError((err as Error).message)
@@ -224,7 +268,7 @@ function LoginForm() {
 
   const switchMode = () => {
     setMode((m) => (m === 'login' ? 'register' : 'login'))
-    setError(''); setPassword(''); setConfirm('')
+    setError(''); setPassword(''); setConfirm(''); setNickname(''); setAvatarPreview(null)
   }
 
   return (
@@ -242,9 +286,24 @@ function LoginForm() {
           <span className={styles.serverBadgeUrl}>{serverUrl}</span>
           <button className={styles.serverSwitchBtn} onClick={() => setServerConnected(false)}>切换</button>
         </div>
+        {mode === 'register' && (
+          <div className={styles.loginAvatarPicker} onClick={() => avatarInputRef.current?.click()}>
+            {avatarPreview
+              ? <img src={avatarPreview} className={styles.loginAvatarImg} alt="头像预览" />
+              : <span className={styles.loginAvatarPlaceholder}>🐾</span>
+            }
+            <span className={styles.loginAvatarHint}>点击上传头像</span>
+            <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={handleAvatarChange} />
+          </div>
+        )}
         <form onSubmit={handleSubmit} className={styles.loginForm}>
           <input className={styles.loginInput} placeholder="用户名" value={username}
             onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+          {mode === 'register' && (
+            <input className={styles.loginInput} placeholder="昵称（可选）" value={nickname}
+              onChange={(e) => setNickname(e.target.value)} autoComplete="nickname" />
+          )}
           <input className={styles.loginInput} type="password" placeholder="密码" value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />

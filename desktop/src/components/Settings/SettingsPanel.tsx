@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useAppStore } from '../../store/app'
 import styles from './SettingsPanel.module.css'
 import { encryptKey } from '../../hooks/useLocalLLM'
@@ -252,9 +252,131 @@ function ModelCenterTab() {
   )
 }
 
+// ── Account Tab ────────────────────────────────────────────────────────────────
+interface AccountTabProps {
+  userId: string | null
+  username: string | null
+  nickname: string | null
+  avatarData: string | null
+  serverUrl: string
+  token: string | null
+  setProfile: (userId: string, username: string, nickname: string | null, avatarData: string | null) => void
+  onLogout: () => void
+}
+
+function AccountTab({ userId, username, nickname, avatarData, serverUrl, token, setProfile, onLogout }: AccountTabProps) {
+  const [editingNick, setEditingNick] = useState(false)
+  const [nickInput, setNickInput] = useState(nickname ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const shortId = userId ? userId.replace(/-/g, '').slice(0, 8) : '—'
+  const displayName = nickname || username || '—'
+
+  const patchProfile = async (patch: { nickname?: string | null; avatar_data?: string | null }) => {
+    if (!token) return
+    setSaving(true); setSaveMsg('')
+    try {
+      const res = await fetch(`${serverUrl}/api/auth/me`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) throw new Error('保存失败')
+      const me = await res.json()
+      setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null)
+      setSaveMsg('已保存 ✓')
+      setTimeout(() => setSaveMsg(''), 2000)
+    } catch {
+      setSaveMsg('保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => patchProfile({ avatar_data: reader.result as string })
+    reader.readAsDataURL(file)
+  }
+
+  const handleSaveNick = () => {
+    patchProfile({ nickname: nickInput.trim() || null })
+    setEditingNick(false)
+  }
+
+  return (
+    <div>
+      <div className={styles.userHeader}>
+        <div className={styles.userHeaderLeft}>
+          <div className={styles.accountAvatarWrap} onClick={() => avatarInputRef.current?.click()} title="点击修改头像">
+            {avatarData
+              ? <img src={avatarData} className={styles.accountAvatarImg} alt="头像" />
+              : <div className={styles.accountAvatar}>🐾</div>
+            }
+            <div className={styles.accountAvatarEdit}>📷</div>
+          </div>
+          <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
+          <div>
+            {editingNick ? (
+              <div className={styles.nickEditRow}>
+                <input
+                  className={styles.nickInput}
+                  value={nickInput}
+                  onChange={(e) => setNickInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveNick() }}
+                  autoFocus
+                  maxLength={32}
+                  placeholder="输入昵称"
+                />
+                <button className={styles.nickSaveBtn} onClick={handleSaveNick} disabled={saving}>保存</button>
+                <button className={styles.nickCancelBtn} onClick={() => { setEditingNick(false); setNickInput(nickname ?? '') }}>取消</button>
+              </div>
+            ) : (
+              <div className={styles.nickRow}>
+                <span className={styles.userDisplayName}>{displayName}</span>
+                <button className={styles.editNickBtn} onClick={() => { setEditingNick(true); setNickInput(nickname ?? '') }} title="修改昵称">✏️</button>
+              </div>
+            )}
+            {saveMsg && <span className={styles.saveMsg}>{saveMsg}</span>}
+          </div>
+        </div>
+        <button className={styles.dangerBtn} onClick={onLogout}>
+          ↪ 退出登录
+        </button>
+      </div>
+      <div className={styles.infoTable}>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>用户 ID</span>
+          <span className={styles.infoVal}>{shortId}</span>
+        </div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>用户名</span>
+          <span className={styles.infoVal}>{username ?? '—'}</span>
+        </div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>服务器</span>
+          <span className={styles.infoVal}>{serverUrl ?? '—'}</span>
+        </div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>积分</span>
+          <span className={`${styles.infoVal} ${styles.highlight}`}>—</span>
+        </div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>创作点</span>
+          <span className={`${styles.infoVal} ${styles.highlight}`}>—</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function SettingsPanel() {
   const [tab, setTab] = useState<Tab>('account')
-  const { userId, username, serverUrl, clearAuth, setServerConnected, settingsOpen, setSettingsOpen } = useAppStore()
+  const { userId, username, nickname, avatarData, serverUrl, token, clearAuth, setServerConnected, settingsOpen, setSettingsOpen, setProfile } = useAppStore()
 
   if (!settingsOpen) return null
 
@@ -317,37 +439,16 @@ export function SettingsPanel() {
           {/* Right content */}
           <div className={styles.content}>
             {tab === 'account' && (
-              <div>
-                <div className={styles.userHeader}>
-                  <div className={styles.userHeaderLeft}>
-                    <div className={styles.accountAvatar}>🐾</div>
-                    <span className={styles.userDisplayName}>
-                      {username ?? `用户 #${userId ?? '—'}`}
-                    </span>
-                  </div>
-                  <button className={styles.dangerBtn} onClick={handleLogout}>
-                    ↪ 退出登录
-                  </button>
-                </div>
-                <div className={styles.infoTable}>
-                  <div className={styles.infoRow}>
-                    <span className={styles.infoKey}>用户 ID</span>
-                    <span className={styles.infoVal}>{userId ?? '—'}</span>
-                  </div>
-                  <div className={styles.infoRow}>
-                    <span className={styles.infoKey}>服务器</span>
-                    <span className={styles.infoVal}>{serverUrl ?? '—'}</span>
-                  </div>
-                  <div className={styles.infoRow}>
-                    <span className={styles.infoKey}>积分</span>
-                    <span className={`${styles.infoVal} ${styles.highlight}`}>—</span>
-                  </div>
-                  <div className={styles.infoRow}>
-                    <span className={styles.infoKey}>创作点</span>
-                    <span className={`${styles.infoVal} ${styles.highlight}`}>—</span>
-                  </div>
-                </div>
-              </div>
+              <AccountTab
+                userId={userId}
+                username={username}
+                nickname={nickname}
+                avatarData={avatarData}
+                serverUrl={serverUrl}
+                token={token}
+                setProfile={setProfile}
+                onLogout={handleLogout}
+              />
             )}
 
             {tab === 'general' && (

@@ -13,7 +13,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UpdateProfileRequest, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -35,6 +35,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         username=body.username,
         hashed_password=hash_password(body.password),
         is_admin=is_first_user,
+        nickname=body.nickname,
     )
     db.add(user)
     await db.commit()
@@ -79,4 +80,32 @@ async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
-    return UserResponse(id=current_user.id, username=current_user.username, is_admin=current_user.is_admin)
+    return UserResponse(
+        id=current_user.id,
+        username=current_user.username,
+        is_admin=current_user.is_admin,
+        nickname=current_user.nickname,
+        avatar_data=current_user.avatar_data,
+    )
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_profile(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.nickname is not None:
+        current_user.nickname = body.nickname.strip() or None
+    if body.avatar_data is not None:
+        current_user.avatar_data = body.avatar_data or None
+    await db.commit()
+    await db.refresh(current_user)
+    return UserResponse(
+        id=current_user.id,
+        username=current_user.username,
+        is_admin=current_user.is_admin,
+        nickname=current_user.nickname,
+        avatar_data=current_user.avatar_data,
+    )
+

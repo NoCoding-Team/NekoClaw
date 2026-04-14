@@ -53,6 +53,18 @@ _BUILTIN_SKILLS = [
 async def create_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # 对已有数据库做字段补全迁移（ADD COLUMN IF NOT EXISTS，PostgreSQL 支持）
+    async with engine.begin() as conn:
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(64) NULL"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data TEXT NULL"
+            )
+        )
 
 
 async def _seed_builtin_skills():

@@ -183,6 +183,84 @@
   flex-shrink: 0;
 }
 
+/* Avatar wrapper with edit overlay */
+.accountAvatarWrap {
+  position: relative;
+  width: 44px; height: 44px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.accountAvatarWrap:hover .accountAvatarEdit { opacity: 1; }
+.accountAvatarImg {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.accountAvatarEdit {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* Nickname inline edit */
+.nickRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.editNickBtn {
+  font-size: 13px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.editNickBtn:hover { opacity: 1; }
+.nickEditRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nickInput {
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  outline: none;
+  font-family: inherit;
+  width: 140px;
+}
+.nickSaveBtn {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+.nickSaveBtn:disabled { opacity: 0.5; }
+.nickCancelBtn {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.saveMsg {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: block;
+}
+
 /* Buttons */
 .dangerBtn {
   padding: 8px 18px;
