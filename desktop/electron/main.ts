@@ -5,6 +5,12 @@ import os from 'os'
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
+// Set app name and identity so Windows taskbar shows "NekoClaw" instead of "Electron"
+app.setName('NekoClaw')
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.nekoclaw.desktop')
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
