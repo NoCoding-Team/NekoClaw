@@ -30,3 +30,7 @@ class MessageResponse(BaseModel):
 class MessageCreate(BaseModel):
     role: str   # 'user' | 'assistant'
     content: str
+
+
+class SessionUpdate(BaseModel):
+    title: str

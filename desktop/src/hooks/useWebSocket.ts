@@ -79,6 +79,25 @@ export function useWebSocket(sessionId: string | null) {
             ...msgs.slice(0, -1),
             { ...last, streaming: false },
           ])
+          // 两段式标题：仅在第一轮对话时触发
+          const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+          const isFirstRound = allMsgs.filter((m) => m.role === 'assistant').length === 1
+          if (isFirstRound) {
+            const firstUser = allMsgs.find((m) => m.role === 'user')
+            const { serverUrl: sv, token: tk, updateSessionTitle } = useAppStore.getState()
+            if (tk && firstUser) {
+              // Stage 1: 立即截取前15字
+              const shortTitle = firstUser.content.slice(0, 15) + (firstUser.content.length > 15 ? '…' : '')
+              fetch(`${sv}/api/sessions/${sessionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+                body: JSON.stringify({ title: shortTitle }),
+              }).catch(() => {})
+              updateSessionTitle(sessionId, shortTitle)
+              // Stage 2: 通知后端用 LLM 生成标题（如果后端支持可扩展，目前不实现以避免重复调用）
+              // WebSocket 模式下后端已有上下文，可以后续从后端推送 title_update 事件来实现
+            }
+          }
         }
       } else if (type === 'tool_call') {
         // Append tool call card then execute

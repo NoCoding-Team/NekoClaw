@@ -8,7 +8,7 @@ from app.core.exceptions import NotFoundError, ForbiddenError
 from app.models.session import Session
 from app.models.message import Message
 from app.models.user import User
-from app.schemas.session import SessionCreate, SessionResponse, MessageResponse, MessageCreate
+from app.schemas.session import SessionCreate, SessionResponse, MessageResponse, MessageCreate, SessionUpdate
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -39,6 +39,27 @@ async def create_session(
         skill_id=body.skill_id,
     )
     db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session
+
+
+@router.patch("/{session_id}", response_model=SessionResponse)
+async def update_session(
+    session_id: str,
+    body: SessionUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Session).where(Session.id == session_id, Session.deleted_at.is_(None))
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise NotFoundError("Session not found")
+    if session.user_id != current_user.id:
+        raise ForbiddenError()
+    session.title = body.title
     await db.commit()
     await db.refresh(session)
     return session

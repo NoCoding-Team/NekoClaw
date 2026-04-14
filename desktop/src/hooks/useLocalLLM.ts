@@ -168,6 +168,64 @@ async function persistMessage(
   }
 }
 
+/**
+ * 两段式标题更新：
+ * stage 1 — 立刻用用户消息前15字更新标题（零延迟反馈）
+ * stage 2 — 拿到完整 user+assistant 对话后，用 LLM 生成语义标题覆盖
+ */
+async function autoUpdateTitle(
+  sessionId: string,
+  userContent: string,
+  assistantContent: string,
+  config: import('../store/app').LocalLLMConfig,
+  serverUrl: string,
+  token: string,
+) {
+  if (!token || sessionId.startsWith('local-')) return
+
+  // Stage 1: 立即截取前15字
+  const shortTitle = userContent.slice(0, 15) + (userContent.length > 15 ? '…' : '')
+  await patchSessionTitle(serverUrl, token, sessionId, shortTitle)
+  useAppStore.getState().updateSessionTitle(sessionId, shortTitle)
+
+  // Stage 2: 用 LLM 生成语义标题（不阻塞主流程，在后台跑）
+  try {
+    let apiKey = ''
+    try { apiKey = await decryptKey(config.apiKeyB64) } catch { return }
+
+    let generatedTitle = ''
+    const isAnthropic =
+      config.provider === 'anthropic' && config.baseUrl.includes('anthropic.com')
+    const streamFn = isAnthropic ? streamAnthropic : streamOpenAI
+    const titlePrompt = [
+      { role: 'user', content: `根据以下对话，用一句话（10字以内，不加引号、不加标点结尾）总结主题。\n用户：${userContent}\n助手：${assistantContent}` },
+    ]
+    await streamFn(
+      config.baseUrl, apiKey, config.model,
+      32, 0.3, titlePrompt,
+      (t) => { generatedTitle += t },
+      new AbortController().signal,
+    )
+    const finalTitle = generatedTitle.trim().slice(0, 30) || shortTitle
+    await patchSessionTitle(serverUrl, token, sessionId, finalTitle)
+    useAppStore.getState().updateSessionTitle(sessionId, finalTitle)
+  } catch {
+    // Stage 2 失败不影响任何功能，Stage 1 的标题已生效
+  }
+}
+
+async function patchSessionTitle(serverUrl: string, token: string, sessionId: string, title: string) {
+  try {
+    await fetch(`${serverUrl}/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ title }),
+    })
+  } catch {
+    // best-effort
+  }
+}
+
 export function useLocalLLM(sessionId: string | null) {
   const {
     localLLMConfig,
@@ -247,6 +305,14 @@ export function useLocalLLM(sessionId: string | null) {
           const { serverUrl, token } = useAppStore.getState()
           if (token && !sessionId.startsWith('local-')) {
             persistMessage(serverUrl, token, sessionId, 'assistant', finalMsg.content)
+          }
+          // 两段式标题：仅在第一轮对话（只有1条 user + 1条 assistant）时触发
+          const isFirstRound = msgs.filter((m) => m.role === 'assistant').length === 1
+          if (isFirstRound) {
+            const { serverUrl: sv, token: tk } = useAppStore.getState()
+            if (tk) {
+              autoUpdateTitle(sessionId, content, finalMsg.content, localLLMConfig, sv, tk)
+            }
           }
         }
         setCatState('idle')
