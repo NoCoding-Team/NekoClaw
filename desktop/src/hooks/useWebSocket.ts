@@ -34,7 +34,7 @@ export function useWebSocket(sessionId: string | null) {
     if (!token || !sessionId) return
     // local-* sessions are client-side only and never registered on the server
     if (sessionId.startsWith('local-')) return
-    const wsUrl = serverUrl.replace(/^http/, 'ws') + `/ws/${sessionId}?token=${token}`
+    const wsUrl = serverUrl.replace(/^http/, 'ws') + `/api/ws/${sessionId}?token=${token}`
     setWsStatus('connecting')
 
     const ws = new WebSocket(wsUrl)
