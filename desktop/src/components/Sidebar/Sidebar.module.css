@@ -122,8 +122,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px;
-  gap: 2px;
+  padding: 2px 4px;
 }
 
 .bottomBtn {
