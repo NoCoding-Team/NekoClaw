@@ -20,14 +20,11 @@ await Promise.all(
 await sharp(src).resize(512, 512, opts).png().toFile(path.join(buildDir, 'icon.png'))
 console.log('All PNGs generated')
 
-// Build multi-size ICO from 16/32/48/64/128/256
-// Use png-to-ico which accepts one PNG at a time; we'll build with 256 size and let Windows scale
-// For multi-size ICO, use a manual approach with the CLI for each required size then cat them
-// Actually use the programmatic API with multiple buffers
-const { imagesToIco } = await import('../node_modules/png-to-ico/index.js')
+// Build multi-size ICO from 16/32/48/64/128/256 using default export (accepts file paths)
+const pngToIco = (await import('../node_modules/png-to-ico/index.js')).default
 
 const icoSizes = [16, 32, 48, 64, 128, 256]
-const buffers = icoSizes.map(s => fs.readFileSync(path.join(buildDir, `icon_${s}.png`)))
-const icoBuf = imagesToIco(buffers)
+const icoPaths = icoSizes.map(s => path.join(buildDir, `icon_${s}.png`))
+const icoBuf = await pngToIco(icoPaths)
 fs.writeFileSync(path.join(buildDir, 'icon.ico'), icoBuf)
 console.log('icon.ico generated with sizes:', icoSizes.join(', '))
