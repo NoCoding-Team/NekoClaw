@@ -3,6 +3,7 @@ import { create } from 'zustand'
 const STORAGE_SERVER = 'neko_server_url'
 const STORAGE_RECENT = 'neko_recent_servers'
 const STORAGE_LOCAL_LLM = 'neko_local_llm_config'
+const STORAGE_AUTH = 'neko_auth'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -31,6 +32,15 @@ function loadLocalLLMConfig(): LocalLLMConfig | null {
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
+  }
+}
+
+function loadAuth(): { token: string | null; userId: string | null; username: string | null } {
+  try {
+    const raw = localStorage.getItem(STORAGE_AUTH)
+    return raw ? JSON.parse(raw) : { token: null, userId: null, username: null }
+  } catch {
+    return { token: null, userId: null, username: null }
   }
 }
 
@@ -119,11 +129,16 @@ export interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  token: null,
-  userId: null,
-  username: null,
-  setAuth: (token, userId, username) => set({ token, userId, username: username ?? null }),
-  clearAuth: () => set({ token: null, userId: null, username: null }),
+  ...loadAuth(),
+  setAuth: (token, userId, username) => {
+    const auth = { token, userId, username: username ?? null }
+    localStorage.setItem(STORAGE_AUTH, JSON.stringify(auth))
+    set(auth)
+  },
+  clearAuth: () => {
+    localStorage.removeItem(STORAGE_AUTH)
+    set({ token: null, userId: null, username: null })
+  },
 
   serverUrl: loadServerUrl(),
   setServerUrl: (url) => {
@@ -131,7 +146,8 @@ export const useAppStore = create<AppState>((set) => ({
     set({ serverUrl: url })
   },
 
-  serverConnected: false,
+  // Restore serverConnected from persisted token — if we have a token, server was reachable
+  serverConnected: !!loadAuth().token,
   setServerConnected: (serverConnected) => set({ serverConnected }),
   recentServers: loadRecentServers(),
   addRecentServer: (url) =>
