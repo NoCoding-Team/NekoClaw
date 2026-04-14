@@ -13,7 +13,6 @@ const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
 
 export function Sidebar() {
   const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession, removeSession, setSettingsOpen, serverUrl, token } = useAppStore()
-  const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const deleteSession = async (e: React.MouseEvent, id: string) => {
@@ -31,32 +30,10 @@ export function Sidebar() {
     }
   }
 
-  const createNewSession = async () => {
-    if (creating) return
-    setCreating(true)
-    try {
-      const res = await fetch(`${serverUrl}/api/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ title: '新对话' }),
-      })
-      if (res.ok) {
-        const session = await res.json()
-        addSession({ id: session.id, title: session.title })
-        setActiveSession(session.id)
-      } else {
-        // fallback to local session if API fails
-        const id = `local-${Date.now()}`
-        addSession({ id, title: '新对话' })
-        setActiveSession(id)
-      }
-    } catch {
-      const id = `local-${Date.now()}`
-      addSession({ id, title: '新对话' })
-      setActiveSession(id)
-    } finally {
-      setCreating(false)
-    }
+  const createNewSession = () => {
+    const id = `local-${Date.now()}`
+    addSession({ id, title: '新对话' })
+    setActiveSession(id)
     setSidebarTab('sessions')
   }
 
@@ -70,9 +47,9 @@ export function Sidebar() {
 
       {/* New session */}
       <div className={styles.topActions}>
-        <button className={styles.newBtn} onClick={createNewSession} disabled={creating}>
+        <button className={styles.newBtn} onClick={createNewSession}>
           <span className={styles.newBtnPlus}>＋</span>
-          <span>{creating ? '创建中…' : '新建对话'}</span>
+          <span>新建对话</span>
         </button>
       </div>
 

@@ -121,6 +121,8 @@ export interface AppState {
   addSession: (session: Session) => void
   removeSession: (id: string) => void
   updateSessionTitle: (id: string, title: string) => void
+  /** 将 local- 临时会话替换为服务端真实会话，并迁移消息记录 */
+  replaceSession: (oldId: string, newSession: Session) => void
 
   // Messages per session
   messagesBySession: Record<string, ChatMessage[]>
@@ -198,6 +200,19 @@ export const useAppStore = create<AppState>((set) => ({
   addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
   updateSessionTitle: (id, title) =>
     set((s) => ({ sessions: s.sessions.map((sess) => sess.id === id ? { ...sess, title } : sess) })),
+  replaceSession: (oldId, newSession) =>
+    set((s) => {
+      const msgs = s.messagesBySession[oldId]
+      const newMsgsBySession = { ...s.messagesBySession, [newSession.id]: msgs ?? [] }
+      delete newMsgsBySession[oldId]
+      const newActiveId = s.activeSessionId === oldId ? newSession.id : s.activeSessionId
+      if (newActiveId) localStorage.setItem(STORAGE_ACTIVE_SESSION, newActiveId)
+      return {
+        sessions: s.sessions.map((sess) => sess.id === oldId ? newSession : sess),
+        activeSessionId: newActiveId,
+        messagesBySession: newMsgsBySession,
+      }
+    }),
   removeSession: (id) =>
     set((s) => ({
       sessions: s.sessions.filter((sess) => sess.id !== id),

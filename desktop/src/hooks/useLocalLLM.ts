@@ -245,17 +245,37 @@ export function useLocalLLM(sessionId: string | null) {
 
       setCatState('thinking')
 
+      // ── Materialize local session on first message ──────────────────────
+      let sid = sessionId
+      if (sessionId.startsWith('local-')) {
+        const { serverUrl: sv, token: tk } = useAppStore.getState()
+        if (tk) {
+          try {
+            const res = await fetch(`${sv}/api/sessions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+              body: JSON.stringify({ title: '新对话' }),
+            })
+            if (res.ok) {
+              const s = await res.json()
+              useAppStore.getState().replaceSession(sessionId, { id: s.id, title: s.title })
+              sid = s.id
+            }
+          } catch { /* keep local id, messages won't be persisted */ }
+        }
+      }
+
       // Append user message first
-      appendMessage(sessionId, { id: uuidv4(), role: 'user', content })
+      appendMessage(sid, { id: uuidv4(), role: 'user', content })
 
       // Persist user message to backend (best-effort)
       const { serverUrl, token } = useAppStore.getState()
-      if (token && !sessionId.startsWith('local-')) {
-        persistMessage(serverUrl, token, sessionId, 'user', content)
+      if (token && !sid.startsWith('local-')) {
+        persistMessage(serverUrl, token, sid, 'user', content)
       }
 
       // Read history from store *after* appending, to avoid stale closure
-      const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+      const allMsgs = useAppStore.getState().messagesBySession[sid] ?? []
       // Prepend system prompt from personalization config
       const systemPrompt = useAppStore.getState().personalizationConfig?.systemPrompt
       const history = [
@@ -271,7 +291,7 @@ export function useLocalLLM(sessionId: string | null) {
         apiKey = await decryptKey(localLLMConfig.apiKeyB64)
       } catch {
         const errId = uuidv4()
-        appendMessage(sessionId, {
+        appendMessage(sid, {
           id: errId,
           role: 'assistant',
           content: '❌ API Key 解密失败，请重新在设置中保存配置。',
@@ -282,7 +302,7 @@ export function useLocalLLM(sessionId: string | null) {
 
       // Create streaming assistant message placeholder
       const msgId = uuidv4()
-      appendMessage(sessionId, { id: msgId, role: 'assistant', content: '', streaming: true })
+      appendMessage(sid, { id: msgId, role: 'assistant', content: '', streaming: true })
 
       const controller = new AbortController()
 
@@ -300,33 +320,33 @@ export function useLocalLLM(sessionId: string | null) {
           localLLMConfig.maxTokens,
           localLLMConfig.temperature,
           history,
-          (token) => updateLastAssistantToken(sessionId, token),
+          (token) => updateLastAssistantToken(sid, token),
           controller.signal
         )
 
         // Mark stream as done
-        const msgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+        const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const last = msgs[msgs.length - 1]
         if (last?.streaming) {
           const finalMsg = { ...last, streaming: false }
-          setMessages(sessionId, [...msgs.slice(0, -1), finalMsg])
+          setMessages(sid, [...msgs.slice(0, -1), finalMsg])
           // Persist assistant message to backend (best-effort)
           const { serverUrl, token } = useAppStore.getState()
-          if (token && !sessionId.startsWith('local-')) {
-            persistMessage(serverUrl, token, sessionId, 'assistant', finalMsg.content)
+          if (token && !sid.startsWith('local-')) {
+            persistMessage(serverUrl, token, sid, 'assistant', finalMsg.content)
           }
           // 两段式标题：仅在第一轮对话（只有1条 user + 1条 assistant）时触发
           const isFirstRound = msgs.filter((m) => m.role === 'assistant').length === 1
           if (isFirstRound) {
             const { serverUrl: sv, token: tk } = useAppStore.getState()
             if (tk) {
-              autoUpdateTitle(sessionId, content, finalMsg.content, localLLMConfig, sv, tk)
+              autoUpdateTitle(sid, content, finalMsg.content, localLLMConfig, sv, tk)
             }
           }
         }
         setCatState('idle')
       } catch (e: unknown) {
-        const msgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+        const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const last = msgs[msgs.length - 1]
         if (last?.streaming) {
           let errText = e instanceof Error ? e.message : String(e)
@@ -334,7 +354,7 @@ export function useLocalLLM(sessionId: string | null) {
             const url = localLLMConfig.baseUrl || '（未配置）'
             errText = `无法连接到 ${url}\n请检查：① 服务是否运行 ② Base URL 是否正确 ③ 网络是否通畅`
           }
-          setMessages(sessionId, [
+          setMessages(sid, [
             ...msgs.slice(0, -1),
             { ...last, streaming: false, content: last.content || `❌ ${errText}` },
           ])

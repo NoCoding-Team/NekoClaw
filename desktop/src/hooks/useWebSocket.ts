@@ -29,6 +29,8 @@ export function useWebSocket(sessionId: string | null) {
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamingMsgId = useRef<string | null>(null)
+  /** 待发的第一条消息（local- 会话 materialized 后在 onopen 中发送） */
+  const pendingMessage = useRef<{ content: string; skillId?: string | null } | null>(null)
 
   const connect = useCallback(() => {
     if (!token || !sessionId) return
@@ -47,6 +49,14 @@ export function useWebSocket(sessionId: string | null) {
       pingTimer.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'ping' }))
       }, 30_000)
+      // 发送带入的待发消息（local- 会话 第一条消息）
+      if (pendingMessage.current) {
+        const { content, skillId } = pendingMessage.current
+        pendingMessage.current = null
+        const sid = useAppStore.getState().activeSessionId!
+        appendMessage(sid, { id: uuidv4(), role: 'user', content })
+        ws.send(JSON.stringify({ event: 'message', content, skill_id: skillId ?? null }))
+      }
     }
 
     ws.onmessage = async (ev) => {
@@ -169,7 +179,28 @@ export function useWebSocket(sessionId: string | null) {
   }, [connect])
 
   const sendMessage = useCallback(
-    (content: string, skillId?: string | null) => {
+    async (content: string, skillId?: string | null) => {
+      // 如果是 local- 会话，先 materialize，待 WS 连接后再发送
+      const currentSessionId = useAppStore.getState().activeSessionId
+      if (currentSessionId?.startsWith('local-')) {
+        const { serverUrl: sv, token: tk } = useAppStore.getState()
+        if (!tk) return
+        try {
+          const res = await fetch(`${sv}/api/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+            body: JSON.stringify({ title: '新对话' }),
+          })
+          if (!res.ok) return
+          const s = await res.json()
+          useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
+          // pendingMessage 会在 onopen 中被发送（connect 会因 activeSessionId 变化而重新触发）
+          setCatState('thinking')
+          pendingMessage.current = { content, skillId }
+        } catch {}
+        return
+      }
+
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
       setCatState('thinking')
       appendMessage(sessionId!, {
