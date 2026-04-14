@@ -1,12 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAppStore } from '../../store/app'
 import styles from './SettingsPanel.module.css'
-import {
-  LLMConfig,
-  fetchLLMConfigs,
-  createLLMConfig,
-  updateLLMConfig,
-} from '../../api/llmConfigs'
+import { encryptKey } from '../../hooks/useLocalLLM'
 
 type Tab = 'account' | 'general' | 'models' | 'mcp' | 'im-bot' | 'security' | 'feedback' | 'about'
 
@@ -20,18 +15,17 @@ const PROVIDERS = [
 
 // ── ModelCenter tab ────────────────────────────────────────────────────────────
 function ModelCenterTab() {
+  const { localLLMConfig, setLocalLLMConfig } = useAppStore()
   const [mode, setMode] = useState<'default' | 'custom'>('custom')
 
-  // custom config state
-  const [configs, setConfigs]   = useState<LLMConfig[]>([])
-  const [existing, setExisting] = useState<LLMConfig | null>(null)
-  const [provider, setProvider] = useState('openai')
-  const [baseUrl, setBaseUrl]   = useState('')
-  const [model, setModel]       = useState('')
+  // custom config state — pre-fill from persisted local config
+  const [provider, setProvider] = useState(localLLMConfig?.provider ?? 'openai')
+  const [baseUrl, setBaseUrl]   = useState(localLLMConfig?.baseUrl ?? '')
+  const [model, setModel]       = useState(localLLMConfig?.model ?? '')
   const [apiKey, setApiKey]     = useState('')
   const [showKey, setShowKey]   = useState(false)
-  const [maxTokens, setMaxTokens] = useState('8192')
-  const [temperature, setTemperature] = useState('0.7')
+  const [maxTokens, setMaxTokens] = useState(String(localLLMConfig?.maxTokens ?? 8192))
+  const [temperature, setTemperature] = useState(String(localLLMConfig?.temperature ?? 0.7))
   interface FallbackItem { id: number; name: string; provider: string; baseUrl: string; model: string; apiKey: string }
   const [fallbacks, setFallbacks] = useState<FallbackItem[]>([])
   const [fbIdSeq, setFbIdSeq]     = useState(0)
@@ -48,54 +42,27 @@ function ModelCenterTab() {
   const [err, setErr]           = useState('')
   const [ok, setOk]             = useState('')
 
-  useEffect(() => {
-    fetchLLMConfigs().then(cfgs => {
-      setConfigs(cfgs)
-      // pre-fill with first existing config
-      const first = cfgs[0]
-      if (first) {
-        setExisting(first)
-        setProvider(first.provider)
-        setBaseUrl(first.base_url ?? '')
-        setModel(first.model)
-        setMaxTokens(String(first.context_limit))
-        setTemperature(String(first.temperature))
-      }
-    }).catch(() => {})
-  }, [])
-
   const provMeta = PROVIDERS.find(p => p.value === provider) ?? PROVIDERS[0]
 
   const handleSave = async () => {
     if (!model.trim()) { setErr('模型 ID 不能为空'); return }
-    if (!existing && !apiKey.trim()) { setErr('API Key 不能为空'); return }
+    // API key is required if not already configured locally
+    if (!localLLMConfig && !apiKey.trim()) { setErr('API Key 不能为空'); return }
     setSaving(true); setErr(''); setOk('')
     try {
-      if (existing) {
-        const patch: Parameters<typeof updateLLMConfig>[1] = {
-          model: model.trim(),
-          base_url: baseUrl.trim() || undefined,
-          context_limit: parseInt(maxTokens) || 8192,
-          temperature: parseFloat(temperature) || 0.7,
-          is_default: true,
-        }
-        if (apiKey.trim()) patch.api_key = apiKey.trim()
-        await updateLLMConfig(existing.id, patch)
-      } else {
-        await createLLMConfig({
-          provider,
-          name: `${provider} 自定义`,
-          model: model.trim(),
-          api_key: apiKey.trim(),
-          base_url: baseUrl.trim() || undefined,
-          context_limit: parseInt(maxTokens) || 8192,
-          temperature: parseFloat(temperature) || 0.7,
-          is_default: true,
-        })
-      }
-      const cfgs = await fetchLLMConfigs()
-      setConfigs(cfgs)
-      setExisting(cfgs[0] ?? null)
+      // Encrypt and persist API key locally (Electron safeStorage or base64 fallback)
+      const keyToStore = apiKey.trim()
+        ? await encryptKey(apiKey.trim())
+        : localLLMConfig?.apiKeyB64 ?? ''
+
+      setLocalLLMConfig({
+        provider,
+        baseUrl: baseUrl.trim() || PROVIDERS.find(p => p.value === provider)?.placeholder ?? '',
+        model: model.trim(),
+        apiKeyB64: keyToStore,
+        maxTokens: parseInt(maxTokens) || 8192,
+        temperature: parseFloat(temperature) || 0.7,
+      })
       setOk('已保存并连接 ✓')
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : '保存失败')

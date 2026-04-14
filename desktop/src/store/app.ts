@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 const STORAGE_SERVER = 'neko_server_url'
 const STORAGE_RECENT = 'neko_recent_servers'
+const STORAGE_LOCAL_LLM = 'neko_local_llm_config'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -12,6 +13,24 @@ function loadRecentServers(): string[] {
     return JSON.parse(localStorage.getItem(STORAGE_RECENT) ?? '[]')
   } catch {
     return []
+  }
+}
+
+export interface LocalLLMConfig {
+  provider: string   // 'openai' | 'anthropic' | 'custom'
+  baseUrl: string
+  model: string
+  apiKeyB64: string  // base64 or safeStorage-encrypted bytes encoded as base64
+  maxTokens: number
+  temperature: number
+}
+
+function loadLocalLLMConfig(): LocalLLMConfig | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_LOCAL_LLM)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
   }
 }
 
@@ -92,6 +111,10 @@ export interface AppState {
   // Selected skill
   activeSkillId: string | null
   setActiveSkillId: (id: string | null) => void
+
+  // Local LLM config (bypass backend, direct API calls from desktop)
+  localLLMConfig: LocalLLMConfig | null
+  setLocalLLMConfig: (cfg: LocalLLMConfig | null) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -170,4 +193,14 @@ export const useAppStore = create<AppState>((set) => ({
 
   activeSkillId: null,
   setActiveSkillId: (activeSkillId) => set({ activeSkillId }),
+
+  localLLMConfig: loadLocalLLMConfig(),
+  setLocalLLMConfig: (cfg) => {
+    if (cfg) {
+      localStorage.setItem(STORAGE_LOCAL_LLM, JSON.stringify(cfg))
+    } else {
+      localStorage.removeItem(STORAGE_LOCAL_LLM)
+    }
+    set({ localLLMConfig: cfg })
+  },
 }))

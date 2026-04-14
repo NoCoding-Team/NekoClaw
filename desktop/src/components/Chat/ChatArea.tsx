@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
+import { useLocalLLM } from '../../hooks/useLocalLLM'
 import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
@@ -22,10 +23,17 @@ export function ChatArea() {
     catState,
     wsStatus,
     activeSkillId,
+    localLLMConfig,
   } = useAppStore()
 
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? []) : []
-  const { sendMessage } = useWebSocket(activeSessionId)
+  const { sendMessage: wsSend } = useWebSocket(localLLMConfig ? null : activeSessionId)
+  const { sendMessage: localSend } = useLocalLLM(activeSessionId)
+
+  // Route to local LLM or backend WebSocket based on config
+  const sendMessage = localLLMConfig
+    ? (text: string, _skillId?: string | null) => localSend(text)
+    : wsSend
 
   const [input, setInput] = useState('')
   const [showAssets, setShowAssets] = useState(false)
@@ -69,7 +77,7 @@ export function ChatArea() {
     return (
       <div className={styles.chatArea}>
         <div className={styles.topBar}>
-          <WsStatusPill status={wsStatus} />
+          <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
           <span className={styles.topBarSpacer} />
           <button
             className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
@@ -109,7 +117,7 @@ export function ChatArea() {
   return (
     <div className={styles.chatArea}>
       <div className={styles.topBar}>
-        <WsStatusPill status={wsStatus} />
+        <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
         <span className={styles.topBarSpacer} />
         <button
           className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
@@ -147,7 +155,15 @@ export function ChatArea() {
   )
 }
 
-function WsStatusPill({ status }: { status: string }) {
+function WsStatusPill({ status, isLocal }: { status: string; isLocal?: boolean }) {
+  if (isLocal) {
+    return (
+      <div className={`${styles.wsPill} ${styles['ws_connected']}`}>
+        <span className={styles.wsDot} />
+        本地直连
+      </div>
+    )
+  }
   const label = { connected: '已连接', connecting: '连接中…', disconnected: '未连接' }[status] || '未知'
   return (
     <div className={`${styles.wsPill} ${styles['ws_' + status]}`}>
