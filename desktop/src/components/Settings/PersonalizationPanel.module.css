@@ -6,6 +6,7 @@
   overflow: hidden;
 }
 
+/* ── Top bar ── */
 .topBar {
   height: 44px;
   display: flex;
@@ -40,18 +41,179 @@
 .windowControls button:hover { background: rgba(255,255,255,0.12); }
 .closeBtn:hover { background: var(--danger) !important; color: #fff !important; }
 
+/* ── Scrollable body ── */
 .body {
   flex: 1;
-  padding: 32px 36px;
+  padding: 20px 24px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.sectionTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
+
+/* ── 2-column grid for top row ── */
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px 20px;
+}
+.cardFull {
+  grid-column: 1 / -1;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 16px;
 }
-.placeholder {
-  color: var(--text-muted);
+.cardIcon {
+  font-size: 22px;
+  line-height: 1;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.cardTitle {
   font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.cardDesc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ── Form fields ── */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+.input,
+.select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-app-region: no-drag;
+}
+.input:focus,
+.select:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--text-muted); }
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666680' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+.select option { background: var(--bg-elevated); }
+
+.textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  resize: vertical;
+  min-height: 72px;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+  -webkit-app-region: no-drag;
+}
+.textarea:focus { border-color: var(--accent); }
+.textarea::placeholder { color: var(--text-muted); }
+.textareaLg { min-height: 100px; }
+
+/* ── Trait chips ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.chip {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  transition: all 0.15s;
+  -webkit-app-region: no-drag;
+}
+.chip:hover { border-color: var(--accent); color: var(--text-primary); }
+.chipActive {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Footer ── */
+.footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  gap: 16px;
+}
+.footerMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.footerTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.footerDesc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.generateBtn {
+  padding: 9px 28px;
+  border-radius: var(--radius-sm);
+  background: #d4a017;
+  color: #1a1208;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+.generateBtn:hover { background: #e0b020; }
+.generateBtn:active { transform: scale(0.97); }
+.generateBtnOk {
+  background: var(--success) !important;
+  color: #0d1f14 !important;
 }

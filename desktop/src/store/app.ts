@@ -5,6 +5,7 @@ const STORAGE_RECENT = 'neko_recent_servers'
 const STORAGE_LOCAL_LLM = 'neko_local_llm_config'
 const STORAGE_AUTH = 'neko_auth'
 const STORAGE_ACTIVE_SESSION = 'neko_active_session'
+const STORAGE_PERSONAL = 'neko_personal'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -30,6 +31,29 @@ export interface LocalLLMConfig {
 function loadLocalLLMConfig(): LocalLLMConfig | null {
   try {
     const raw = localStorage.getItem(STORAGE_LOCAL_LLM)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export interface PersonalizationConfig {
+  userName: string
+  timezone: string
+  notes: string
+  catName: string
+  bioType: string
+  vibe: string
+  catEmoji: string
+  traits: string[]
+  replyStyle: string
+  customPrompt: string
+  systemPrompt: string   // 由"\u751f\u6210\u914d\u7f6e"\u6309\u9215\u7f16\u8bd1\u751f\u6210
+}
+
+function loadPersonalizationConfig(): PersonalizationConfig | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_PERSONAL)
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
@@ -128,6 +152,10 @@ export interface AppState {
   // Local LLM config (bypass backend, direct API calls from desktop)
   localLLMConfig: LocalLLMConfig | null
   setLocalLLMConfig: (cfg: LocalLLMConfig | null) => void
+
+  // Personalization config
+  personalizationConfig: PersonalizationConfig | null
+  setPersonalizationConfig: (cfg: PersonalizationConfig) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -234,5 +262,11 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.removeItem(STORAGE_LOCAL_LLM)
     }
     set({ localLLMConfig: cfg })
+  },
+
+  personalizationConfig: loadPersonalizationConfig(),
+  setPersonalizationConfig: (cfg) => {
+    localStorage.setItem(STORAGE_PERSONAL, JSON.stringify(cfg))
+    set({ personalizationConfig: cfg })
   },
 }))

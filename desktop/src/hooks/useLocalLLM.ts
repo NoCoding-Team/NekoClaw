@@ -100,6 +100,9 @@ async function streamAnthropic(
   signal: AbortSignal
 ) {
   const url = baseUrl.replace(/\/$/, '') + '/v1/messages'
+  // Anthropic不允许 system role 在 messages 里，单独提取
+  const systemParts = messages.filter(m => m.role === 'system').map(m => m.content)
+  const chatMsgs = messages.filter(m => m.role !== 'system')
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -110,7 +113,8 @@ async function streamAnthropic(
     },
     body: JSON.stringify({
       model,
-      messages,
+      ...(systemParts.length ? { system: systemParts.join('\n') } : {}),
+      messages: chatMsgs,
       stream: true,
       max_tokens: maxTokens,
       temperature,
@@ -252,9 +256,14 @@ export function useLocalLLM(sessionId: string | null) {
 
       // Read history from store *after* appending, to avoid stale closure
       const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
-      const history = allMsgs
-        .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m) => ({ role: m.role, content: m.content }))
+      // Prepend system prompt from personalization config
+      const systemPrompt = useAppStore.getState().personalizationConfig?.systemPrompt
+      const history = [
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+        ...allMsgs
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({ role: m.role, content: m.content })),
+      ]
 
       // Decrypt API key
       let apiKey = ''
