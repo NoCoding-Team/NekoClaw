@@ -104,6 +104,7 @@ async def websocket_session(session_id: str, websocket: WebSocket):
                     _handle_message(session_id, user_id, data, websocket)
                 )
 
+
             elif event == "tool_result":
                 call_id = data.get("call_id")
                 if call_id and call_id in _pending_tool_calls:
@@ -134,6 +135,7 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
 
     content = data.get("content", "")
     skill_id = data.get("skill_id")
+    allowed_tools: list[str] | None = data.get("allowed_tools") or None
 
     # Persist user message
     async with AsyncSessionLocal() as db:
@@ -153,6 +155,7 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
         session_id=session_id,
         user_id=user_id,
         skill_id=skill_id,
+        allowed_tools_override=allowed_tools,
         ws=ws,
     )
 

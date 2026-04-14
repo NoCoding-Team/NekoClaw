@@ -38,6 +38,7 @@ async def run_llm_pipeline(
     user_id: str,
     skill_id: str | None,
     ws: WebSocket,
+    allowed_tools_override: list[str] | None = None,
 ):
     async with AsyncSessionLocal() as db:
         # Load session config
@@ -93,8 +94,8 @@ async def run_llm_pipeline(
             entry["tool_calls"] = m.tool_calls
         messages.append(entry)
 
-    # Determine allowed tools from Skill
-    allowed_tools = skill.allowed_tools if skill else None
+    # Determine allowed tools: skill > client override > all
+    allowed_tools = skill.allowed_tools if skill else allowed_tools_override
     tools = get_openai_tools(allowed_tools)
 
     # Agentic loop

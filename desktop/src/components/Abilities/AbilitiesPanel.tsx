@@ -62,14 +62,14 @@ const ABILITIES: Ability[] = [
 export default function AbilitiesPanel() {
   const { securityConfig, setSecurityConfig } = useAppStore()
 
-  const isAutoApproved = (ability: Ability) =>
+  const isEnabled = (ability: Ability) =>
     ability.tools.every(t => securityConfig.toolWhitelist.includes(t))
 
-  const isSomeApproved = (ability: Ability) =>
+  const isSomeEnabled = (ability: Ability) =>
     ability.tools.some(t => securityConfig.toolWhitelist.includes(t))
 
-  const toggleAutoApprove = (ability: Ability) => {
-    const all = isAutoApproved(ability)
+  const toggleAbility = (ability: Ability) => {
+    const all = isEnabled(ability)
     const current = securityConfig.toolWhitelist
     let next: string[]
     if (all) {
@@ -89,11 +89,11 @@ export default function AbilitiesPanel() {
 
       <div className={styles.list}>
         {ABILITIES.map((ability) => {
-          const auto = isAutoApproved(ability)
-          const partial = !auto && isSomeApproved(ability)
+          const enabled = isEnabled(ability)
+          const partial = !enabled && isSomeEnabled(ability)
 
           return (
-            <div key={ability.id} className={`${styles.card} ${auto ? styles.cardActive : ''}`}>
+            <div key={ability.id} className={`${styles.card} ${enabled ? styles.cardActive : ''}`}>
               <div className={styles.cardLeft}>
                 <span className={styles.cardIcon}>{ability.icon}</span>
               </div>
@@ -116,13 +116,13 @@ export default function AbilitiesPanel() {
               </div>
 
               <div className={styles.cardRight}>
-                <span className={styles.autoLabel}>{auto ? '自动执行' : partial ? '部分' : '需确认'}</span>
+                <span className={styles.autoLabel}>{enabled ? '已开启' : partial ? '部分' : '未开启'}</span>
                 <button
                   role="switch"
-                  aria-checked={auto}
-                  className={`${styles.toggle} ${auto ? styles.toggleOn : ''}`}
-                  onClick={() => toggleAutoApprove(ability)}
-                  title={auto ? '关闭自动执行' : '开启自动执行'}
+                  aria-checked={enabled}
+                  className={`${styles.toggle} ${enabled ? styles.toggleOn : ''}`}
+                  onClick={() => toggleAbility(ability)}
+                  title={enabled ? '关闭此能力' : '开启此能力'}
                 >
                   <span className={styles.toggleThumb} />
                 </button>
@@ -134,7 +134,7 @@ export default function AbilitiesPanel() {
 
       <div className={styles.footer}>
         <span className={styles.footerHint}>
-          💡 "自动执行"等同于将工具加入安全设置的工具白名单，可在设置中精细管理
+          💡 开启的能力会在每次对话中自动提供给 Agent，同时无需手动确认。未开启的能力 LLM 不会看到。
         </span>
       </div>
     </div>

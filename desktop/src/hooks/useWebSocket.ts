@@ -12,6 +12,24 @@ const MAX_BACKOFF = 30_000
 // Module-level ref kept in sync by the hook, used by confirmTool/denyTool
 let _ws: WebSocket | null = null
 
+// Per-round tool call tracking for loop guard & call limit
+const _roundToolCount: Record<string, number> = {}         // sessionId → count in current round
+const _recentTools: Record<string, string[]> = {}          // sessionId → recent tool names (window)
+
+function resetRound(sessionId: string) {
+  _roundToolCount[sessionId] = 0
+  _recentTools[sessionId] = []
+}
+
+/** Returns true if a loop is detected based on sensitivity */
+function detectLoop(sessionId: string, toolName: string, sensitivity: 'strict' | 'default' | 'loose'): boolean {
+  const window = { strict: 3, default: 5, loose: 8 }[sensitivity]
+  const recent = _recentTools[sessionId] ?? []
+  if (recent.length < window) return false
+  const last = recent.slice(-window)
+  return last.every((t) => t === toolName)
+}
+
 export function useWebSocket(sessionId: string | null) {
   const {
     token,
@@ -30,7 +48,7 @@ export function useWebSocket(sessionId: string | null) {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamingMsgId = useRef<string | null>(null)
   /** 待发的第一条消息（local- 会话 materialized 后在 onopen 中发送） */
-  const pendingMessage = useRef<{ content: string; skillId?: string | null } | null>(null)
+  const pendingMessage = useRef<{ content: string; skillId?: string | null; allowedTools?: string[] | null } | null>(null)
 
   const connect = useCallback(() => {
     if (!token || !sessionId) return
@@ -51,11 +69,11 @@ export function useWebSocket(sessionId: string | null) {
       }, 30_000)
       // 发送带入的待发消息（local- 会话 第一条消息）
       if (pendingMessage.current) {
-        const { content, skillId } = pendingMessage.current
+        const { content, skillId, allowedTools } = pendingMessage.current
         pendingMessage.current = null
         const sid = useAppStore.getState().activeSessionId!
         appendMessage(sid, { id: uuidv4(), role: 'user', content })
-        ws.send(JSON.stringify({ event: 'message', content, skill_id: skillId ?? null }))
+        ws.send(JSON.stringify({ event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools ?? null }))
       }
     }
 
@@ -133,11 +151,52 @@ export function useWebSocket(sessionId: string | null) {
           toolCalls: [tc],
         })
 
-        // If LOW risk, auto-execute; otherwise wait for user confirmation via sandbox UI
-        if (riskLevel === 'LOW') {
+        const { securityConfig } = useAppStore.getState()
+
+        // ── Loop guard ───────────────────────────────────────────────
+        if (securityConfig.loopGuard) {
+          const recent = _recentTools[sessionId] ?? []
+          _recentTools[sessionId] = [...recent, toolName].slice(-20)
+          if (detectLoop(sessionId, toolName, securityConfig.loopGuardSensitivity)) {
+            useAppStore.getState().updateToolCallStatus(sessionId, callId, {
+              status: 'error',
+              result: '[循环守卫] 检测到重复调用循环，已自动中止',
+            })
+            ws.send(JSON.stringify({
+              event: 'tool_result',
+              call_id: callId,
+              error: '[LoopGuard] Repeated tool call loop detected and aborted',
+            }))
+            return
+          }
+        }
+
+        // ── Call limit ───────────────────────────────────────────────
+        _roundToolCount[sessionId] = (_roundToolCount[sessionId] ?? 0) + 1
+        if (_roundToolCount[sessionId] > securityConfig.maxToolCallsPerRound) {
+          useAppStore.getState().updateToolCallStatus(sessionId, callId, {
+            status: 'error',
+            result: `[调用上限] 本轮已超过 ${securityConfig.maxToolCallsPerRound} 次工具调用上限`,
+          })
+          ws.send(JSON.stringify({
+            event: 'tool_result',
+            call_id: callId,
+            error: `[CallLimit] Exceeded max tool calls (${securityConfig.maxToolCallsPerRound}) per round`,
+          }))
+          return
+        }
+
+        // ── Auto-execute decision ────────────────────────────────────
+        const inToolWhitelist = securityConfig.toolWhitelist.includes(toolName)
+        const autoRun = securityConfig.fullAccessMode || inToolWhitelist || riskLevel === 'LOW'
+
+        if (autoRun) {
+          if (inToolWhitelist) {
+            useAppStore.getState().incrementToolCallCount(toolName)
+          }
           await _executeAndReply(ws, sessionId, tc, callId)
         }
-        // For MEDIUM/HIGH: SandboxConfirmDialog will call confirmTool / denyTool
+        // For MEDIUM/HIGH (not whitelisted, not full-access): SandboxConfirmDialog handles it
       } else if (type === 'tool_denied') {
         updateToolCallStatus(sessionId, evt.call_id as string, { status: 'denied' })
       } else if (type === 'tool_error') {
@@ -195,8 +254,11 @@ export function useWebSocket(sessionId: string | null) {
           const s = await res.json()
           useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
           // pendingMessage 会在 onopen 中被发送（connect 会因 activeSessionId 变化而重新触发）
+          const { securityConfig: sc } = useAppStore.getState()
+          const allowedTools = sc.toolWhitelist.length > 0 ? sc.toolWhitelist : null
           setCatState('thinking')
-          pendingMessage.current = { content, skillId }
+          pendingMessage.current = { content, skillId, allowedTools }
+          resetRound(currentSessionId)
         } catch {}
         return
       }
@@ -208,7 +270,10 @@ export function useWebSocket(sessionId: string | null) {
         role: 'user',
         content,
       })
-      wsRef.current.send(JSON.stringify({ event: 'message', content, skill_id: skillId ?? null }))
+      resetRound(sessionId!)
+      const { securityConfig } = useAppStore.getState()
+      const allowedTools = securityConfig.toolWhitelist.length > 0 ? securityConfig.toolWhitelist : null
+      wsRef.current.send(JSON.stringify({ event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools }))
     },
     [sessionId, setCatState, appendMessage]
   )
