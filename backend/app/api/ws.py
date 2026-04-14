@@ -135,7 +135,7 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
 
     content = data.get("content", "")
     skill_id = data.get("skill_id")
-    allowed_tools: list[str] | None = data.get("allowed_tools") or None
+    allowed_tools: list[str] | None = data.get("allowed_tools")  # None=未指定(不限), []=无工具, [...]= 指定工具列表
 
     # Persist user message
     async with AsyncSessionLocal() as db:

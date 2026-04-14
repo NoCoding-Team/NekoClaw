@@ -255,7 +255,7 @@ export function useWebSocket(sessionId: string | null) {
           useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
           // pendingMessage 会在 onopen 中被发送（connect 会因 activeSessionId 变化而重新触发）
           const { securityConfig: sc } = useAppStore.getState()
-          const allowedTools = sc.toolWhitelist.length > 0 ? sc.toolWhitelist : null
+          const allowedTools = sc.toolWhitelist   // 空数组 = 无工具，原样传递
           setCatState('thinking')
           pendingMessage.current = { content, skillId, allowedTools }
           resetRound(currentSessionId)
@@ -272,7 +272,7 @@ export function useWebSocket(sessionId: string | null) {
       })
       resetRound(sessionId!)
       const { securityConfig } = useAppStore.getState()
-      const allowedTools = securityConfig.toolWhitelist.length > 0 ? securityConfig.toolWhitelist : null
+      const allowedTools = securityConfig.toolWhitelist   // 空数组 = 无工具，原样传递
       wsRef.current.send(JSON.stringify({ event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools }))
     },
     [sessionId, setCatState, appendMessage]

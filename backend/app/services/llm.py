@@ -94,7 +94,8 @@ async def run_llm_pipeline(
             entry["tool_calls"] = m.tool_calls
         messages.append(entry)
 
-    # Determine allowed tools: skill > client override > all
+    # 工具列表优先级：技能 > 客户端配置 > 全量
+    # allowed_tools_override=None 表示客户端未配置（用全量），=[] 表示用户未开启任何能力（无工具）
     allowed_tools = skill.allowed_tools if skill else allowed_tools_override
     tools = get_openai_tools(allowed_tools)
 
