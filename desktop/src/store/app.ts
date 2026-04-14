@@ -84,6 +84,7 @@ export interface AppState {
   setSessions: (sessions: Session[]) => void
   setActiveSession: (id: string | null) => void
   addSession: (session: Session) => void
+  removeSession: (id: string) => void
 
   // Messages per session
   messagesBySession: Record<string, ChatMessage[]>
@@ -145,6 +146,13 @@ export const useAppStore = create<AppState>((set) => ({
   setSessions: (sessions) => set({ sessions }),
   setActiveSession: (id) => set({ activeSessionId: id }),
   addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
+  removeSession: (id) =>
+    set((s) => ({
+      sessions: s.sessions.filter((sess) => sess.id !== id),
+      activeSessionId: s.activeSessionId === id
+        ? (s.sessions.find((sess) => sess.id !== id)?.id ?? null)
+        : s.activeSessionId,
+    })),
 
   messagesBySession: {},
   appendMessage: (sessionId, msg) =>

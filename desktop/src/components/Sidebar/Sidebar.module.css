@@ -105,11 +105,30 @@
   font-size: 13px;
   color: var(--text-secondary);
   transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+  user-select: none;
 }
 .sessionItem:hover { background: var(--bg-hover); color: var(--text-primary); }
 .sessionItem.sessionActive { background: var(--bg-elevated); color: var(--text-primary); }
 .sessionIcon { font-size: 12px; flex-shrink: 0; opacity: 0.5; }
 .sessionTitle { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessionDeleteBtn {
+  flex-shrink: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  transition: opacity 0.15s, background 0.15s;
+}
+.sessionDeleteBtn:hover { opacity: 1; background: rgba(255,80,80,0.18); color: #ff5050; }
+.sessionItem:hover .sessionDeleteBtn,
+.sessionItem.sessionActive .sessionDeleteBtn { display: flex; }
 
 /* Bottom bar */
 .bottomBar {

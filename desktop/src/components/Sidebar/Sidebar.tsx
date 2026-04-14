@@ -1,4 +1,5 @@
-﻿import styles from './Sidebar.module.css'
+﻿import { useState } from 'react'
+import styles from './Sidebar.module.css'
 import { useAppStore } from '../../store/app'
 
 type Tab = 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings'
@@ -11,12 +12,51 @@ const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
 ]
 
 export function Sidebar() {
-  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession, setSettingsOpen } = useAppStore()
+  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession, removeSession, setSettingsOpen, serverUrl, token } = useAppStore()
+  const [creating, setCreating] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const createNewSession = () => {
-    const id = `local-${Date.now()}`
-    addSession({ id, title: '新对话' })
-    setActiveSession(id)
+  const deleteSession = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (deletingId) return
+    setDeletingId(id)
+    try {
+      await fetch(`${serverUrl}/api/sessions/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      removeSession(id)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const createNewSession = async () => {
+    if (creating) return
+    setCreating(true)
+    try {
+      const res = await fetch(`${serverUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: '新对话' }),
+      })
+      if (res.ok) {
+        const session = await res.json()
+        addSession({ id: session.id, title: session.title })
+        setActiveSession(session.id)
+      } else {
+        // fallback to local session if API fails
+        const id = `local-${Date.now()}`
+        addSession({ id, title: '新对话' })
+        setActiveSession(id)
+      }
+    } catch {
+      const id = `local-${Date.now()}`
+      addSession({ id, title: '新对话' })
+      setActiveSession(id)
+    } finally {
+      setCreating(false)
+    }
     setSidebarTab('sessions')
   }
 
@@ -30,9 +70,9 @@ export function Sidebar() {
 
       {/* New session */}
       <div className={styles.topActions}>
-        <button className={styles.newBtn} onClick={createNewSession}>
+        <button className={styles.newBtn} onClick={createNewSession} disabled={creating}>
           <span className={styles.newBtnPlus}>＋</span>
-          <span>新建对话</span>
+          <span>{creating ? '创建中…' : '新建对话'}</span>
         </button>
       </div>
 
@@ -60,14 +100,22 @@ export function Sidebar() {
           <div className={styles.emptyHint}>暂无对话</div>
         ) : (
           sessions.map((s) => (
-            <button
+            <div
               key={s.id}
               className={`${styles.sessionItem} ${activeSessionId === s.id && sidebarTab === 'sessions' ? styles.sessionActive : ''}`}
               onClick={() => { setActiveSession(s.id); setSidebarTab('sessions') }}
             >
               <span className={styles.sessionIcon}>💬</span>
               <span className={styles.sessionTitle}>{s.title}</span>
-            </button>
+              <button
+                className={styles.sessionDeleteBtn}
+                onClick={(e) => deleteSession(e, s.id)}
+                disabled={deletingId === s.id}
+                title="删除对话"
+              >
+                {deletingId === s.id ? '…' : '×'}
+              </button>
+            </div>
           ))
         )}
       </div>
