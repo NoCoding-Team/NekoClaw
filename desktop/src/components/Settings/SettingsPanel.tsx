@@ -215,7 +215,8 @@ function ModelCenterTab() {
                   <span className={styles.fallbackFieldLabel}>API URL</span>
                   <div className={styles.fallbackProvTabs}>
                     {[{ v: 'openai', l: 'OpenAI', url: 'https://api.openai.com/v1' },
-                      { v: 'anthropic', l: 'Anthropic', url: 'https://api.anthropic.com' }].map(p => (
+                      { v: 'anthropic', l: 'Anthropic', url: 'https://api.anthropic.com' },
+                      { v: 'custom', l: '自定义', url: 'http://localhost:11434/v1' }].map(p => (
                       <button key={p.v}
                         className={`${styles.fallbackProvTab} ${fb.provider === p.v ? styles.fallbackProvTabActive : ''}`}
                         onClick={() => updateFallback(fb.id, { provider: p.v, baseUrl: p.url })}>
