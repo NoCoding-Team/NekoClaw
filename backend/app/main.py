@@ -1,11 +1,9 @@
 from contextlib import asynccontextmanager
+import time
+import collections
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.config import settings
 from app.api.router import api_router
@@ -18,13 +16,26 @@ async def lifespan(app: FastAPI):
     yield
 
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
-
 app = FastAPI(title="NekoClaw", version="0.1.0", lifespan=lifespan)
 
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+# Simple in-memory rate limiter: max 60 requests/minute per IP
+_rate_buckets: dict[str, collections.deque] = {}
+_RATE_LIMIT = 60
+_RATE_WINDOW = 60.0
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    bucket = _rate_buckets.setdefault(ip, collections.deque())
+    while bucket and now - bucket[0] > _RATE_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT:
+        return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
+    bucket.append(now)
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,
