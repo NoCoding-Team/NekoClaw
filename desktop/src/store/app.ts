@@ -6,6 +6,7 @@ const STORAGE_LOCAL_LLM = 'neko_local_llm_config'
 const STORAGE_AUTH = 'neko_auth'
 const STORAGE_ACTIVE_SESSION = 'neko_active_session'
 const STORAGE_PERSONAL = 'neko_personal'
+const STORAGE_SECURITY = 'neko_security'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -48,7 +49,40 @@ export interface PersonalizationConfig {
   traits: string[]
   replyStyle: string
   customPrompt: string
-  systemPrompt: string   // 由"\u751f\u6210\u914d\u7f6e"\u6309\u9215\u7f16\u8bd1\u751f\u6210
+  systemPrompt: string   // 由"生成配置"按钮编译生成
+}
+
+export interface SecurityConfig {
+  botControlPermission: boolean
+  fullAccessMode: boolean
+  loopGuard: boolean
+  loopGuardSensitivity: 'strict' | 'default' | 'loose'
+  maxToolCallsPerRound: number
+  commandWhitelist: string[]
+  toolWhitelist: string[]
+  execEnvironment: 'transparent' | 'container'
+  containerNetwork: 'none' | 'host' | 'custom'       // 容器网络模式
+}
+
+export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
+  botControlPermission: true,
+  fullAccessMode: false,
+  loopGuard: true,
+  loopGuardSensitivity: 'default',
+  maxToolCallsPerRound: 40,
+  commandWhitelist: [],
+  toolWhitelist: [],
+  execEnvironment: 'transparent',
+  containerNetwork: 'none',
+}
+
+function loadSecurityConfig(): SecurityConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_SECURITY)
+    return raw ? { ...DEFAULT_SECURITY_CONFIG, ...JSON.parse(raw) } : DEFAULT_SECURITY_CONFIG
+  } catch {
+    return DEFAULT_SECURITY_CONFIG
+  }
 }
 
 function loadPersonalizationConfig(): PersonalizationConfig | null {
@@ -150,7 +184,7 @@ export interface AppState {
   setWsStatus: (s: 'disconnected' | 'connecting' | 'connected') => void
 
   // Sidebar
-  sidebarTab: 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings'
+  sidebarTab: 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings' | 'abilities'
   setSidebarTab: (tab: AppState['sidebarTab']) => void
 
   // Settings modal
@@ -168,6 +202,15 @@ export interface AppState {
   // Personalization config
   personalizationConfig: PersonalizationConfig | null
   setPersonalizationConfig: (cfg: PersonalizationConfig) => void
+
+  // Security config
+  securityConfig: SecurityConfig
+  setSecurityConfig: (cfg: Partial<SecurityConfig>) => void
+
+  // Tool call counts (session-level, not persisted)
+  toolCallCounts: Record<string, number>
+  incrementToolCallCount: (tool: string) => void
+  resetToolCallCounts: () => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -302,4 +345,19 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem(STORAGE_PERSONAL, JSON.stringify(cfg))
     set({ personalizationConfig: cfg })
   },
+
+  securityConfig: loadSecurityConfig(),
+  setSecurityConfig: (patch) =>
+    set((s) => {
+      const next = { ...s.securityConfig, ...patch }
+      localStorage.setItem(STORAGE_SECURITY, JSON.stringify(next))
+      return { securityConfig: next }
+    }),
+
+  toolCallCounts: {},
+  incrementToolCallCount: (tool) =>
+    set((s) => ({
+      toolCallCounts: { ...s.toolCallCounts, [tool]: (s.toolCallCounts[tool] ?? 0) + 1 },
+    })),
+  resetToolCallCounts: () => set({ toolCallCounts: {} }),
 }))
