@@ -72,7 +72,7 @@ export default function App() {
 function MainContent() {
   const { sidebarTab } = useAppStore()
   if (sidebarTab === 'tasks')           return <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>
-  if (sidebarTab === 'skills')          return <PanelView title="技能库"><SkillsPanel /></PanelView>
+  if (sidebarTab === 'skills')          return <PanelView title="技能库"><WipPlaceholder name="技能库" icon="🛠️" /></PanelView>
   if (sidebarTab === 'memory')          return <PanelView title="记忆库"><MemoryPanel /></PanelView>
   if (sidebarTab === 'personalization') return <PersonalizationPanel />
   if (sidebarTab === 'abilities')       return <PanelView title="能力"><AbilitiesPanel /></PanelView>
@@ -91,6 +91,16 @@ function PanelView({ title, children }: { title: string; children: React.ReactNo
         </div>
       </div>
       <div className={styles.panelBody}>{children}</div>
+    </div>
+  )
+}
+
+function WipPlaceholder({ name, icon }: { name: string; icon: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16, color: 'var(--text-muted)' }}>
+      <span style={{ fontSize: 48, filter: 'grayscale(0.4)' }}>{icon}</span>
+      <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>{name}</span>
+      <span style={{ fontSize: 13 }}>🚧 待开发</span>
     </div>
   )
 }
