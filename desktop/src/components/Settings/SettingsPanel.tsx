@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react'
-import { useAppStore } from '../../store/app'
+import React, { useState, useRef, useEffect, KeyboardEvent } from 'react'
+import { useAppStore, SecurityConfig } from '../../store/app'
 import styles from './SettingsPanel.module.css'
 import { encryptKey } from '../../hooks/useLocalLLM'
 
@@ -13,7 +13,402 @@ const PROVIDERS = [
   { value: 'custom',    label: '自定义',      placeholder: 'http://localhost:11434/v1' },
 ]
 
-// ── ModelCenter tab ────────────────────────────────────────────────────────────
+// ── SecurityTab ────────────────────────────────────────────────────────────────
+function SecurityTab() {
+  const { securityConfig, setSecurityConfig, toolCallCounts } = useAppStore()
+  const cfg = securityConfig
+
+  // Tag input state
+  const [cmdInput, setCmdInput] = useState('')
+  const [toolInput, setToolInput] = useState('')
+
+  const addTag = (field: 'commandWhitelist' | 'toolWhitelist', value: string) => {
+    const v = value.trim()
+    if (!v || cfg[field].includes(v)) return
+    setSecurityConfig({ [field]: [...cfg[field], v] })
+  }
+  const removeTag = (field: 'commandWhitelist' | 'toolWhitelist', tag: string) => {
+    setSecurityConfig({ [field]: cfg[field].filter((t) => t !== tag) })
+  }
+  const handleTagKeyDown = (
+    field: 'commandWhitelist' | 'toolWhitelist',
+    e: KeyboardEvent<HTMLInputElement>,
+    val: string,
+    setVal: (v: string) => void,
+  ) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag(field, val)
+      setVal('')
+    } else if (e.key === 'Backspace' && !val) {
+      const list = cfg[field]
+      if (list.length) setSecurityConfig({ [field]: list.slice(0, -1) })
+    }
+  }
+
+  return (
+    <div className={styles.securityPage}>
+
+      {/* Bot 控制权 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>Bot 控制权</div>
+          <div className={styles.secRowDesc}>允许 Bot 通过 MCP 修改沙箱模式、网络配置和循环守卫设置</div>
+        </div>
+        <button
+          className={`${styles.toggle} ${cfg.botControlPermission ? styles.toggleOn : ''}`}
+          onClick={() => setSecurityConfig({ botControlPermission: !cfg.botControlPermission })}
+          aria-checked={cfg.botControlPermission}
+          role="switch"
+        />
+      </div>
+
+      {/* 完全访问模式 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>完全访问模式</div>
+          <div className={styles.secRowDesc}>信任所有工具调用，跳过审批确认弹窗</div>
+        </div>
+        <button
+          className={`${styles.toggle} ${cfg.fullAccessMode ? styles.toggleOn : ''}`}
+          onClick={() => setSecurityConfig({ fullAccessMode: !cfg.fullAccessMode })}
+          aria-checked={cfg.fullAccessMode}
+          role="switch"
+        />
+      </div>
+
+      {/* 循环守卫 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>循环守卫</div>
+          <div className={styles.secRowDesc}>检测并阻止 Bot 陷入死循环（重复调用、连续失败）</div>
+        </div>
+        <button
+          className={`${styles.toggle} ${cfg.loopGuard ? styles.toggleOn : ''}`}
+          onClick={() => setSecurityConfig({ loopGuard: !cfg.loopGuard })}
+          aria-checked={cfg.loopGuard}
+          role="switch"
+        />
+      </div>
+
+      {/* 循环守卫灵敏度 */}
+      {cfg.loopGuard && (
+        <div className={styles.secSubRow}>
+          <span className={styles.secSubLabel}>灵敏度</span>
+          <div className={styles.segControl}>
+            {(['strict', 'default', 'loose'] as SecurityConfig['loopGuardSensitivity'][]).map((v) => {
+              const labels = { strict: '保守', default: '默认', loose: '宽松' }
+              return (
+                <button
+                  key={v}
+                  className={`${styles.segBtn} ${cfg.loopGuardSensitivity === v ? styles.segBtnActive : ''}`}
+                  onClick={() => setSecurityConfig({ loopGuardSensitivity: v })}
+                >
+                  {labels[v]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className={styles.secDivider} />
+
+      {/* 单轮工具调用上限 */}
+      <div className={styles.secBlock}>
+        <div className={styles.secBlockHeader}>
+          <span className={styles.secBlockTitle}>单轮工具调用上限</span>
+          <span className={styles.secBlockDesc}>Agent 每轮对话中最多可执行的工具调用次数</span>
+        </div>
+        <div className={styles.limitRow}>
+          <input
+            className={styles.limitInput}
+            type="number"
+            min={1}
+            max={500}
+            value={cfg.maxToolCallsPerRound}
+            onChange={(e) => {
+              const v = Math.max(1, Math.min(500, parseInt(e.target.value) || 1))
+              setSecurityConfig({ maxToolCallsPerRound: v })
+            }}
+          />
+          <span className={styles.secBlockDesc}>范围 1–500，建议设置在 200 以内</span>
+        </div>
+      </div>
+
+      <div className={styles.secDivider} />
+
+      {/* 命令白名单 */}
+      <div className={styles.secBlock}>
+        <div className={styles.secBlockHeader}>
+          <span className={styles.secBlockTitle}>命令白名单</span>
+          <span className={styles.secBlockDesc}>可自动执行的终端命令</span>
+        </div>
+        <div className={styles.tagBox}>
+          {cfg.commandWhitelist.map((tag) => (
+            <span key={tag} className={styles.tag}>
+              {tag}
+              <button className={styles.tagRemove} onClick={() => removeTag('commandWhitelist', tag)}>×</button>
+            </span>
+          ))}
+          <input
+            className={styles.tagInput}
+            value={cmdInput}
+            onChange={(e) => setCmdInput(e.target.value)}
+            onKeyDown={(e) => handleTagKeyDown('commandWhitelist', e, cmdInput, setCmdInput)}
+            onBlur={() => { if (cmdInput.trim()) { addTag('commandWhitelist', cmdInput); setCmdInput('') } }}
+            placeholder="输入命令名，如 npm、git push，回车添加"
+          />
+        </div>
+      </div>
+
+      {/* 工具白名单 */}
+      <div className={styles.secBlock}>
+        <div className={styles.secBlockHeader}>
+          <span className={styles.secBlockTitle}>工具白名单</span>
+          <span className={styles.secBlockDesc}>可自动放行的工具（内置工具、MCP 等）</span>
+        </div>
+        <div className={styles.tagBox}>
+          {cfg.toolWhitelist.map((tag) => (
+            <span key={tag} className={styles.tag}>
+              {tag}
+              {toolCallCounts[tag] ? <span className={styles.tagCount}>{toolCallCounts[tag]}</span> : null}
+              <button className={styles.tagRemove} onClick={() => removeTag('toolWhitelist', tag)}>×</button>
+            </span>
+          ))}
+          <input
+            className={styles.tagInput}
+            value={toolInput}
+            onChange={(e) => setToolInput(e.target.value)}
+            onKeyDown={(e) => handleTagKeyDown('toolWhitelist', e, toolInput, setToolInput)}
+            onBlur={() => { if (toolInput.trim()) { addTag('toolWhitelist', toolInput); setToolInput('') } }}
+            placeholder="输入工具名，如 web_fetch、file_read，回车添加"
+          />
+        </div>
+      </div>
+
+      <div className={styles.secDivider} />
+
+      {/* 执行环境 */}
+      <div className={styles.secBlock}>
+        <div className={styles.secBlockHeader}>
+          <span className={styles.secBlockTitle}>执行环境</span>
+        </div>
+        <div className={styles.envTabs}>
+          <button
+            className={`${styles.envTab} ${cfg.execEnvironment === 'transparent' ? styles.envTabActive : ''}`}
+            onClick={() => setSecurityConfig({ execEnvironment: 'transparent' })}
+          >
+            透明模式
+          </button>
+          <button
+            className={`${styles.envTab} ${cfg.execEnvironment === 'container' ? styles.envTabActive : ''}`}
+            onClick={() => setSecurityConfig({ execEnvironment: 'container' })}
+          >
+            容器隔离
+          </button>
+        </div>
+
+        {cfg.execEnvironment === 'transparent' ? (
+          <div className={styles.envDesc}>
+            <div className={styles.envDescTitle}>透明模式</div>
+            <div className={styles.envDescText}>所有命令在宿主机执行，通过审批和策略保护</div>
+          </div>
+        ) : (
+          <ContainerEnvPanel cfg={cfg} setSecurityConfig={setSecurityConfig} />
+        )}
+      </div>
+
+    </div>
+  )
+}
+
+// ── ContainerEnvPanel ──────────────────────────────────────────────────────────
+type ContainerEnvPanelProps = {
+  cfg: SecurityConfig
+  setSecurityConfig: (patch: Partial<SecurityConfig>) => void
+}
+
+type DockerStatus = 'idle' | 'checking' | 'ok' | 'not_installed' | 'not_running'
+type ImageStatus  = 'idle' | 'checking' | 'installed' | 'not_installed'
+
+function ContainerEnvPanel({ cfg, setSecurityConfig }: ContainerEnvPanelProps) {
+  const [dockerStatus, setDockerStatus]   = useState<DockerStatus>('idle')
+  const [dockerVersion, setDockerVersion] = useState('')
+  const [dockerWarning, setDockerWarning] = useState('')
+  const [imageStatus, setImageStatus]     = useState<ImageStatus>('idle')
+
+  const checkDocker = async () => {
+    setDockerStatus('checking')
+    setDockerVersion('')
+    setDockerWarning('')
+    try {
+      const res = await window.nekoBridge.shell.exec('docker --version')
+      const out = (res.stdout ?? '').trim()
+      if (res.error || !out) { setDockerStatus('not_installed'); return }
+      const match = out.match(/Docker version ([\d.]+)/i)
+      setDockerVersion(match ? match[1] : out)
+      const ping = await window.nekoBridge.shell.exec('docker info --format "{{.ServerVersion}}"')
+      if (ping.error || (ping.stderr ?? '').toLowerCase().includes('cannot connect')) {
+        setDockerStatus('not_running')
+        setDockerWarning('Docker 已安装，但 Docker Desktop 未启动。请先启动 Docker Desktop 再操作。')
+      } else {
+        setDockerStatus('ok')
+      }
+    } catch { setDockerStatus('not_installed') }
+  }
+
+  const checkImage = async () => {
+    setImageStatus('checking')
+    try {
+      const res = await window.nekoBridge.shell.exec('docker images -q nekoclaw-sandbox 2>/dev/null')
+      setImageStatus((res.stdout ?? '').trim() ? 'installed' : 'not_installed')
+    } catch { setImageStatus('not_installed') }
+  }
+
+  useEffect(() => { checkDocker(); checkImage() }, [])
+
+  const networkOptions: { value: SecurityConfig['containerNetwork']; label: string; desc: string }[] = [
+    { value: 'none',   label: '禁用网络',   desc: '容器内无法访问外部网络，最安全' },
+    { value: 'host',   label: '宿主机网络', desc: '共享宿主机网络栈，Agent 可自由访问网络' },
+    { value: 'custom', label: '自定义网络', desc: '高级选项，对应 docker run --network 参数' },
+  ]
+
+  return (
+    <div className={styles.containerPanel}>
+
+      {/* 容器描述 */}
+      <div className={styles.envDesc}>
+        <div className={styles.envDescTitle}>容器隔离</div>
+        <div className={styles.envDescText}>Agent 的 shell 命令在独立容器中执行，文件系统仅可见工作目录，网络完全隔离</div>
+      </div>
+
+      {/* 容器运行时 */}
+      <div className={styles.containerSection}>
+        <div className={styles.containerSectionHead}>
+          <span className={styles.containerSectionTitle}>容器运行时</span>
+          <button
+            className={styles.redetectBtn}
+            onClick={checkDocker}
+            disabled={dockerStatus === 'checking'}
+          >
+            {dockerStatus === 'checking' ? '检测中…' : '重新检测'}
+          </button>
+        </div>
+
+        {(dockerStatus === 'idle' || dockerStatus === 'checking') && (
+          <div className={styles.containerStatusRow}>
+            <span className={styles.containerStatusNeutral}>检测中…</span>
+          </div>
+        )}
+        {(dockerStatus === 'ok' || dockerStatus === 'not_running') && (
+          <div className={`${styles.containerStatusRow} ${styles.containerOkRow}`}>
+            <span className={styles.containerStatusOk}>✓ 已检测到: docker {dockerVersion}</span>
+          </div>
+        )}
+        {dockerStatus === 'not_running' && dockerWarning && (
+          <div className={`${styles.containerStatusRow} ${styles.containerWarnRow}`}>
+            <span className={styles.containerWarnIcon}>⚠</span>
+            <span className={styles.containerStatusWarn}>{dockerWarning}</span>
+          </div>
+        )}
+        {dockerStatus === 'not_installed' && (
+          <div className={`${styles.containerStatusRow} ${styles.containerErrRow}`}>
+            <span className={styles.containerStatusErr}>✗ 未检测到 Docker，请先安装</span>
+          </div>
+        )}
+
+        {dockerStatus === 'not_installed' && (
+          <button className={styles.containerActionBtn}
+            onClick={() => window.nekoBridge.shell.openExternal('https://www.docker.com/products/docker-desktop/')}>
+            前往安装 Docker
+          </button>
+        )}
+        {dockerStatus === 'not_running' && (
+          <button className={styles.containerActionBtn} onClick={checkDocker}>
+            我已启动，重新检测
+          </button>
+        )}
+      </div>
+
+      <div className={styles.containerDivider} />
+
+      {/* 沙箱镜像 */}
+      <div className={styles.containerSection}>
+        <div className={styles.containerSectionHead}>
+          <span className={styles.containerSectionTitle}>沙箱镜像</span>
+        </div>
+        {(imageStatus === 'idle' || imageStatus === 'checking') && (
+          <div className={styles.containerStatusRow}>
+            <span className={styles.containerStatusNeutral}>检测中…</span>
+          </div>
+        )}
+        {imageStatus === 'installed' && (
+          <div className={`${styles.containerStatusRow} ${styles.containerOkRow}`}>
+            <span className={styles.containerStatusOk}>✓ 已安装</span>
+          </div>
+        )}
+        {imageStatus === 'not_installed' && (
+          <>
+            <div className={`${styles.containerStatusRow} ${styles.containerErrRow}`}>
+              <span className={styles.containerStatusErr}>✗ 未安装</span>
+            </div>
+            <button
+              className={styles.containerActionBtn}
+              disabled={dockerStatus !== 'ok'}
+              onClick={async () => {
+                setImageStatus('checking')
+                await window.nekoBridge.shell.exec('docker pull nekoclaw/sandbox:latest')
+                checkImage()
+              }}
+            >
+              下载沙箱镜像
+            </button>
+          </>
+        )}
+      </div>
+
+      <div className={styles.containerDivider} />
+
+      {/* 容器网络 */}
+      <div className={styles.containerSection}>
+        <div className={styles.containerSectionHead}>
+          <span className={styles.containerSectionTitle}>容器网络</span>
+        </div>
+        <div className={styles.networkOptions}>
+          {networkOptions.map((opt) => (
+            <label key={opt.value}
+              className={`${styles.networkOption} ${cfg.containerNetwork === opt.value ? styles.networkOptionActive : ''}`}
+            >
+              <input
+                type="radio"
+                name="containerNetwork"
+                value={opt.value}
+                checked={cfg.containerNetwork === opt.value}
+                onChange={() => setSecurityConfig({ containerNetwork: opt.value })}
+                className={styles.networkRadio}
+              />
+              <div className={styles.networkOptionBody}>
+                <span className={styles.networkOptionLabel}>{opt.label}</span>
+                <span className={styles.networkOptionDesc}>{opt.desc}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+        <button
+          className={styles.containerActionBtn}
+          disabled={dockerStatus !== 'ok'}
+          onClick={() => window.nekoBridge.shell.exec('docker restart nekoclaw-sandbox 2>/dev/null || true')}
+        >
+          重启容器
+        </button>
+        <div className={styles.containerFootnote}>网络变更将在下次启动沙箱容器时生效</div>
+      </div>
+
+    </div>
+  )
+}
+
 function ModelCenterTab() {
   const { localLLMConfig, setLocalLLMConfig } = useAppStore()
   const [mode, setMode] = useState<'default' | 'custom'>('custom')
@@ -480,12 +875,7 @@ export function SettingsPanel() {
               </div>
             )}
 
-            {tab === 'security' && (
-              <div>
-                <h2 className={styles.sectionTitle}>安全</h2>
-                <p className={styles.comingSoon}>功能开发中…</p>
-              </div>
-            )}
+            {tab === 'security' && <SecurityTab />}
 
             {tab === 'feedback' && (
               <div>
