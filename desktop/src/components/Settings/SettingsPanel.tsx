@@ -20,7 +20,7 @@ const PROVIDERS = [
 
 // ── ModelCenter tab ────────────────────────────────────────────────────────────
 function ModelCenterTab() {
-  const [mode, setMode] = useState<'default' | 'custom'>('default')
+  const [mode, setMode] = useState<'default' | 'custom'>('custom')
 
   // custom config state
   const [configs, setConfigs]   = useState<LLMConfig[]>([])
