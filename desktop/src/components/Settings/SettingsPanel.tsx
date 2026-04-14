@@ -1,10 +1,239 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../../store/app'
 import styles from './SettingsPanel.module.css'
+import {
+  LLMConfig,
+  fetchLLMConfigs,
+  createLLMConfig,
+  updateLLMConfig,
+  deleteLLMConfig,
+} from '../../api/llmConfigs'
 
 type Tab = 'account' | 'general' | 'models' | 'mcp' | 'im-bot' | 'security' | 'feedback' | 'about'
 
 const APP_VERSION = '0.1.0'
+
+const PROVIDERS = [
+  { value: 'openai',    label: 'OpenAI',     placeholder: 'https://api.openai.com/v1' },
+  { value: 'anthropic', label: 'Anthropic',  placeholder: 'https://api.anthropic.com' },
+  { value: 'gemini',    label: 'Google Gemini', placeholder: '' },
+  { value: 'custom',    label: '自定义 (Compatible)', placeholder: 'http://localhost:11434/v1' },
+]
+
+const DEFAULT_MODELS: Record<string, string[]> = {
+  openai:    ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+  anthropic: ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-3-5'],
+  gemini:    ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+  custom:    [],
+}
+
+// ── Add/Edit dialog ────────────────────────────────────────────────────────────
+interface ModelFormProps {
+  initial?: LLMConfig
+  onSave: (data: {
+    provider: string; name: string; model: string; api_key: string;
+    base_url?: string; is_default: boolean; context_limit: number
+  }) => Promise<void>
+  onCancel: () => void
+}
+
+function ModelForm({ initial, onSave, onCancel }: ModelFormProps) {
+  const [provider, setProvider] = useState(initial?.provider ?? 'openai')
+  const [name, setName]         = useState(initial?.name ?? '')
+  const [model, setModel]       = useState(initial?.model ?? '')
+  const [apiKey, setApiKey]     = useState('')
+  const [baseUrl, setBaseUrl]   = useState(initial?.base_url ?? '')
+  const [isDefault, setIsDefault] = useState(initial?.is_default ?? false)
+  const [ctxLimit, setCtxLimit] = useState(String(initial?.context_limit ?? 128000))
+  const [saving, setSaving]     = useState(false)
+  const [err, setErr]           = useState('')
+
+  const provMeta = PROVIDERS.find(p => p.value === provider)!
+  const modelList = DEFAULT_MODELS[provider] ?? []
+
+  const handleSave = async () => {
+    if (!name.trim() || !model.trim()) { setErr('名称和模型不能为空'); return }
+    if (!initial && !apiKey.trim())    { setErr('API Key 不能为空'); return }
+    setSaving(true); setErr('')
+    try {
+      await onSave({
+        provider, name: name.trim(), model: model.trim(),
+        api_key: apiKey.trim(),
+        base_url: baseUrl.trim() || undefined,
+        is_default: isDefault,
+        context_limit: parseInt(ctxLimit) || 128000,
+      })
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : '保存失败')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className={styles.formOverlay} onClick={onCancel}>
+      <div className={styles.formDialog} onClick={e => e.stopPropagation()}>
+        <div className={styles.formTitle}>{initial ? '编辑模型' : '添加模型'}</div>
+
+        <label className={styles.fieldLabel}>供应商</label>
+        <div className={styles.providerGrid}>
+          {PROVIDERS.map(p => (
+            <button key={p.value}
+              className={`${styles.providerBtn} ${provider === p.value ? styles.providerBtnActive : ''}`}
+              onClick={() => { setProvider(p.value); setBaseUrl('') }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <label className={styles.fieldLabel}>配置名称</label>
+        <input className={styles.input} value={name}
+          onChange={e => setName(e.target.value)} placeholder="例：GPT-4o 主力" />
+
+        <label className={styles.fieldLabel}>模型 ID</label>
+        {modelList.length > 0 ? (
+          <div className={styles.modelChips}>
+            {modelList.map(m => (
+              <button key={m}
+                className={`${styles.chip} ${model === m ? styles.chipActive : ''}`}
+                onClick={() => setModel(m)}>{m}</button>
+            ))}
+            <input className={`${styles.input} ${styles.modelInput}`}
+              value={model} onChange={e => setModel(e.target.value)}
+              placeholder="或手动输入 Model ID" />
+          </div>
+        ) : (
+          <input className={styles.input} value={model}
+            onChange={e => setModel(e.target.value)} placeholder="例：llama3.2" />
+        )}
+
+        <label className={styles.fieldLabel}>
+          API Key {initial && <span className={styles.optionalHint}>（留空则不修改）</span>}
+        </label>
+        <input className={styles.input} type="password" value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+          placeholder={initial ? '••••••• (不修改)' : '输入 API Key'} />
+
+        <label className={styles.fieldLabel}>
+          Base URL <span className={styles.optionalHint}>（可选）</span>
+        </label>
+        <input className={styles.input} value={baseUrl}
+          onChange={e => setBaseUrl(e.target.value)}
+          placeholder={provMeta.placeholder || '留空使用默认'} />
+
+        <label className={styles.fieldLabel}>上下文长度</label>
+        <input className={styles.input} value={ctxLimit}
+          onChange={e => setCtxLimit(e.target.value)} placeholder="128000" />
+
+        <label className={styles.checkboxRow}>
+          <input type="checkbox" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} />
+          设为默认模型
+        </label>
+
+        {err && <div className={styles.errMsg}>{err}</div>}
+
+        <div className={styles.formActions}>
+          <button className={styles.cancelBtn} onClick={onCancel}>取消</button>
+          <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
+            {saving ? '保存中…' : '保存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── ModelCenter tab ────────────────────────────────────────────────────────────
+function ModelCenterTab() {
+  const [configs, setConfigs]   = useState<LLMConfig[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [editTarget, setEdit]   = useState<LLMConfig | 'new' | null>(null)
+  const [err, setErr]           = useState('')
+
+  const load = async () => {
+    try { setConfigs(await fetchLLMConfigs()) } catch (e: unknown) { setErr(String(e)) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleSave = async (data: Parameters<ModelFormProps['onSave']>[0]) => {
+    if (editTarget === 'new') {
+      await createLLMConfig(data)
+    } else if (editTarget) {
+      const patch: Parameters<typeof updateLLMConfig>[1] = {
+        name: data.name, model: data.model, base_url: data.base_url, is_default: data.is_default,
+      }
+      if (data.api_key) patch.api_key = data.api_key
+      await updateLLMConfig(editTarget.id, patch)
+    }
+    setEdit(null)
+    await load()
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('确认删除此模型配置？')) return
+    await deleteLLMConfig(id)
+    await load()
+  }
+
+  const handleSetDefault = async (cfg: LLMConfig) => {
+    await updateLLMConfig(cfg.id, { is_default: true })
+    await load()
+  }
+
+  return (
+    <div>
+      <div className={styles.modelHeader}>
+        <h2 className={styles.sectionTitle}>模型中心</h2>
+        <button className={styles.addBtn} onClick={() => setEdit('new')}>＋ 添加模型</button>
+      </div>
+
+      {err && <div className={styles.errMsg}>{err}</div>}
+      {loading && <p className={styles.comingSoon}>加载中…</p>}
+
+      {!loading && configs.length === 0 && (
+        <div className={styles.emptyModel}>
+          <div className={styles.emptyModelIcon}>🤖</div>
+          <div className={styles.emptyModelText}>还没有配置任何模型</div>
+          <button className={styles.addBtn} onClick={() => setEdit('new')}>添加第一个模型</button>
+        </div>
+      )}
+
+      <div className={styles.configList}>
+        {configs.map(cfg => (
+          <div key={cfg.id} className={`${styles.configCard} ${cfg.is_default ? styles.configCardDefault : ''}`}>
+            <div className={styles.configCardLeft}>
+              <div className={styles.configName}>
+                {cfg.name}
+                {cfg.is_default && <span className={styles.defaultBadge}>默认</span>}
+              </div>
+              <div className={styles.configMeta}>
+                <span className={styles.providerTag}>{cfg.provider}</span>
+                <span className={styles.modelTag}>{cfg.model}</span>
+                {cfg.base_url && <span className={styles.urlTag}>{cfg.base_url}</span>}
+              </div>
+            </div>
+            <div className={styles.configCardActions}>
+              {!cfg.is_default && (
+                <button className={styles.ghostBtn} onClick={() => handleSetDefault(cfg)}>设为默认</button>
+              )}
+              <button className={styles.ghostBtn} onClick={() => setEdit(cfg)}>编辑</button>
+              <button className={styles.deleteBtn} onClick={() => handleDelete(cfg.id)}>删除</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editTarget && (
+        <ModelForm
+          initial={editTarget === 'new' ? undefined : editTarget}
+          onSave={handleSave}
+          onCancel={() => setEdit(null)}
+        />
+      )}
+    </div>
+  )
+}
 
 export function SettingsPanel() {
   const [tab, setTab] = useState<Tab>('account')
@@ -111,12 +340,7 @@ export function SettingsPanel() {
               </div>
             )}
 
-            {tab === 'models' && (
-              <div>
-                <h2 className={styles.sectionTitle}>模型中心</h2>
-                <p className={styles.comingSoon}>功能开发中…</p>
-              </div>
-            )}
+            {tab === 'models' && <ModelCenterTab />}
 
             {tab === 'mcp' && (
               <div>

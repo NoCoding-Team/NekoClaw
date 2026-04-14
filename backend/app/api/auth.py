@@ -26,10 +26,15 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if result.scalar_one_or_none():
         raise ConflictError("用户名已存在")
 
+    # First user to register becomes admin
+    existing_count = await db.execute(select(User).where(User.deleted_at.is_(None)))
+    is_first_user = existing_count.first() is None
+
     user = User(
         id=str(uuid.uuid4()),
         username=body.username,
         hashed_password=hash_password(body.password),
+        is_admin=is_first_user,
     )
     db.add(user)
     await db.commit()
