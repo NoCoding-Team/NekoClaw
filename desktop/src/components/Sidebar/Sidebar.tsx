@@ -74,9 +74,9 @@ export function Sidebar() {
 
       {/* Bottom bar */}
       <div className={styles.bottomBar}>
-        <div className={`${styles.bottomBarInner} ${sidebarTab === 'settings' ? styles.bottomBarActive : ''}`}>
+        <div className={styles.bottomBarInner}>
           <button
-            className={styles.bottomBtn}
+            className={`${styles.bottomBtn} ${sidebarTab === 'settings' ? styles.bottomBtnActive : ''}`}
             onClick={() => setSidebarTab('settings')}
             title="设置"
           >
@@ -85,10 +85,10 @@ export function Sidebar() {
           </button>
           
           <div className={styles.bottomActions}>
-            <button className={styles.iconBtn} title="切换主题(开发中)">
+            <button className={styles.iconBtn} title="切换主题">
               🌙
             </button>
-            <button className={styles.iconBtn} title="切换语言(开发中)">
+            <button className={styles.iconBtn} title="切换语言">
               🌐
             </button>
           </div>
