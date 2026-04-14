@@ -206,6 +206,7 @@ async def _call_llm(
         model=llm_config.model,
         messages=messages,
         tools=tools if tools else None,
+        temperature=getattr(llm_config, 'temperature', 0.7),
         stream=True,
     )
 

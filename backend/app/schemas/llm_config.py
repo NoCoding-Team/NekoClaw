@@ -9,6 +9,7 @@ class LLMConfigCreate(BaseModel):
     base_url: str | None = None
     is_default: bool = False
     context_limit: int = 128000
+    temperature: float = 0.7
 
 
 class LLMConfigUpdate(BaseModel):
@@ -17,6 +18,8 @@ class LLMConfigUpdate(BaseModel):
     api_key: str | None = None
     base_url: str | None = None
     is_default: bool | None = None
+    context_limit: int | None = None
+    temperature: float | None = None
 
 
 class LLMConfigResponse(BaseModel):
@@ -27,6 +30,7 @@ class LLMConfigResponse(BaseModel):
     base_url: str | None
     is_default: bool
     context_limit: int
+    temperature: float
     # api_key intentionally omitted
 
     model_config = {"from_attributes": True}

@@ -40,6 +40,7 @@ async def create_llm_config(
         base_url=body.base_url,
         is_default=body.is_default,
         context_limit=body.context_limit,
+        temperature=body.temperature,
     )
     db.add(config)
     await db.commit()
@@ -71,6 +72,10 @@ async def update_llm_config(
         config.base_url = body.base_url
     if body.is_default is not None:
         config.is_default = body.is_default
+    if body.context_limit is not None:
+        config.context_limit = body.context_limit
+    if body.temperature is not None:
+        config.temperature = body.temperature
 
     await db.commit()
     await db.refresh(config)

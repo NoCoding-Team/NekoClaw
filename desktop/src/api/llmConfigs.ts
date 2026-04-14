@@ -8,6 +8,7 @@ export interface LLMConfig {
   base_url: string | null
   is_default: boolean
   context_limit: number
+  temperature: number
 }
 
 function getBase() {
@@ -34,6 +35,7 @@ export async function createLLMConfig(body: {
   base_url?: string
   is_default?: boolean
   context_limit?: number
+  temperature?: number
 }): Promise<LLMConfig> {
   const res = await fetch(`${getBase()}/api/admin/llm-configs`, {
     method: 'POST',
@@ -46,7 +48,7 @@ export async function createLLMConfig(body: {
 
 export async function updateLLMConfig(
   id: string,
-  body: { name?: string; model?: string; api_key?: string; base_url?: string; is_default?: boolean }
+  body: { name?: string; model?: string; api_key?: string; base_url?: string; is_default?: boolean; context_limit?: number; temperature?: number }
 ): Promise<LLMConfig> {
   const res = await fetch(`${getBase()}/api/admin/llm-configs/${id}`, {
     method: 'PUT',

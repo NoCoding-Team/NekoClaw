@@ -16,3 +16,4 @@ class LLMConfig(BaseModel):
     base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)  # for custom providers
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     context_limit: Mapped[int] = mapped_column(default=128000, nullable=False)
+    temperature: Mapped[float] = mapped_column(default=0.7, nullable=False)
