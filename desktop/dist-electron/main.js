@@ -1,2 +1,148 @@
-"use strict";var w=Object.create;var c=Object.defineProperty;var m=Object.getOwnPropertyDescriptor;var h=Object.getOwnPropertyNames;var y=Object.getPrototypeOf,g=Object.prototype.hasOwnProperty;var _=(e,r,i,n)=>{if(r&&typeof r=="object"||typeof r=="function")for(let a of h(r))!g.call(e,a)&&a!==i&&c(e,a,{get:()=>r[a],enumerable:!(n=m(r,a))||n.enumerable});return e};var d=(e,r,i)=>(i=e!=null?w(y(e)):{},_(r||!e||!e.__esModule?c(i,"default",{value:e,enumerable:!0}):i,e));const t=require("electron"),o=require("path"),s=require("fs/promises"),S=require("os"),l=process.env.VITE_DEV_SERVER_URL;function u(){const e=new t.BrowserWindow({width:1280,height:800,minWidth:900,minHeight:600,backgroundColor:"#0f0f13",titleBarStyle:"hiddenInset",frame:!1,icon:o.join(__dirname,"../build/icon.ico"),webPreferences:{preload:o.join(__dirname,"preload.js"),contextIsolation:!0,nodeIntegration:!1,sandbox:!1}});return l?e.loadURL(l):e.loadFile(o.join(__dirname,"../dist/index.html")),e}t.app.whenReady().then(()=>{u(),t.app.on("activate",()=>{t.BrowserWindow.getAllWindows().length===0&&u()})});t.app.on("window-all-closed",()=>{process.platform!=="darwin"&&t.app.quit()});t.ipcMain.handle("file:read",async(e,r)=>{try{return{content:await s.readFile(r,"utf-8")}}catch(i){return{error:String(i)}}});t.ipcMain.handle("file:write",async(e,r,i)=>{try{return await s.mkdir(o.dirname(r),{recursive:!0}),await s.writeFile(r,i,"utf-8"),{success:!0}}catch(n){return{error:String(n)}}});t.ipcMain.handle("file:list",async(e,r)=>{try{return{entries:(await s.readdir(r,{withFileTypes:!0})).map(n=>({name:n.name,isDirectory:n.isDirectory(),path:o.join(r,n.name)}))}}catch(i){return{error:String(i)}}});t.ipcMain.handle("file:delete",async(e,r)=>{try{return await s.unlink(r),{success:!0}}catch(i){return{error:String(i)}}});t.ipcMain.handle("shell:exec",async(e,r)=>{try{const{exec:i}=await import("child_process"),{promisify:n}=await import("util"),a=n(i),{stdout:p,stderr:f}=await a(r,{timeout:3e5,cwd:S.homedir()});return{stdout:p,stderr:f}}catch(i){return{error:i.message,stdout:i.stdout||"",stderr:i.stderr||""}}});t.ipcMain.handle("storage:encrypt",(e,r)=>t.safeStorage.isEncryptionAvailable()?{encrypted:t.safeStorage.encryptString(r).toString("base64")}:{encrypted:Buffer.from(r).toString("base64")});t.ipcMain.handle("storage:decrypt",(e,r)=>{if(t.safeStorage.isEncryptionAvailable()){const i=Buffer.from(r,"base64");return{decrypted:t.safeStorage.decryptString(i)}}return{decrypted:Buffer.from(r,"base64").toString("utf-8")}});t.ipcMain.on("window:minimize",()=>{var e;return(e=t.BrowserWindow.getFocusedWindow())==null?void 0:e.minimize()});t.ipcMain.on("window:maximize",()=>{const e=t.BrowserWindow.getFocusedWindow();e!=null&&e.isMaximized()?e.unmaximize():e==null||e.maximize()});t.ipcMain.on("window:close",()=>{var e;return(e=t.BrowserWindow.getFocusedWindow())==null?void 0:e.close()});t.ipcMain.handle("shell:openExternal",async(e,r)=>{(r.startsWith("https://")||r.startsWith("http://"))&&await t.shell.openExternal(r)});
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+const electron = require("electron");
+const path = require("path");
+const fs = require("fs/promises");
+const os = require("os");
+const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+function createWindow() {
+  const win = new electron.BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    backgroundColor: "#0f0f13",
+    titleBarStyle: "hiddenInset",
+    frame: false,
+    icon: path.join(__dirname, "../build/icon.ico"),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+      // needed for preload modules
+    }
+  });
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL);
+  } else {
+    win.loadFile(path.join(__dirname, "../dist/index.html"));
+  }
+  return win;
+}
+electron.app.whenReady().then(() => {
+  createWindow();
+  electron.app.on("activate", () => {
+    if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+electron.app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") electron.app.quit();
+});
+electron.ipcMain.handle("file:read", async (_e, filePath) => {
+  try {
+    const content = await fs.readFile(filePath, "utf-8");
+    return { content };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("file:write", async (_e, filePath, content) => {
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, content, "utf-8");
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("file:list", async (_e, dirPath) => {
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    return {
+      entries: entries.map((e) => ({
+        name: e.name,
+        isDirectory: e.isDirectory(),
+        path: path.join(dirPath, e.name)
+      }))
+    };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("file:delete", async (_e, filePath) => {
+  try {
+    await fs.unlink(filePath);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("shell:exec", async (_e, command) => {
+  try {
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+    const { stdout, stderr } = await execAsync(command, {
+      timeout: 3e5,
+      cwd: os.homedir()
+    });
+    return { stdout, stderr };
+  } catch (err) {
+    return { error: err.message, stdout: err.stdout || "", stderr: err.stderr || "" };
+  }
+});
+electron.ipcMain.handle("storage:encrypt", (_e, plaintext) => {
+  if (electron.safeStorage.isEncryptionAvailable()) {
+    const buf = electron.safeStorage.encryptString(plaintext);
+    return { encrypted: buf.toString("base64") };
+  }
+  return { encrypted: Buffer.from(plaintext).toString("base64") };
+});
+electron.ipcMain.handle("storage:decrypt", (_e, b64) => {
+  if (electron.safeStorage.isEncryptionAvailable()) {
+    const buf = Buffer.from(b64, "base64");
+    return { decrypted: electron.safeStorage.decryptString(buf) };
+  }
+  return { decrypted: Buffer.from(b64, "base64").toString("utf-8") };
+});
+electron.ipcMain.on("window:minimize", () => {
+  var _a;
+  return (_a = electron.BrowserWindow.getFocusedWindow()) == null ? void 0 : _a.minimize();
+});
+electron.ipcMain.on("window:maximize", () => {
+  const win = electron.BrowserWindow.getFocusedWindow();
+  if (win == null ? void 0 : win.isMaximized()) win.unmaximize();
+  else win == null ? void 0 : win.maximize();
+});
+electron.ipcMain.on("window:close", () => {
+  var _a;
+  return (_a = electron.BrowserWindow.getFocusedWindow()) == null ? void 0 : _a.close();
+});
+electron.ipcMain.handle("shell:openExternal", async (_e, url) => {
+  if (url.startsWith("https://") || url.startsWith("http://")) {
+    await electron.shell.openExternal(url);
+  }
+});
 //# sourceMappingURL=main.js.map
