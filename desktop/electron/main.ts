@@ -12,14 +12,13 @@ if (process.platform === 'win32') {
 }
 
 // Resolve icon path: use app.getAppPath() which is reliable in both dev and prod
-function getIconPath() {
+function getIconPath(format: 'png' | 'ico' = 'png') {
   const appPath = app.isReady() ? app.getAppPath() : path.join(__dirname, '..')
-  // Use PNG for win.setIcon() — more reliable than ICO for dev mode
-  return path.join(appPath, 'build', 'icon.png')
+  return path.join(appPath, 'build', format === 'ico' ? 'icon.ico' : 'icon.png')
 }
 
 function createWindow() {
-  const iconPath = getIconPath()
+  const iconPath = getIconPath('png')
   const appIcon = nativeImage.createFromPath(iconPath)
 
   const win = new BrowserWindow({
@@ -42,6 +41,14 @@ function createWindow() {
   // Set icon again once the window is ready to show, to ensure taskbar reflects the custom icon
   win.once('ready-to-show', () => {
     win.setIcon(nativeImage.createFromPath(getIconPath()))
+    // Windows-specific: setAppDetails sets the taskbar button icon directly
+    if (process.platform === 'win32') {
+      win.setAppDetails({
+        appId: 'com.nekoclaw.desktop',
+        appIconPath: getIconPath('ico'),
+        appIconIndex: 0,
+      })
+    }
   })
 
   if (VITE_DEV_SERVER_URL) {
