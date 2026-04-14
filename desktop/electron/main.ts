@@ -11,8 +11,15 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.nekoclaw.desktop')
 }
 
+// Resolve icon path: use app.getAppPath() which is reliable in both dev and prod
+function getIconPath() {
+  const appPath = app.isReady() ? app.getAppPath() : path.join(__dirname, '..')
+  // Use PNG for win.setIcon() — more reliable than ICO for dev mode
+  return path.join(appPath, 'build', 'icon.png')
+}
+
 function createWindow() {
-  const iconPath = path.join(__dirname, '../build/icon.ico')
+  const iconPath = getIconPath()
   const appIcon = nativeImage.createFromPath(iconPath)
 
   const win = new BrowserWindow({
@@ -32,8 +39,10 @@ function createWindow() {
     },
   })
 
-  // Explicitly set icon after window creation to ensure taskbar shows correct icon
-  win.setIcon(appIcon)
+  // Set icon again once the window is ready to show, to ensure taskbar reflects the custom icon
+  win.once('ready-to-show', () => {
+    win.setIcon(nativeImage.createFromPath(getIconPath()))
+  })
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
