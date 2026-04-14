@@ -40,7 +40,7 @@ async def rate_limit_middleware(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_credentials=False,   # 使用 JWT Bearer Token，不依赖 Cookie，无需 credentials
     allow_methods=["*"],
     allow_headers=["*"],
 )
