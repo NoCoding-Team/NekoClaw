@@ -32,6 +32,8 @@ function ModelCenterTab() {
   const [showKey, setShowKey]   = useState(false)
   const [maxTokens, setMaxTokens] = useState('8192')
   const [temperature, setTemperature] = useState('0.7')
+  const [fallbacks, setFallbacks]     = useState<string[]>([])
+  const [addingFallback, setAddingFallback] = useState(false)
   const [saving, setSaving]     = useState(false)
   const [err, setErr]           = useState('')
   const [ok, setOk]             = useState('')
@@ -179,9 +181,53 @@ function ModelCenterTab() {
               <span className={styles.formLabel}>备用模型</span>
               <span className={styles.formHint}>主模型调用失败时，按顺序尝试备用模型</span>
             </div>
-            <button className={styles.addFallbackBtn}>
-              ＋ 添加备用模型
-            </button>
+
+            {/* 已选备用模型 chips */}
+            {fallbacks.length > 0 && (
+              <div className={styles.fallbackChips}>
+                {fallbacks.map((fb, i) => (
+                  <span key={i} className={styles.fallbackChip}>
+                    {fb}
+                    <button className={styles.fallbackChipRemove}
+                      onClick={() => setFallbacks(prev => prev.filter((_, j) => j !== i))}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* 选择下拉框（展开时显示）*/}
+            {addingFallback ? (
+              <select
+                autoFocus
+                className={styles.fallbackSelect}
+                defaultValue=""
+                onChange={e => {
+                  const val = e.target.value
+                  if (val && !fallbacks.includes(val)) {
+                    setFallbacks(prev => [...prev, val])
+                  }
+                  setAddingFallback(false)
+                }}
+                onBlur={() => setAddingFallback(false)}
+              >
+                <option value="" disabled>选择模型...</option>
+                {configs
+                  .filter(c => c.model !== model || c.base_url !== (baseUrl || null))
+                  .map(c => (
+                    <option key={c.id} value={c.model}>{c.name} ({c.model})</option>
+                  ))
+                }
+                {configs.length === 0 && (
+                  <option value="" disabled>暂无其他已配置模型</option>
+                )}
+              </select>
+            ) : (
+              <button className={styles.addFallbackBtn} onClick={() => setAddingFallback(true)}>
+                ＋ 添加备用模型
+              </button>
+            )}
           </div>
 
           {err && <div className={styles.errMsg}>{err}</div>}
