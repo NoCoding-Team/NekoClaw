@@ -377,43 +377,110 @@
   background: var(--accent-glow);
 }
 
-.fallbackChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
+.fallbackChips { display: flex; flex-wrap: wrap; gap: 6px; }
 .fallbackChip {
-  display: inline-flex;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12px;
+  color: var(--accent); background: var(--accent-glow);
+  border: 1px solid rgba(124,106,244,0.3);
+}
+.fallbackChipRemove { font-size: 14px; line-height: 1; color: var(--text-muted); transition: color 0.15s; }
+.fallbackChipRemove:hover { color: var(--danger, #e05252); }
+
+.fallbackSelect {
+  width: 100%; padding: 9px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--accent); background: var(--bg-surface);
+  color: var(--text-primary); font-size: 13px; box-sizing: border-box; outline: none;
+}
+.fallbackSelect option { background: var(--bg-base); color: var(--text-primary); }
+
+/* Fallback inline card */
+.fallbackCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+}
+.fallbackCardHead {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.fallbackIdx {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  font-size: 11px; font-weight: 600;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.fallbackNameInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.fallbackNameInput::placeholder { color: var(--text-muted); }
+.fallbackProviderBadge {
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--accent);
   background: var(--accent-glow);
   border: 1px solid rgba(124,106,244,0.3);
 }
-.fallbackChipRemove {
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-muted);
-  transition: color 0.15s;
+.fallbackCardRemove {
+  font-size: 16px; line-height: 1; color: var(--text-muted);
+  padding: 0 2px; transition: color 0.15s;
 }
-.fallbackChipRemove:hover { color: var(--danger, #e05252); }
+.fallbackCardRemove:hover { color: var(--danger, #e05252); }
 
-.fallbackSelect {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--accent);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: 13px;
-  box-sizing: border-box;
-  cursor: pointer;
-  outline: none;
+.fallbackApiRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-.fallbackSelect option { background: var(--bg-base); color: var(--text-primary); }
+.fallbackFieldLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 52px;
+}
+.fallbackProvTabs { display: flex; gap: 4px; }
+.fallbackProvTab {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.fallbackProvTab:hover { border-color: var(--accent); color: var(--text-primary); }
+.fallbackProvTabActive { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+.fallbackInput {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--text-primary);
+  font-size: 12px;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.fallbackInput:focus { outline: none; border-color: var(--accent); }
+.fallbackInput::placeholder { color: var(--text-muted); }
 .saveConnectBtn {
   padding: 9px 24px;
   border-radius: var(--radius-sm);

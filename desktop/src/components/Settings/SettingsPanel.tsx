@@ -32,9 +32,19 @@ function ModelCenterTab() {
   const [showKey, setShowKey]   = useState(false)
   const [maxTokens, setMaxTokens] = useState('8192')
   const [temperature, setTemperature] = useState('0.7')
-  const [fallbacks, setFallbacks]     = useState<string[]>([])
-  const [addingFallback, setAddingFallback] = useState(false)
-  const [saving, setSaving]     = useState(false)
+  interface FallbackItem { id: number; name: string; provider: string; baseUrl: string; model: string; apiKey: string }
+  const [fallbacks, setFallbacks] = useState<FallbackItem[]>([])
+  const [fbIdSeq, setFbIdSeq]     = useState(0)
+  const [saving, setSaving]       = useState(false)
+
+  const addFallback = () => {
+    const id = fbIdSeq + 1
+    setFbIdSeq(id)
+    setFallbacks(prev => [...prev, { id, name: '', provider: 'openai', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '' }])
+  }
+  const removeFallback = (id: number) => setFallbacks(prev => prev.filter(f => f.id !== id))
+  const updateFallback = (id: number, patch: Partial<FallbackItem>) =>
+    setFallbacks(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f))
   const [err, setErr]           = useState('')
   const [ok, setOk]             = useState('')
 
@@ -182,52 +192,59 @@ function ModelCenterTab() {
               <span className={styles.formHint}>主模型调用失败时，按顺序尝试备用模型</span>
             </div>
 
-            {/* 已选备用模型 chips */}
-            {fallbacks.length > 0 && (
-              <div className={styles.fallbackChips}>
-                {fallbacks.map((fb, i) => (
-                  <span key={i} className={styles.fallbackChip}>
-                    {fb}
-                    <button className={styles.fallbackChipRemove}
-                      onClick={() => setFallbacks(prev => prev.filter((_, j) => j !== i))}>
-                      ×
-                    </button>
+            {/* 备用模型卡片列表 */}
+            {fallbacks.map((fb, idx) => (
+              <div key={fb.id} className={styles.fallbackCard}>
+                {/* 卡片头 */}
+                <div className={styles.fallbackCardHead}>
+                  <span className={styles.fallbackIdx}>{idx + 1}</span>
+                  <input
+                    className={styles.fallbackNameInput}
+                    value={fb.name}
+                    onChange={e => updateFallback(fb.id, { name: e.target.value })}
+                    placeholder="输入模型名称"
+                  />
+                  <span className={styles.fallbackProviderBadge}>
+                    {fb.provider === 'openai' ? 'OpenAI' : fb.provider === 'anthropic' ? 'Anthropic' : '自定义'}
                   </span>
-                ))}
-              </div>
-            )}
+                  <button className={styles.fallbackCardRemove} onClick={() => removeFallback(fb.id)}>×</button>
+                </div>
 
-            {/* 选择下拉框（展开时显示）*/}
-            {addingFallback ? (
-              <select
-                autoFocus
-                className={styles.fallbackSelect}
-                defaultValue=""
-                onChange={e => {
-                  const val = e.target.value
-                  if (val && !fallbacks.includes(val)) {
-                    setFallbacks(prev => [...prev, val])
-                  }
-                  setAddingFallback(false)
-                }}
-                onBlur={() => setAddingFallback(false)}
-              >
-                <option value="" disabled>选择模型...</option>
-                {configs
-                  .filter(c => c.model !== model || c.base_url !== (baseUrl || null))
-                  .map(c => (
-                    <option key={c.id} value={c.model}>{c.name} ({c.model})</option>
-                  ))
-                }
-                {configs.length === 0 && (
-                  <option value="" disabled>暂无其他已配置模型</option>
-                )}
-              </select>
-            ) : (
-              <button className={styles.addFallbackBtn} onClick={() => setAddingFallback(true)}>
-                ＋ 添加备用模型
-              </button>
-            )}
+                {/* API URL 切换 */}
+                <div className={styles.fallbackApiRow}>
+                  <span className={styles.fallbackFieldLabel}>API URL</span>
+                  <div className={styles.fallbackProvTabs}>
+                    {[{ v: 'openai', l: 'OpenAI', url: 'https://api.openai.com/v1' },
+                      { v: 'anthropic', l: 'Anthropic', url: 'https://api.anthropic.com' }].map(p => (
+                      <button key={p.v}
+                        className={`${styles.fallbackProvTab} ${fb.provider === p.v ? styles.fallbackProvTabActive : ''}`}
+                        onClick={() => updateFallback(fb.id, { provider: p.v, baseUrl: p.url })}>
+                        {p.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <input className={styles.fallbackInput} value={fb.baseUrl}
+                  onChange={e => updateFallback(fb.id, { baseUrl: e.target.value })}
+                  placeholder="https://api.openai.com/v1" />
+
+                {/* 模型 */}
+                <span className={styles.fallbackFieldLabel}>模型</span>
+                <input className={styles.fallbackInput} value={fb.model}
+                  onChange={e => updateFallback(fb.id, { model: e.target.value })}
+                  placeholder="gpt-4o" />
+
+                {/* API Key */}
+                <span className={styles.fallbackFieldLabel}>API Key</span>
+                <input className={styles.fallbackInput} type="password" value={fb.apiKey}
+                  onChange={e => updateFallback(fb.id, { apiKey: e.target.value })}
+                  placeholder="sk-..." />
+              </div>
+            ))}
+
+            <button className={styles.addFallbackBtn} onClick={addFallback}>
+              ＋ 添加备用模型
+            </button>
           </div>
 
           {err && <div className={styles.errMsg}>{err}</div>}
