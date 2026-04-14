@@ -57,7 +57,7 @@ function ModelCenterTab() {
 
       setLocalLLMConfig({
         provider,
-        baseUrl: baseUrl.trim() || PROVIDERS.find(p => p.value === provider)?.placeholder ?? '',
+        baseUrl: baseUrl.trim() || (PROVIDERS.find(p => p.value === provider)?.placeholder ?? ''),
         model: model.trim(),
         apiKeyB64: keyToStore,
         maxTokens: parseInt(maxTokens) || 8192,
@@ -129,7 +129,7 @@ function ModelCenterTab() {
             <div className={styles.apiKeyWrap}>
               <input className={styles.formInput} type={showKey ? 'text' : 'password'}
                 value={apiKey} onChange={e => setApiKey(e.target.value)}
-                placeholder={existing ? '••••••• (留空不修改)' : 'sk-...'} />
+                placeholder={localLLMConfig ? '••••••• (留空不修改)' : 'sk-...'} />
               <button className={styles.eyeBtn} onClick={() => setShowKey(v => !v)}>
                 {showKey ? '🙈' : '👁️'}
               </button>

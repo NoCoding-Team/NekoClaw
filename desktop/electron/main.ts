@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, nativeImage, safeStorage, shell } from 'electron'
+﻿import { app, BrowserWindow, ipcMain, nativeImage, safeStorage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
@@ -8,7 +8,7 @@ const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 // Set app name and identity so Windows taskbar shows "NekoClaw" instead of "Electron"
 app.setName('NekoClaw')
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.nekoclaw.desktop')
+  app.setAppUserModelId('NekoClaw')
 }
 
 // Resolve icon path: use app.getAppPath() which is reliable in both dev and prod
@@ -17,11 +17,16 @@ function getIconPath(format: 'png' | 'ico' = 'png') {
   return path.join(appPath, 'build', format === 'ico' ? 'icon.ico' : 'icon.png')
 }
 
+function getWindowIconPath() {
+  return process.platform === 'win32' ? getIconPath('ico') : getIconPath('png')
+}
+
 function createWindow() {
-  const iconPath = getIconPath('png')
+  const iconPath = getWindowIconPath()
   const appIcon = nativeImage.createFromPath(iconPath)
 
   const win = new BrowserWindow({
+    title: 'NekoClaw',
     width: 1280,
     height: 800,
     minWidth: 900,
@@ -35,16 +40,22 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // needed for preload modules
+      sandbox: false,
     },
   })
 
-  // Set icon and show window only after renderer is ready, ensuring taskbar gets the correct icon
+  // Prevent web page document.title from overriding the native window title
+  win.webContents.on('page-title-updated', (event) => {
+    event.preventDefault()
+  })
+
+  // Set icon and show window only after renderer is ready
   win.once('ready-to-show', () => {
-    win.setIcon(nativeImage.createFromPath(getIconPath()))
+    win.setTitle('NekoClaw')
+    win.setIcon(nativeImage.createFromPath(getWindowIconPath()))
     if (process.platform === 'win32') {
       win.setAppDetails({
-        appId: 'com.nekoclaw.desktop',
+        appId: 'NekoClaw',
         appIconPath: getIconPath('ico'),
         appIconIndex: 0,
       })
@@ -62,6 +73,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  app.setName('NekoClaw')
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('NekoClaw')
+  }
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -72,7 +87,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-// ── IPC: File operations ───────────────────────────────────────────────────
+// -- IPC: File operations
 ipcMain.handle('file:read', async (_e, filePath: string) => {
   try {
     const content = await fs.readFile(filePath, 'utf-8')
@@ -116,7 +131,7 @@ ipcMain.handle('file:delete', async (_e, filePath: string) => {
   }
 })
 
-// ── IPC: Shell execution ───────────────────────────────────────────────────
+// -- IPC: Shell execution
 ipcMain.handle('shell:exec', async (_e, command: string) => {
   try {
     const { exec } = await import('child_process')
@@ -132,7 +147,7 @@ ipcMain.handle('shell:exec', async (_e, command: string) => {
   }
 })
 
-// ── IPC: Encrypted storage (API keys) ────────────────────────────────────
+// -- IPC: Encrypted storage (API keys)
 ipcMain.handle('storage:encrypt', (_e, plaintext: string) => {
   if (safeStorage.isEncryptionAvailable()) {
     const buf = safeStorage.encryptString(plaintext)
@@ -149,7 +164,7 @@ ipcMain.handle('storage:decrypt', (_e, b64: string) => {
   return { decrypted: Buffer.from(b64, 'base64').toString('utf-8') }
 })
 
-// ── IPC: Window controls ──────────────────────────────────────────────────
+// -- IPC: Window controls
 ipcMain.on('window:minimize', () => BrowserWindow.getFocusedWindow()?.minimize())
 ipcMain.on('window:maximize', () => {
   const win = BrowserWindow.getFocusedWindow()
@@ -158,7 +173,7 @@ ipcMain.on('window:maximize', () => {
 })
 ipcMain.on('window:close', () => BrowserWindow.getFocusedWindow()?.close())
 
-// ── IPC: Open external links safely ───────────────────────────────────────
+// -- IPC: Open external links safely
 ipcMain.handle('shell:openExternal', async (_e, url: string) => {
   if (url.startsWith('https://') || url.startsWith('http://')) {
     await shell.openExternal(url)

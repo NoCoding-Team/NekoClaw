@@ -26,8 +26,22 @@ const path = require("path");
 const fs = require("fs/promises");
 const os = require("os");
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+electron.app.setName("NekoClaw");
+if (process.platform === "win32") {
+  electron.app.setAppUserModelId("NekoClaw");
+}
+function getIconPath(format = "png") {
+  const appPath = electron.app.isReady() ? electron.app.getAppPath() : path.join(__dirname, "..");
+  return path.join(appPath, "build", format === "ico" ? "icon.ico" : "icon.png");
+}
+function getWindowIconPath() {
+  return process.platform === "win32" ? getIconPath("ico") : getIconPath("png");
+}
 function createWindow() {
+  const iconPath = getWindowIconPath();
+  const appIcon = electron.nativeImage.createFromPath(iconPath);
   const win = new electron.BrowserWindow({
+    title: "NekoClaw",
     width: 1280,
     height: 800,
     minWidth: 900,
@@ -35,14 +49,29 @@ function createWindow() {
     backgroundColor: "#0f0f13",
     titleBarStyle: "hiddenInset",
     frame: false,
-    icon: path.join(__dirname, "../build/icon.ico"),
+    show: false,
+    icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
-      // needed for preload modules
     }
+  });
+  win.webContents.on("page-title-updated", (event) => {
+    event.preventDefault();
+  });
+  win.once("ready-to-show", () => {
+    win.setTitle("NekoClaw");
+    win.setIcon(electron.nativeImage.createFromPath(getWindowIconPath()));
+    if (process.platform === "win32") {
+      win.setAppDetails({
+        appId: "NekoClaw",
+        appIconPath: getIconPath("ico"),
+        appIconIndex: 0
+      });
+    }
+    win.show();
   });
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
@@ -52,6 +81,10 @@ function createWindow() {
   return win;
 }
 electron.app.whenReady().then(() => {
+  electron.app.setName("NekoClaw");
+  if (process.platform === "win32") {
+    electron.app.setAppUserModelId("NekoClaw");
+  }
   createWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();

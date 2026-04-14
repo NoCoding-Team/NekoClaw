@@ -4,7 +4,9 @@
   "description": "NekoClaw Desktop Client",
   "main": "dist-electron/main.js",
   "scripts": {
+    "predev": "node scripts/gen-icons.mjs && node scripts/set-electron-icon.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/gen-icons.mjs",
     "build": "vite build && electron-builder",
     "build:vite": "vite build",
     "preview": "vite preview",

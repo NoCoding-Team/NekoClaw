@@ -5,9 +5,11 @@ import { fileURLToPath } from 'url'
 import fs from 'fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const src = path.resolve(__dirname, '../../docs/assets/NekoClaw.png')
+const src = path.resolve(__dirname, '../assets/icon.png')
 const buildDir = path.resolve(__dirname, '../build')
 const opts = { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }
+
+fs.mkdirSync(buildDir, { recursive: true })
 
 const sizes = [16, 32, 48, 64, 128, 256, 512, 1024]
 
@@ -20,7 +22,7 @@ await Promise.all(
 await sharp(src).resize(512, 512, opts).png().toFile(path.join(buildDir, 'icon.png'))
 console.log('All PNGs generated')
 
-// Build multi-size ICO from 16/32/48/64/128/256 using default export (accepts file paths)
+// Build multi-size ICO from 16/32/48/64/128/256 using file paths
 const pngToIco = (await import('../node_modules/png-to-ico/index.js')).default
 
 const icoSizes = [16, 32, 48, 64, 128, 256]

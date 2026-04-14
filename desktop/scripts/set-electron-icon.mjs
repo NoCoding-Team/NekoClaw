@@ -6,6 +6,7 @@ import { createRequire } from 'module'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
+import { execFileSync } from 'child_process'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -25,9 +26,35 @@ if (!fs.existsSync(icoPath)) {
 
 try {
   const { rcedit } = require('rcedit')
-  await rcedit(exePath, { icon: icoPath })
-  console.log('[set-icon] NekoClaw icon embedded into electron.exe')
+  const rcOptions = {
+    icon: icoPath,
+    'version-string': {
+      CompanyName: 'NekoClaw',
+      FileDescription: 'NekoClaw',
+      ProductName: 'NekoClaw',
+      InternalName: 'NekoClaw',
+      OriginalFilename: 'NekoClaw.exe',
+    },
+  }
+
+  try {
+    await rcedit(exePath, rcOptions)
+  } catch (firstErr) {
+    if (process.platform === 'win32') {
+      // electron.exe is often locked by a running dev process; stop it then retry once.
+      try {
+        execFileSync('taskkill', ['/IM', 'electron.exe', '/F'], { stdio: 'ignore' })
+      } catch {
+        // Ignore when process does not exist.
+      }
+      await rcedit(exePath, rcOptions)
+    } else {
+      throw firstErr
+    }
+  }
+
+  console.log('[set-icon] NekoClaw icon and metadata embedded into electron.exe')
 } catch (err) {
-  // Non-fatal: electron may be running (locked), or on non-Windows
-  console.warn('[set-icon] Could not embed icon (electron may be running):', err.message)
+  // Keep non-fatal behavior so install/dev is not blocked by icon resource update.
+  console.warn('[set-icon] Could not embed icon after retry:', err.message)
 }
