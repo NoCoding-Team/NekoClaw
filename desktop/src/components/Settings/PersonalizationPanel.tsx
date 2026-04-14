@@ -77,7 +77,7 @@ export function PersonalizationPanel() {
               <span className={styles.cardIcon}>💜</span>
               <div>
                 <div className={styles.cardTitle}>关于你</div>
-                <div className={styles.cardDesc}>填写你的基本信息，让螃蟹更懂你。</div>
+                <div className={styles.cardDesc}>填写你的基本信息，让猫咪更懂你。</div>
               </div>
             </div>
             <div className={styles.fields}>
@@ -90,24 +90,24 @@ export function PersonalizationPanel() {
             </div>
           </div>
 
-          {/* 螃蟹身份 */}
+          {/* 猫咪身份 */}
           <div className={styles.card}>
             <div className={styles.cardHeader}>
-              <span className={styles.cardIcon}>🦀</span>
+              <span className={styles.cardIcon}>🐱</span>
               <div>
-                <div className={styles.cardTitle}>螃蟹身份</div>
-                <div className={styles.cardDesc}>定义螃蟹的名字和形象。</div>
+                <div className={styles.cardTitle}>猫咪身份</div>
+                <div className={styles.cardDesc}>定义猫咪助手的名字和形象。</div>
               </div>
             </div>
             <div className={styles.fields}>
-              <label className={styles.label}>螃蟹昵称</label>
+              <label className={styles.label}>猫咪昵称</label>
               <input className={styles.input} placeholder="例如：小蟹、蟹老板" value={catName} onChange={e => setCatName(e.target.value)} />
               <label className={styles.label}>生物类型</label>
               <input className={styles.input} placeholder="例如：AI、robot、familiar" value={bioType} onChange={e => setBioType(e.target.value)} />
               <label className={styles.label}>气质风格</label>
               <input className={styles.input} placeholder="例如：sharp、warm、chaotic、calm" value={vibe} onChange={e => setVibe(e.target.value)} />
               <label className={styles.label}>代表 Emoji</label>
-              <input className={styles.input} placeholder="选一个代表螃蟹的 emoji" value={catEmoji} onChange={e => setCatEmoji(e.target.value)} />
+              <input className={styles.input} placeholder="选一个代表猫咪的 emoji 🐾" value={catEmoji} onChange={e => setCatEmoji(e.target.value)} />
             </div>
           </div>
         </div>
@@ -115,10 +115,10 @@ export function PersonalizationPanel() {
         {/* 性格与行为 */}
         <div className={`${styles.card} ${styles.cardFull}`}>
           <div className={styles.cardHeader}>
-            <span className={styles.cardIcon}>✨</span>
+            <span className={styles.cardIcon}>🐾</span>
             <div>
               <div className={styles.cardTitle}>性格与行为</div>
-              <div className={styles.cardDesc}>定义螃蟹的性格和回复方式。</div>
+              <div className={styles.cardDesc}>定义猫咪的性格和回复方式。</div>
             </div>
           </div>
           <div className={styles.fields}>
@@ -143,7 +143,7 @@ export function PersonalizationPanel() {
             <label className={styles.label}>自定义指令</label>
             <textarea
               className={`${styles.textarea} ${styles.textareaLg}`}
-              placeholder="自由描述你希望螃蟹的性格、说话方式、工作逻辑。"
+              placeholder="自由描述你希望猫咪的性格、说话方式、工作逻辑。"
               value={customPrompt}
               onChange={e => setCustomPrompt(e.target.value)}
               rows={5}
