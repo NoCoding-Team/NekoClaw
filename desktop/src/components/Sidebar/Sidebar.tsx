@@ -1,11 +1,11 @@
-import styles from './Sidebar.module.css'
+﻿import styles from './Sidebar.module.css'
 import { useAppStore } from '../../store/app'
 
 type Tab = 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings'
 
 const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
   { id: 'tasks',           icon: '⏰', label: '定时任务'   },
-  { id: 'skills',          icon: '⚡', label: '技能库'     },
+  { id: 'skills',          icon: '🛠️', label: '技能库'     },
   { id: 'memory',          icon: '🧠', label: '记忆'       },
   { id: 'personalization', icon: '🎨', label: '个性化设置' },
 ]
@@ -14,7 +14,7 @@ export function Sidebar() {
   const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession } = useAppStore()
 
   const createNewSession = () => {
-    const id = `local-${Date.now()}`
+    const id = local- + Date.now()
     addSession({ id, title: '新对话' })
     setActiveSession(id)
     setSidebarTab('sessions')
@@ -41,11 +41,11 @@ export function Sidebar() {
         {PANEL_ITEMS.map((item) => (
           <button
             key={item.id}
-            className={`${styles.navItem} ${sidebarTab === item.id ? styles.active : ''}`}
+            className={${styles.navItem} }
             onClick={() => setSidebarTab(item.id)}
           >
             <span className={styles.navIcon}>{item.icon}</span>
-            <span>{item.label}</span>
+            <span className={styles.navLabel}>{item.label}</span>
           </button>
         ))}
       </nav>
@@ -62,10 +62,10 @@ export function Sidebar() {
           sessions.map((s) => (
             <button
               key={s.id}
-              className={`${styles.sessionItem} ${activeSessionId === s.id && sidebarTab === 'sessions' ? styles.sessionActive : ''}`}
+              className={${styles.sessionItem} }
               onClick={() => { setActiveSession(s.id); setSidebarTab('sessions') }}
             >
-              <span className={styles.sessionIcon}>🗨</span>
+              <span className={styles.sessionIcon}>💬</span>
               <span className={styles.sessionTitle}>{s.title}</span>
             </button>
           ))
@@ -74,12 +74,25 @@ export function Sidebar() {
 
       {/* Bottom bar */}
       <div className={styles.bottomBar}>
-        <button
-          className={`${styles.bottomBtn} ${sidebarTab === 'settings' ? styles.bottomBtnActive : ''}`}
-          onClick={() => setSidebarTab('settings')}
-        >
-          ⚙ 设置
-        </button>
+        <div className={${styles.bottomBarInner} }>
+          <button
+            className={styles.bottomBtn}
+            onClick={() => setSidebarTab('settings')}
+            title="设置"
+          >
+            <span className={styles.bottomIcon}>⚙️</span>
+            <span className={styles.bottomLabel}>设置</span>
+          </button>
+          
+          <div className={styles.bottomActions}>
+            <button className={styles.iconBtn} title="切换主题(开发中)">
+              🌙
+            </button>
+            <button className={styles.iconBtn} title="切换语言(开发中)">
+              🌐
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
   )
