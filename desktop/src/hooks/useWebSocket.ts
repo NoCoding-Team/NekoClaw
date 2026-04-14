@@ -9,8 +9,8 @@ import { executeLocalTool } from './localTools'
 
 const MAX_BACKOFF = 30_000
 
-let wsRef: WebSocket | null = null
-let backoff = 1_000
+// Module-level ref kept in sync by the hook, used by confirmTool/denyTool
+let _ws: WebSocket | null = null
 
 export function useWebSocket(sessionId: string | null) {
   const {
@@ -18,12 +18,14 @@ export function useWebSocket(sessionId: string | null) {
     serverUrl,
     setCatState,
     setWsStatus,
-    activeSessionId,
     appendMessage,
     updateLastAssistantToken,
     updateToolCallStatus,
   } = useAppStore()
 
+  const wsRef = useRef<WebSocket | null>(null)
+  const backoffRef = useRef(1_000)
+  const intentionalClose = useRef(false)
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamingMsgId = useRef<string | null>(null)
@@ -36,27 +38,28 @@ export function useWebSocket(sessionId: string | null) {
     setWsStatus('connecting')
 
     const ws = new WebSocket(wsUrl)
-    wsRef = ws
+    wsRef.current = ws
+    _ws = ws
 
     ws.onopen = () => {
-      backoff = 1_000
+      backoffRef.current = 1_000
       setWsStatus('connected')
       pingTimer.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }))
+        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'ping' }))
       }, 30_000)
     }
 
     ws.onmessage = async (ev) => {
-      let evt: { type: string; data?: Record<string, unknown> }
+      let evt: Record<string, unknown>
       try {
         evt = JSON.parse(ev.data)
       } catch {
         return
       }
-      const { type, data = {} } = evt
+      const type = evt.event as string
 
       if (type === 'cat_state') {
-        setCatState(data.state as any)
+        setCatState(evt.state as any)
       } else if (type === 'llm_thinking') {
         setCatState('thinking')
       } else if (type === 'llm_token') {
@@ -65,7 +68,7 @@ export function useWebSocket(sessionId: string | null) {
           streamingMsgId.current = id
           appendMessage(sessionId, { id, role: 'assistant', content: '', streaming: true })
         }
-        updateLastAssistantToken(sessionId, data.token as string)
+        updateLastAssistantToken(sessionId, evt.token as string)
       } else if (type === 'llm_done') {
         streamingMsgId.current = null
         // Mark last assistant message as done
@@ -79,11 +82,11 @@ export function useWebSocket(sessionId: string | null) {
         }
       } else if (type === 'tool_call') {
         // Append tool call card then execute
-        const callId = data.call_id as string
-        const toolName = data.tool as string
-        const args = data.args as Record<string, unknown>
-        const riskLevel = (data.risk_level as string) || 'LOW'
-        const reason = data.reason as string | undefined
+        const callId = evt.call_id as string
+        const toolName = evt.tool as string
+        const args = evt.args as Record<string, unknown>
+        const riskLevel = (evt.risk_level as string) || 'LOW'
+        const reason = evt.reason as string | undefined
 
         const tc: ToolCall = {
           callId,
@@ -107,11 +110,11 @@ export function useWebSocket(sessionId: string | null) {
         }
         // For MEDIUM/HIGH: SandboxConfirmDialog will call confirmTool / denyTool
       } else if (type === 'tool_denied') {
-        updateToolCallStatus(sessionId, data.call_id as string, { status: 'denied' })
+        updateToolCallStatus(sessionId, evt.call_id as string, { status: 'denied' })
       } else if (type === 'tool_error') {
-        updateToolCallStatus(sessionId, data.call_id as string, {
+        updateToolCallStatus(sessionId, evt.call_id as string, {
           status: 'error',
-          result: data.error as string,
+          result: evt.error as string,
         })
       } else if (type === 'pong') {
         // heartbeat ok
@@ -119,38 +122,43 @@ export function useWebSocket(sessionId: string | null) {
     }
 
     ws.onclose = () => {
-      wsRef = null
+      wsRef.current = null
+      _ws = null
       setWsStatus('disconnected')
       if (pingTimer.current) clearInterval(pingTimer.current)
+      // Skip reconnect if this was an intentional close (e.g. session changed)
+      if (intentionalClose.current) return
       // Exponential backoff reconnect
       reconnectTimer.current = setTimeout(() => {
-        backoff = Math.min(backoff * 2, MAX_BACKOFF)
+        backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF)
         connect()
-      }, backoff)
+      }, backoffRef.current)
     }
 
     ws.onerror = () => ws.close()
   }, [token, sessionId, serverUrl]) // eslint-disable-line
 
   useEffect(() => {
+    intentionalClose.current = false
     connect()
     return () => {
-      wsRef?.close()
-      if (pingTimer.current) clearInterval(pingTimer.current)
+      intentionalClose.current = true
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      if (pingTimer.current) clearInterval(pingTimer.current)
+      wsRef.current?.close()
     }
   }, [connect])
 
   const sendMessage = useCallback(
     (content: string, skillId?: string | null) => {
-      if (!wsRef || wsRef.readyState !== WebSocket.OPEN) return
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
       setCatState('thinking')
       appendMessage(sessionId!, {
         id: uuidv4(),
         role: 'user',
         content,
       })
-      wsRef.send(JSON.stringify({ type: 'message', data: { content, skill_id: skillId } }))
+      wsRef.current.send(JSON.stringify({ event: 'message', content, skill_id: skillId ?? null }))
     },
     [sessionId, setCatState, appendMessage]
   )
@@ -170,21 +178,18 @@ async function _executeAndReply(
     status: result.error ? 'error' : 'done',
     result: JSON.stringify(result),
   })
-  ws.send(JSON.stringify({
-    type: 'tool_result',
-    data: { call_id: callId, result },
-  }))
+  ws.send(JSON.stringify({ event: 'tool_result', call_id: callId, result }))
 }
 
 /** Called by sandbox confirm dialog */
 export async function confirmTool(callId: string, tool: string, args: Record<string, unknown>) {
-  if (!wsRef || wsRef.readyState !== WebSocket.OPEN) return
+  if (!_ws || _ws.readyState !== WebSocket.OPEN) return
   const sessionId = useAppStore.getState().activeSessionId!
   const tc = { callId, tool, args, riskLevel: 'HIGH' as const, status: 'confirmed' as const }
-  await _executeAndReply(wsRef, sessionId, tc, callId)
+  await _executeAndReply(_ws, sessionId, tc, callId)
 }
 
 export function denyTool(callId: string) {
-  if (!wsRef || wsRef.readyState !== WebSocket.OPEN) return
-  wsRef.send(JSON.stringify({ type: 'tool_result', data: { call_id: callId, error: 'User denied' } }))
+  if (!_ws || _ws.readyState !== WebSocket.OPEN) return
+  _ws.send(JSON.stringify({ event: 'tool_result', call_id: callId, error: 'User denied' }))
 }
