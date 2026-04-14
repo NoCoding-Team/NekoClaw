@@ -24,11 +24,39 @@ export function ChatArea() {
     wsStatus,
     activeSkillId,
     localLLMConfig,
+    serverUrl,
+    token,
+    setMessages,
   } = useAppStore()
 
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? []) : []
   const { sendMessage: wsSend } = useWebSocket(localLLMConfig ? null : activeSessionId)
   const { sendMessage: localSend } = useLocalLLM(activeSessionId)
+
+  // Load history messages from server when switching to a session that has none cached
+  useEffect(() => {
+    if (!activeSessionId || activeSessionId.startsWith('local-')) return
+    if (messagesBySession[activeSessionId]?.length) return   // already loaded
+    ;(async () => {
+      try {
+        const res = await fetch(`${serverUrl}/api/sessions/${activeSessionId}/messages`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return
+        const data: Array<{ id: string; role: string; content: string | null; tool_calls: null }> = await res.json()
+        setMessages(
+          activeSessionId,
+          data.map((m) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant' | 'tool',
+            content: m.content ?? '',
+          })),
+        )
+      } catch {
+        // silently ignore — user can still chat
+      }
+    })()
+  }, [activeSessionId])
 
   // Route to local LLM or backend WebSocket based on config
   const sendMessage = localLLMConfig
