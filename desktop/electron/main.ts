@@ -29,6 +29,7 @@ function createWindow() {
     backgroundColor: '#0f0f13',
     titleBarStyle: 'hiddenInset',
     frame: false,
+    show: false,
     icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -38,10 +39,9 @@ function createWindow() {
     },
   })
 
-  // Set icon again once the window is ready to show, to ensure taskbar reflects the custom icon
+  // Set icon and show window only after renderer is ready, ensuring taskbar gets the correct icon
   win.once('ready-to-show', () => {
     win.setIcon(nativeImage.createFromPath(getIconPath()))
-    // Windows-specific: setAppDetails sets the taskbar button icon directly
     if (process.platform === 'win32') {
       win.setAppDetails({
         appId: 'com.nekoclaw.desktop',
@@ -49,6 +49,7 @@ function createWindow() {
         appIconIndex: 0,
       })
     }
+    win.show()
   })
 
   if (VITE_DEV_SERVER_URL) {
