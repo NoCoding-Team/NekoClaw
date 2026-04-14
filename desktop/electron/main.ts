@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, ipcMain, nativeImage, safeStorage, shell, session } from 'electron'
+﻿import { app, BrowserWindow, ipcMain, nativeImage, safeStorage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
@@ -41,6 +41,10 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      // Disable Chromium's CORS enforcement so the renderer can reach external
+      // API servers (backend, local-LLM endpoints) without preflight rejections.
+      // Safe for a packaged desktop app that only loads trusted first-party code.
+      webSecurity: false,
     },
   })
 
@@ -77,21 +81,6 @@ app.whenReady().then(() => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('NekoClaw')
   }
-
-  // Inject CORS headers into all external API responses so the renderer's
-  // Chromium engine does not block cross-origin fetch requests made by local-LLM mode.
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'access-control-allow-origin': ['*'],
-        'access-control-allow-headers': [
-          'Content-Type, Authorization, x-api-key, anthropic-version, anthropic-dangerous-direct-browser-access',
-        ],
-        'access-control-allow-methods': ['GET, POST, PUT, DELETE, OPTIONS, PATCH'],
-      },
-    })
-  })
 
   createWindow()
   app.on('activate', () => {
