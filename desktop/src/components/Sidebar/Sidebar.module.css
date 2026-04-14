@@ -129,13 +129,12 @@
 .bottomBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 6px 8px;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 13px;
   transition: background 0.15s, color 0.15s;
-  flex: 1;
 }
 
 .bottomBtn:hover {
