@@ -173,6 +173,17 @@ function ModelCenterTab() {
             </div>
           </div>
 
+          {/* 备用模型 */}
+          <div className={styles.fallbackSection}>
+            <div className={styles.fallbackHeader}>
+              <span className={styles.formLabel}>备用模型</span>
+              <span className={styles.formHint}>主模型调用失败时，按顺序尝试备用模型</span>
+            </div>
+            <button className={styles.addFallbackBtn}>
+              ＋ 添加备用模型
+            </button>
+          </div>
+
           {err && <div className={styles.errMsg}>{err}</div>}
           {ok  && <div className={styles.okMsg}>{ok}</div>}
 
