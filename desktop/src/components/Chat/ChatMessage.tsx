@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ChatMessage as ChatMsg, ToolCall } from '../../store/app'
+import { ChatMessage as ChatMsg, ToolCall, useAppStore } from '../../store/app'
 import { confirmTool, denyTool } from '../../hooks/useWebSocket'
 import styles from './ChatMessage.module.css'
 
@@ -23,10 +23,16 @@ const RISK_COLOR: Record<string, string> = {
 }
 
 export function ChatMessage({ message }: Props) {
+  const avatarData = useAppStore((s) => s.avatarData)
+
   if (message.role === 'user') {
     return (
       <div className={styles.row + ' ' + styles.userRow}>
         <div className={styles.userBubble + ' selectable'}>{message.content}</div>
+        {avatarData
+          ? <img src={avatarData} className={styles.userAvatar} alt="me" />
+          : <div className={styles.userAvatarDefault}>🐾</div>
+        }
       </div>
     )
   }
