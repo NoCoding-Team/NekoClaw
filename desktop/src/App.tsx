@@ -24,7 +24,10 @@ export default function App() {
         const data: Array<{ id: string; title: string; skill_id: string | null }> = await res.json()
         if (data.length > 0) {
           setSessions(data.map((s) => ({ id: s.id, title: s.title, skillId: s.skill_id ?? undefined })))
-          setActiveSession(data[0].id)
+          // 优先恢复上次打开的对话，否则用最新一条
+          const lastId = localStorage.getItem('neko_active_session')
+          const restored = lastId && data.find((s) => s.id === lastId)
+          setActiveSession(restored ? lastId! : data[0].id)
         } else {
           const newRes = await fetch(`${serverUrl}/api/sessions`, {
             method: 'POST',

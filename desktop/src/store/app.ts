@@ -4,6 +4,7 @@ const STORAGE_SERVER = 'neko_server_url'
 const STORAGE_RECENT = 'neko_recent_servers'
 const STORAGE_LOCAL_LLM = 'neko_local_llm_config'
 const STORAGE_AUTH = 'neko_auth'
+const STORAGE_ACTIVE_SESSION = 'neko_active_session'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -160,7 +161,11 @@ export const useAppStore = create<AppState>((set) => ({
   sessions: [],
   activeSessionId: null,
   setSessions: (sessions) => set({ sessions }),
-  setActiveSession: (id) => set({ activeSessionId: id }),
+  setActiveSession: (id) => {
+    if (id) localStorage.setItem(STORAGE_ACTIVE_SESSION, id)
+    else localStorage.removeItem(STORAGE_ACTIVE_SESSION)
+    set({ activeSessionId: id })
+  },
   addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
   removeSession: (id) =>
     set((s) => ({
