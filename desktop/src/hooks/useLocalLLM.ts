@@ -10,7 +10,9 @@
 import { useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore } from '../store/app'
-import type { LocalLLMConfig } from '../store/app'
+import type { LocalLLMConfig, ToolCall } from '../store/app'
+import { executeLocalTool } from './localTools'
+import { getLocalToolDefinitions } from './toolDefinitions'
 
 async function decryptKey(b64: string): Promise<string> {
   if (window.nekoBridge?.storage) {
@@ -41,6 +43,18 @@ export interface StreamResult {
   content: string
   toolCalls: ToolCallDelta[] | null
   finishReason: string
+}
+
+const MAX_TOOL_ROUNDS = 10
+
+// Per-session loop detection state (mirrors useWebSocket)
+const _recentTools: Record<string, string[]> = {}
+function detectLoop(sessionId: string, toolName: string, sensitivity: 'strict' | 'default' | 'loose'): boolean {
+  const window = { strict: 3, default: 5, loose: 8 }[sensitivity]
+  const recent = _recentTools[sessionId] ?? []
+  if (recent.length < window) return false
+  const last = recent.slice(-window)
+  return last.every((t) => t === toolName)
 }
 
 // ── OpenAI-compatible streaming ────────────────────────────────────────────
@@ -533,18 +547,153 @@ export function useLocalLLM(sessionId: string | null) {
 
         const streamFn = isAnthropic ? streamAnthropic : streamOpenAI
 
-        await streamFn(
-          localLLMConfig.baseUrl,
-          apiKey,
-          localLLMConfig.model,
-          localLLMConfig.maxTokens,
-          localLLMConfig.temperature,
-          enhancedHistory,
-          (token) => updateLastAssistantToken(sid, token),
-          controller.signal
+        // Build tool definitions
+        const { securityConfig } = useAppStore.getState()
+        const toolDefs = getLocalToolDefinitions(
+          securityConfig.toolWhitelist?.length ? securityConfig.toolWhitelist : null,
         )
 
-        // Mark stream as done
+        // ── Agentic Loop ───────────────────────────────────────────────────
+        // Messages array for the LLM (mutable, accumulates tool results)
+        const llmMessages: { role: string; content: string; tool_calls?: unknown; tool_call_id?: string }[] =
+          enhancedHistory.map((m) => ({ ...m }))
+
+        let rounds = 0
+        let roundToolCount = 0
+        _recentTools[sid] = []
+
+        while (true) {
+          const result = await streamFn(
+            localLLMConfig.baseUrl,
+            apiKey,
+            localLLMConfig.model,
+            localLLMConfig.maxTokens,
+            localLLMConfig.temperature,
+            llmMessages,
+            (token) => updateLastAssistantToken(sid, token),
+            controller.signal,
+            toolDefs,
+          )
+
+          // No tool calls — final response
+          if (!result.toolCalls || result.toolCalls.length === 0) {
+            break
+          }
+
+          // ── Process tool calls ─────────────────────────────────────────
+          rounds++
+          if (rounds > MAX_TOOL_ROUNDS) {
+            updateLastAssistantToken(sid, '\n\n⚠️ 工具调用轮次已达上限，停止执行。')
+            break
+          }
+
+          // Finalize current assistant streaming message (text part)
+          const msgs0 = useAppStore.getState().messagesBySession[sid] ?? []
+          const lastAsst = msgs0[msgs0.length - 1]
+          if (lastAsst?.streaming) {
+            setMessages(sid, [...msgs0.slice(0, -1), { ...lastAsst, streaming: false }])
+          }
+
+          // Append assistant message with tool_calls to LLM context
+          // (OpenAI format: assistant message contains tool_calls array)
+          llmMessages.push({
+            role: 'assistant',
+            content: result.content || '',
+            tool_calls: result.toolCalls.map((tc) => ({
+              id: tc.id,
+              type: 'function',
+              function: { name: tc.name, arguments: tc.arguments },
+            })),
+          })
+
+          // Execute each tool call
+          for (const tc of result.toolCalls) {
+            const callId = tc.id || uuidv4()
+            roundToolCount++
+
+            // Max tool calls per round guard
+            if (roundToolCount > securityConfig.maxToolCallsPerRound) {
+              const limitMsg = `[调用上限] 本轮已超过 ${securityConfig.maxToolCallsPerRound} 次工具调用上限`
+              const toolCard: ToolCall = {
+                callId,
+                tool: tc.name,
+                args: {},
+                riskLevel: 'DENY',
+                status: 'error',
+                result: limitMsg,
+              }
+              appendMessage(sid, { id: uuidv4(), role: 'tool', content: limitMsg, toolCalls: [toolCard] })
+              llmMessages.push({ role: 'tool', content: limitMsg, tool_call_id: callId })
+              continue
+            }
+
+            // Loop guard
+            if (securityConfig.loopGuard && detectLoop(sid, tc.name, securityConfig.loopGuardSensitivity)) {
+              const loopMsg = `[循环守卫] 检测到工具 ${tc.name} 重复调用，已中断`
+              const toolCard: ToolCall = {
+                callId,
+                tool: tc.name,
+                args: {},
+                riskLevel: 'DENY',
+                status: 'error',
+                result: loopMsg,
+              }
+              appendMessage(sid, { id: uuidv4(), role: 'tool', content: loopMsg, toolCalls: [toolCard] })
+              llmMessages.push({ role: 'tool', content: loopMsg, tool_call_id: callId })
+              continue
+            }
+
+            // Parse args
+            let parsedArgs: Record<string, unknown> = {}
+            try {
+              parsedArgs = JSON.parse(tc.arguments || '{}')
+            } catch {
+              parsedArgs = {}
+            }
+
+            // Show executing UI card
+            const toolCard: ToolCall = {
+              callId,
+              tool: tc.name,
+              args: parsedArgs,
+              riskLevel: 'LOW',
+              status: 'executing',
+            }
+            appendMessage(sid, { id: uuidv4(), role: 'tool', content: '', toolCalls: [toolCard] })
+
+            // Execute
+            let toolResult: string
+            try {
+              const raw = await executeLocalTool(tc.name, parsedArgs)
+              toolResult = typeof raw === 'string' ? raw : JSON.stringify(raw)
+              useAppStore.getState().updateToolCallStatus(sid, callId, {
+                status: 'done',
+                result: toolResult.slice(0, 2000),
+              })
+            } catch (err: unknown) {
+              toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`
+              useAppStore.getState().updateToolCallStatus(sid, callId, {
+                status: 'error',
+                result: toolResult,
+              })
+            }
+
+            // Track for loop detection
+            _recentTools[sid] = [...(_recentTools[sid] ?? []), tc.name].slice(-10)
+            useAppStore.getState().incrementToolCallCount(tc.name)
+
+            // Append tool result to LLM context
+            llmMessages.push({ role: 'tool', content: toolResult, tool_call_id: callId })
+          }
+
+          // Create new streaming placeholder for next round
+          const nextMsgId = uuidv4()
+          appendMessage(sid, { id: nextMsgId, role: 'assistant', content: '', streaming: true })
+          setCatState('thinking')
+        }
+        // ── End Agentic Loop ─────────────────────────────────────────────
+
+        // Mark final stream as done
         const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const last = msgs[msgs.length - 1]
         if (last?.streaming) {

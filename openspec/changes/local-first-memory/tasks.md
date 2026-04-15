@@ -18,9 +18,9 @@
 
 ## 4. Agentic Loop
 
-- [ ] 4.1 重构 `useLocalLLM.sendMessage`：将单次 stream 调用改为 `while` 循环（agentic loop），支持 LLM → tool_calls → 执行 → 追回消息 → 再次调用 LLM 的多轮流程
-- [ ] 4.2 集成安全防护：MAX_TOOL_ROUNDS 轮次上限（默认 10）、循环守卫（detectLoop）、调用上限（maxToolCallsPerRound）
-- [ ] 4.3 Agentic loop 中将 tool call 信息渲染为 UI 卡片（复用 useWebSocket 中 ToolCall 类型和 appendMessage 逻辑）
+- [x] 4.1 重构 `useLocalLLM.sendMessage`：将单次 stream 调用改为 `while` 循环（agentic loop），支持 LLM → tool_calls → 执行 → 追回消息 → 再次调用 LLM 的多轮流程
+- [x] 4.2 集成安全防护：MAX_TOOL_ROUNDS 轮次上限（默认 10）、循环守卫（detectLoop）、调用上限（maxToolCallsPerRound）
+- [x] 4.3 Agentic loop 中将 tool call 信息渲染为 UI 卡片（复用 useWebSocket 中 ToolCall 类型和 appendMessage 逻辑）
 
 ## 5. 记忆注入
 
