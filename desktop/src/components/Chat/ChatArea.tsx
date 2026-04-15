@@ -194,7 +194,7 @@ export function ChatArea() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="有什么我可以帮你的？（Ctrl+Enter 发送）"
+                placeholder="有什么我可以帮你的？（Enter 发送）"
                 rows={2}
               />
               <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim()}>➤</button>
@@ -237,7 +237,7 @@ export function ChatArea() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="有什么我可以帮你的？（Ctrl+Enter 发送）"
+            placeholder="有什么我可以帮你的？（Enter 发送）"
             rows={3}
           />
           <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim()}>➤</button>
