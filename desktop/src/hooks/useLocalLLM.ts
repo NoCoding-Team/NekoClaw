@@ -10,6 +10,7 @@
 import { useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore } from '../store/app'
+import type { LocalLLMConfig } from '../store/app'
 
 async function decryptKey(b64: string): Promise<string> {
   if (window.nekoBridge?.storage) {
@@ -150,6 +151,91 @@ async function streamAnthropic(
         // ignore
       }
     }
+  }
+}
+
+// ── Memory extraction ─────────────────────────────────────────────────────
+/**
+ * Fire-and-forget: ask the local LLM to extract memorable facts from the
+ * recent conversation and save them to the backend memory store.
+ * Runs after every assistant response when a backend token is available.
+ */
+async function extractMemoriesAsync(
+  config: LocalLLMConfig,
+  apiKey: string,
+  messages: { role: string; content: string }[],
+  serverUrl: string,
+  authToken: string,
+) {
+  const turns = messages.filter(m => m.role === 'user' || m.role === 'assistant')
+  if (turns.length < 2) return
+  // Keep last 4 messages (2 turns) to minimise cost
+  const recentTurns = turns.slice(-4)
+
+  const extractPrompt =
+    '你是记忆提取助手。分析以下对话，提取值得**长期记忆**的用户信息（偏好、个人事实、明确指令、个人经历）。' +
+    '忽略闲聊和临时性问题，宁缺毋滥。\n' +
+    '以 JSON 数组返回，每项含 category 和 content。' +
+    'category 取值：preference / fact / instruction / history / other。' +
+    '无值得记忆的内容返回 []。只输出 JSON，不加任何解释。'
+
+  try {
+    const baseUrl = config.baseUrl.replace(/\/$/, '')
+    const isAnthropic = config.provider === 'anthropic' && baseUrl.includes('anthropic.com')
+    let rawContent = ''
+
+    if (isAnthropic) {
+      const res = await fetch(`${baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({ model: config.model, system: extractPrompt, messages: recentTurns, max_tokens: 500 }),
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      rawContent = data.content?.[0]?.text ?? ''
+    } else {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [{ role: 'system', content: extractPrompt }, ...recentTurns],
+          max_tokens: 500,
+          temperature: 0.1,
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      rawContent = data.choices?.[0]?.message?.content ?? ''
+    }
+
+    const jsonMatch = rawContent.trim().match(/\[[\s\S]*\]/)
+    if (!jsonMatch) return
+    const items: { category: string; content: string }[] = JSON.parse(jsonMatch[0])
+    const VALID_CATS = new Set(['preference', 'fact', 'instruction', 'history', 'other'])
+    await Promise.all(
+      items
+        .filter(item => item.content?.trim())
+        .map(item =>
+          fetch(`${serverUrl}/api/memory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+            body: JSON.stringify({
+              category: VALID_CATS.has(item.category) ? item.category : 'other',
+              content: item.content.trim().slice(0, 1000),
+            }),
+          }).catch(() => {}),
+        ),
+    )
+  } catch {
+    // best-effort — never block UI
   }
 }
 
@@ -380,6 +466,14 @@ export function useLocalLLM(sessionId: string | null) {
           if (isFirstRound) {
             const { serverUrl: sv, token: tk } = useAppStore.getState()
             autoUpdateTitle(sid, content, finalMsg.content, localLLMConfig, sv, tk ?? '')
+          }
+          // 记忆提取（best-effort，后台执行，不阻塞 UI）
+          const { serverUrl: msv, token: mtk } = useAppStore.getState()
+          if (mtk) {
+            const convMsgs = [...msgs.slice(0, -1), finalMsg]
+              .filter(m => m.role === 'user' || m.role === 'assistant')
+              .map(m => ({ role: m.role, content: m.content }))
+            extractMemoriesAsync(localLLMConfig, apiKey, convMsgs, msv, mtk).catch(() => {})
           }
         }
         setCatState('idle')
