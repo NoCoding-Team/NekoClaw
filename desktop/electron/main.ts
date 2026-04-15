@@ -289,6 +289,109 @@ ipcMain.handle('db:markSynced', (_e, sessionId: string) => {
   catch (err) { return { error: String(err) } }
 })
 
+// ── MemoryService — Markdown memory file I/O ──────────────────────────────
+const MEMORY_DIR = path.join(app.getPath('userData'), 'memory')
+
+function validateMemoryPath(relPath: string): string {
+  // Reject absolute paths, path traversal, and non-.md extensions
+  if (path.isAbsolute(relPath)) throw new Error('Absolute paths not allowed')
+  const normalized = path.normalize(relPath)
+  if (normalized.startsWith('..') || normalized.includes(`..${path.sep}`)) {
+    throw new Error('Path traversal not allowed')
+  }
+  if (path.extname(normalized) !== '.md' && normalized !== '.') {
+    throw new Error('Only .md files are allowed')
+  }
+  return path.join(MEMORY_DIR, normalized)
+}
+
+const MemoryService = {
+  async read(relPath: string): Promise<string> {
+    const fullPath = validateMemoryPath(relPath)
+    try {
+      return await fs.readFile(fullPath, 'utf-8')
+    } catch {
+      return ''
+    }
+  },
+
+  async write(relPath: string, content: string): Promise<void> {
+    const fullPath = validateMemoryPath(relPath)
+    // Sanitize: strip ASCII control chars except \n \t
+    const sanitized = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    await fs.mkdir(path.dirname(fullPath), { recursive: true })
+    await fs.writeFile(fullPath, sanitized, 'utf-8')
+    appendOpLog({ type: 'memory_write', path: relPath })
+  },
+
+  async list(): Promise<Array<{ name: string; path: string; mtime: number }>> {
+    const results: Array<{ name: string; path: string; mtime: number }> = []
+    async function walk(dir: string, prefix: string) {
+      let entries: import('fs').Dirent[]
+      try {
+        entries = await fs.readdir(dir, { withFileTypes: true })
+      } catch {
+        return
+      }
+      for (const e of entries) {
+        const rel = prefix ? `${prefix}/${e.name}` : e.name
+        if (e.isDirectory()) {
+          await walk(path.join(dir, e.name), rel)
+        } else if (e.name.endsWith('.md')) {
+          const stat = await fs.stat(path.join(dir, e.name))
+          results.push({ name: e.name, path: rel, mtime: stat.mtimeMs })
+        }
+      }
+    }
+    await walk(MEMORY_DIR, '')
+    // Sort: MEMORY.md first, then by mtime descending
+    results.sort((a, b) => {
+      if (a.path === 'MEMORY.md') return -1
+      if (b.path === 'MEMORY.md') return 1
+      return b.mtime - a.mtime
+    })
+    return results
+  },
+}
+
+ipcMain.handle('memory:read', async (_e, relPath: string) => {
+  try { return { content: await MemoryService.read(relPath) } }
+  catch (err) { return { error: String(err) } }
+})
+
+ipcMain.handle('memory:write', async (_e, relPath: string, content: string) => {
+  try { await MemoryService.write(relPath, content); return { success: true } }
+  catch (err) { return { error: String(err) } }
+})
+
+ipcMain.handle('memory:list', async () => {
+  try { return { files: await MemoryService.list() } }
+  catch (err) { return { error: String(err) } }
+})
+
+ipcMain.handle('memory:search', async (_e, query: string) => {
+  // Phase 1: keyword fallback only; embedding search added in Task 7
+  try {
+    const files = await MemoryService.list()
+    const results: Array<{ path: string; snippet: string }> = []
+    const lowerQ = query.toLowerCase()
+    for (const f of files) {
+      const content = await MemoryService.read(f.path)
+      if (!content) continue
+      const lines = content.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].toLowerCase().includes(lowerQ)) {
+          const start = Math.max(0, i - 1)
+          const end = Math.min(lines.length, i + 2)
+          results.push({ path: f.path, snippet: lines.slice(start, end).join('\n') })
+          break // one match per file
+        }
+      }
+    }
+    return { results }
+  } catch (err) { return { error: String(err) } }
+})
+
 // ── IPC: Migration — promote neko_local_memories.json entries to server ──
 // This is a one-shot read; actual upload happens in the renderer after auth.
 ipcMain.handle('db:readLegacyLocalMemories', async () => {

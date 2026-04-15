@@ -57,6 +57,13 @@ interface NekoBridgeDb {
   deleteLegacyLocalMemories(): Promise<{ success: boolean }>
 }
 
+interface NekoBridgeMemory {
+  read(path: string): Promise<{ content?: string; error?: string }>
+  write(path: string, content: string): Promise<{ success?: boolean; error?: string }>
+  list(): Promise<{ files?: Array<{ name: string; path: string; mtime: number }>; error?: string }>
+  search(query: string): Promise<{ results?: Array<{ path: string; snippet: string }>; error?: string }>
+}
+
 interface NekoBridge {
   file: NekoBridgeFile
   shell: NekoBridgeShell
@@ -64,6 +71,7 @@ interface NekoBridge {
   window: NekoBridgeWindow
   app: NekoBridgeApp
   log: NekoBridgeLog
+  memory: NekoBridgeMemory
   db?: NekoBridgeDb
 }
 

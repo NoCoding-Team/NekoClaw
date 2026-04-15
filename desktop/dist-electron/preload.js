@@ -27,6 +27,12 @@ const nekoBridge = {
   log: {
     getPath: () => electron.ipcRenderer.invoke("log:getPath")
   },
+  memory: {
+    read: (path) => electron.ipcRenderer.invoke("memory:read", path),
+    write: (path, content) => electron.ipcRenderer.invoke("memory:write", path, content),
+    list: () => electron.ipcRenderer.invoke("memory:list"),
+    search: (query) => electron.ipcRenderer.invoke("memory:search", query)
+  },
   db: {
     getSessions: (opts) => electron.ipcRenderer.invoke("db:getSessions", opts ?? {}),
     upsertSession: (id, title, createdAt) => electron.ipcRenderer.invoke("db:upsertSession", id, title, createdAt),

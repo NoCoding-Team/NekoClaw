@@ -26,6 +26,12 @@ export const nekoBridge = {
   log: {
     getPath: (): Promise<string> => ipcRenderer.invoke('log:getPath'),
   },
+  memory: {
+    read: (path: string) => ipcRenderer.invoke('memory:read', path),
+    write: (path: string, content: string) => ipcRenderer.invoke('memory:write', path, content),
+    list: () => ipcRenderer.invoke('memory:list'),
+    search: (query: string) => ipcRenderer.invoke('memory:search', query),
+  },
   db: {
     getSessions: (opts?: { onlyUnsynced?: boolean }): Promise<{
       sessions?: Array<{ id: string; title: string; createdAt: number; synced: number }>
