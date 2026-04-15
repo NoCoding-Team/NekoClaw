@@ -62,6 +62,7 @@ export interface SecurityConfig {
   toolWhitelist: string[]
   execEnvironment: 'transparent' | 'container'
   containerNetwork: 'none' | 'host' | 'custom'       // 容器网络模式
+  sandboxThreshold: 'off' | 'HIGH' | 'MEDIUM' | 'LOW' // 确认弹窗触发阀値
 }
 
 export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
@@ -74,6 +75,7 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   toolWhitelist: [],
   execEnvironment: 'transparent',
   containerNetwork: 'none',
+  sandboxThreshold: 'MEDIUM',
 }
 
 function loadSecurityConfig(): SecurityConfig {

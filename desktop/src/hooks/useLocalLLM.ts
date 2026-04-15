@@ -300,6 +300,21 @@ export function useLocalLLM(sessionId: string | null) {
         return
       }
 
+      // 模式 B：服务端注入记忆/Skill Prompt（best-effort，失败时直接用本地 history）
+      let enhancedHistory = history
+      try {
+        const { serverUrl: sv, token: tk } = useAppStore.getState()
+        if (tk) {
+          const res = await fetch(`${sv}/api/llm/enhance`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+            body: JSON.stringify({ messages: history }),
+            signal: AbortSignal.timeout(5000),
+          })
+          if (res.ok) enhancedHistory = (await res.json()).messages
+        }
+      } catch { /* proceed without server enhancement */ }
+
       // Create streaming assistant message placeholder
       const msgId = uuidv4()
       appendMessage(sid, { id: msgId, role: 'assistant', content: '', streaming: true })
@@ -319,7 +334,7 @@ export function useLocalLLM(sessionId: string | null) {
           localLLMConfig.model,
           localLLMConfig.maxTokens,
           localLLMConfig.temperature,
-          history,
+          enhancedHistory,
           (token) => updateLastAssistantToken(sid, token),
           controller.signal
         )

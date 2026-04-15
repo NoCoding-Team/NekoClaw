@@ -20,6 +20,12 @@ export const nekoBridge = {
     maximize: () => ipcRenderer.send('window:maximize'),
     close: () => ipcRenderer.send('window:close'),
   },
+  app: {
+    getDataPath: (): Promise<string> => ipcRenderer.invoke('app:getDataPath'),
+  },
+  log: {
+    getPath: (): Promise<string> => ipcRenderer.invoke('log:getPath'),
+  },
 }
 
 contextBridge.exposeInMainWorld('nekoBridge', nekoBridge)

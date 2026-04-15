@@ -986,3 +986,97 @@
   margin-top: 2px;
 }
 
+/* ── Sandbox Threshold ──────────────────────────────────────────────────── */
+.thresholdGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.thresholdCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+}
+.thresholdCard:hover { border-color: rgba(124,106,244,0.4); background: rgba(124,106,244,0.05); }
+.thresholdCardActive {
+  border-color: var(--accent) !important;
+  background: var(--accent-glow) !important;
+}
+.thresholdCardDanger:hover { border-color: rgba(224,82,82,0.5); background: rgba(224,82,82,0.06); }
+.thresholdCardDanger.thresholdCardActive {
+  border-color: var(--danger, #e05252) !important;
+  background: rgba(224,82,82,0.1) !important;
+}
+
+.thresholdLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.thresholdCardActive .thresholdLabel { color: var(--accent); }
+.thresholdCardDanger.thresholdCardActive .thresholdLabel { color: var(--danger, #e05252); }
+.thresholdDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Sandbox off confirmation dialog */
+.confirmDialog {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.confirmTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.confirmText {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.confirmText strong { color: var(--danger, #e05252); }
+.confirmActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.btnDanger {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--danger, #e05252);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+.btnDanger:hover { opacity: 0.85; }
+.btnSecondary {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  background: transparent;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btnSecondary:hover { border-color: var(--accent); color: var(--text-primary); }
+

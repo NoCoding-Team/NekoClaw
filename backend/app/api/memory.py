@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from app.core.deps import get_db, get_current_user
-from app.core.exceptions import NotFoundError, ForbiddenError
+from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
 from app.models.memory import Memory
 from app.models.user import User
 from app.schemas.memory import MemoryCreate, MemoryUpdate, MemoryResponse
@@ -62,8 +62,12 @@ async def update_memory(
     db: AsyncSession = Depends(get_db),
 ):
     mem = await _get_memory_or_404(memory_id, db, current_user.id)
-    for field, value in payload.model_dump(exclude_none=True).items():
+    # 乐观锁：如果客户端传了 version，它必须与当前记录版本一致
+    if payload.version is not None and payload.version != mem.version:
+        raise ConflictError(f"数据已被其他请求修改（当前版本：{mem.version}），请刷新后重试")
+    for field, value in payload.model_dump(exclude_none=True, exclude={"version"}).items():
         setattr(mem, field, value)
+    mem.version += 1
     await db.commit()
     await db.refresh(mem)
     return mem

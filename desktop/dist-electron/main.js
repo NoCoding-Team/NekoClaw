@@ -28,7 +28,19 @@ const os = require("os");
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 electron.app.setName("NekoClaw");
 if (process.platform === "win32") {
-  electron.app.setAppUserModelId("NekoClaw");
+  electron.app.setAppUserModelId("com.nekoclaw.desktop");
+}
+let _opLogPath = null;
+function getOpLogPath() {
+  if (!_opLogPath) _opLogPath = path.join(electron.app.getPath("userData"), "operation-log.jsonl");
+  return _opLogPath;
+}
+async function appendOpLog(entry) {
+  try {
+    const line = JSON.stringify({ ...entry, ts: (/* @__PURE__ */ new Date()).toISOString() }) + "\n";
+    await fs.appendFile(getOpLogPath(), line, "utf-8");
+  } catch {
+  }
 }
 function getIconPath(format = "png") {
   const appPath = electron.app.isReady() ? electron.app.getAppPath() : path.join(__dirname, "..");
@@ -41,7 +53,6 @@ function createWindow() {
   const iconPath = getWindowIconPath();
   const appIcon = electron.nativeImage.createFromPath(iconPath);
   const win = new electron.BrowserWindow({
-    title: "NekoClaw",
     width: 1280,
     height: 800,
     minWidth: 900,
@@ -56,20 +67,18 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
+      // needed for preload modules
     }
   });
-  win.webContents.on("page-title-updated", (event) => {
-    event.preventDefault();
-  });
   win.once("ready-to-show", () => {
-    win.setTitle("NekoClaw");
     win.setIcon(electron.nativeImage.createFromPath(getWindowIconPath()));
     if (process.platform === "win32") {
       win.setAppDetails({
-        appId: "NekoClaw",
+        appId: "com.nekoclaw.desktop",
         appIconPath: getIconPath("ico"),
         appIconIndex: 0
       });
+      win.setTitle("NekoClaw");
     }
     win.show();
   });
@@ -82,9 +91,6 @@ function createWindow() {
 }
 electron.app.whenReady().then(() => {
   electron.app.setName("NekoClaw");
-  if (process.platform === "win32") {
-    electron.app.setAppUserModelId("NekoClaw");
-  }
   createWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -105,6 +111,7 @@ electron.ipcMain.handle("file:write", async (_e, filePath, content) => {
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content, "utf-8");
+    appendOpLog({ type: "file_write", path: filePath });
     return { success: true };
   } catch (err) {
     return { error: String(err) };
@@ -127,6 +134,7 @@ electron.ipcMain.handle("file:list", async (_e, dirPath) => {
 electron.ipcMain.handle("file:delete", async (_e, filePath) => {
   try {
     await fs.unlink(filePath);
+    appendOpLog({ type: "file_delete", path: filePath });
     return { success: true };
   } catch (err) {
     return { error: String(err) };
@@ -141,8 +149,10 @@ electron.ipcMain.handle("shell:exec", async (_e, command) => {
       timeout: 3e5,
       cwd: os.homedir()
     });
+    appendOpLog({ type: "shell_exec", command, exitCode: 0 });
     return { stdout, stderr };
   } catch (err) {
+    appendOpLog({ type: "shell_exec", command, exitCode: err.code ?? 1, error: err.message });
     return { error: err.message, stdout: err.stdout || "", stderr: err.stderr || "" };
   }
 });
@@ -178,4 +188,6 @@ electron.ipcMain.handle("shell:openExternal", async (_e, url) => {
     await electron.shell.openExternal(url);
   }
 });
+electron.ipcMain.handle("app:getDataPath", () => electron.app.getPath("userData"));
+electron.ipcMain.handle("log:getPath", () => getOpLogPath());
 //# sourceMappingURL=main.js.map

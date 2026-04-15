@@ -33,10 +33,13 @@ export function ChatArea() {
   const { sendMessage: wsSend } = useWebSocket(localLLMConfig ? null : activeSessionId)
   const { sendMessage: localSend } = useLocalLLM(activeSessionId)
 
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
   // Load history messages from server when switching to a session that has none cached
   useEffect(() => {
     if (!activeSessionId || activeSessionId.startsWith('local-')) return
     if (messagesBySession[activeSessionId]?.length) return   // already loaded
+    setIsLoadingHistory(true)
     ;(async () => {
       try {
         const res = await fetch(`${serverUrl}/api/sessions/${activeSessionId}/messages`, {
@@ -54,6 +57,8 @@ export function ChatArea() {
         )
       } catch {
         // silently ignore — user can still chat
+      } finally {
+        setIsLoadingHistory(false)
       }
     })()
   }, [activeSessionId])
@@ -95,6 +100,45 @@ export function ChatArea() {
         <div className={styles.emptyState}>
           <CatAvatar state="idle" size={120} />
           <p className={styles.emptyText}>选择一个对话，或新建一个开始吧 ฅ^•ﻌ•^ฅ</p>
+        </div>
+      </div>
+    )
+  }
+
+  // ── 历史消息加载中 ────────────────────────────────────────────────────────────
+  if (isLoadingHistory) {
+    return (
+      <div className={styles.chatArea}>
+        <div className={styles.topBar}>
+          <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
+          <span className={styles.topBarSpacer} />
+          <WindowControls />
+        </div>
+        <div className={styles.loadingWrap}>
+          <div className={styles.skeletonList}>
+            <div className={`${styles.skeletonRow} ${styles.skeletonRight}`}>
+              <div className={`${styles.skeletonBubble} ${styles.skeletonShort}`} />
+            </div>
+            <div className={styles.skeletonRow}>
+              <div className={styles.skeletonAvatar} />
+              <div className={`${styles.skeletonBubble} ${styles.skeletonLong}`} />
+            </div>
+            <div className={`${styles.skeletonRow} ${styles.skeletonRight}`}>
+              <div className={`${styles.skeletonBubble} ${styles.skeletonMedium}`} />
+            </div>
+            <div className={styles.skeletonRow}>
+              <div className={styles.skeletonAvatar} />
+              <div className={styles.skeletonLines}>
+                <div className={`${styles.skeletonLine} ${styles.skeletonLineFull}`} />
+                <div className={`${styles.skeletonLine} ${styles.skeletonLineWide}`} />
+                <div className={`${styles.skeletonLine} ${styles.skeletonLineShort}`} />
+              </div>
+            </div>
+            <div className={`${styles.skeletonRow} ${styles.skeletonRight}`}>
+              <div className={`${styles.skeletonBubble} ${styles.skeletonLong}`} />
+            </div>
+          </div>
+          <div className={styles.loadingLabel}>加载消息中…</div>
         </div>
       </div>
     )

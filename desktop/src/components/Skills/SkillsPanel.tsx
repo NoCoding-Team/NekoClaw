@@ -16,6 +16,16 @@ interface Skill {
   created_at: string
 }
 
+interface LocalSkill {
+  id: string
+  name: string
+  icon: string
+  system_prompt: string
+  allowed_tools: string[]
+  sandbox_level: string
+  created_at: string
+}
+
 const ALL_TOOLS = [
   'file_read', 'file_write', 'file_list', 'file_delete',
   'shell_exec', 'browser_navigate', 'browser_screenshot', 'browser_click', 'browser_type',
@@ -35,13 +45,45 @@ const DEFAULT_FORM = {
 export default function SkillsPanel() {
   const { token, serverUrl, activeSkillId, setActiveSkillId } = useAppStore()
   const [skills, setSkills] = useState<Skill[]>([])
+  const [localSkills, setLocalSkills] = useState<LocalSkill[]>([])
+  const [dataPath, setDataPath] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingLocalId, setEditingLocalId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [isLocalForm, setIsLocalForm] = useState(false)
   const [form, setForm] = useState({ ...DEFAULT_FORM })
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const [deleteLocalTarget, setDeleteLocalTarget] = useState<string | null>(null)
   const { toast, showToast, dismissToast } = useToast()
   const [saving, setSaving] = useState(false)
+
+  // Load userData path for local file storage
+  useEffect(() => {
+    window.nekoBridge?.app?.getDataPath()
+      .then(p => setDataPath(p))
+      .catch(() => {})
+  }, [])
+
+  const localSkillPath = dataPath
+    ? dataPath.replace(/\\/g, '/') + '/neko_local_skills.json'
+    : null
+
+  const loadLocalSkills = useCallback(async () => {
+    if (!localSkillPath) return
+    try {
+      const res = await window.nekoBridge.file.read(localSkillPath)
+      if (res.content) setLocalSkills(JSON.parse(res.content))
+    } catch { setLocalSkills([]) }
+  }, [localSkillPath])
+
+  useEffect(() => { loadLocalSkills() }, [loadLocalSkills])
+
+  const saveLocalSkills = async (updated: LocalSkill[]) => {
+    if (!localSkillPath) return
+    setLocalSkills(updated)
+    await window.nekoBridge.file.write(localSkillPath, JSON.stringify(updated, null, 2))
+  }
 
   const fetchSkills = useCallback(async () => {
     if (!token) return
@@ -61,13 +103,39 @@ export default function SkillsPanel() {
 
   function openCreate() {
     setEditingId(null)
+    setEditingLocalId(null)
+    setIsLocalForm(false)
+    setForm({ ...DEFAULT_FORM })
+    setShowForm(true)
+  }
+
+  function openCreateLocal() {
+    setEditingId(null)
+    setEditingLocalId(null)
+    setIsLocalForm(true)
     setForm({ ...DEFAULT_FORM })
     setShowForm(true)
   }
 
   function openEdit(skill: Skill) {
     if (skill.is_builtin) return
+    setEditingLocalId(null)
     setEditingId(skill.id)
+    setIsLocalForm(false)
+    setForm({
+      name: skill.name,
+      icon: skill.icon,
+      system_prompt: skill.system_prompt,
+      allowed_tools: skill.allowed_tools,
+      sandbox_level: skill.sandbox_level,
+    })
+    setShowForm(true)
+  }
+
+  function openEditLocal(skill: LocalSkill) {
+    setEditingId(null)
+    setEditingLocalId(skill.id)
+    setIsLocalForm(true)
     setForm({
       name: skill.name,
       icon: skill.icon,
@@ -85,18 +153,34 @@ export default function SkillsPanel() {
     }
     setSaving(true)
     try {
-      const url = editingId
-        ? `${serverUrl}/api/skills/${editingId}`
-        : `${serverUrl}/api/skills`
-      const method = editingId ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      await throwIfError(res)
+      if (isLocalForm) {
+        // Save to local file
+        if (editingLocalId) {
+          await saveLocalSkills(localSkills.map(s =>
+            s.id === editingLocalId ? { ...s, ...form } : s
+          ))
+        } else {
+          const newSkill: LocalSkill = {
+            id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            ...form,
+            created_at: new Date().toISOString(),
+          }
+          await saveLocalSkills([...localSkills, newSkill])
+        }
+      } else {
+        const url = editingId
+          ? `${serverUrl}/api/skills/${editingId}`
+          : `${serverUrl}/api/skills`
+        const method = editingId ? 'PUT' : 'POST'
+        const res = await fetch(url, {
+          method,
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        })
+        await throwIfError(res)
+        fetchSkills()
+      }
       setShowForm(false)
-      fetchSkills()
     } catch (e: any) {
       showToast(e.message)
     } finally {
@@ -136,7 +220,10 @@ export default function SkillsPanel() {
       <Toast message={toast} onClose={dismissToast} />
       <div className={styles.header}>
         <span className={styles.title}>技能库</span>
-        <button className={styles.btnPrimary} onClick={openCreate}>+ 新建技能</button>
+        <div className={styles.headerActions}>
+          <button className={styles.btnSecondary} onClick={openCreateLocal}>+ 本地技能</button>
+          <button className={styles.btnPrimary} onClick={openCreate}>+ 新建技能</button>
+        </div>
       </div>
 
       {loading ? (
@@ -181,6 +268,42 @@ export default function SkillsPanel() {
               </div>
             )}
           </div>
+
+          {localSkills.length > 0 && (
+            <div className={styles.section}>
+              <div className={styles.sectionTitle}>本地技能</div>
+              <div className={styles.cards}>
+                {localSkills.map(skill => (
+                  <SkillCard
+                    key={skill.id}
+                    skill={{ ...skill, is_builtin: false, owner_id: null }}
+                    active={activeSkillId === skill.id}
+                    onSelect={() => setActiveSkillId(skill.id)}
+                    onEdit={() => openEditLocal(skill)}
+                    onDelete={() => setDeleteLocalTarget(skill.id)}
+                    isLocal
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 本地技能删除确认 */}
+      {deleteLocalTarget && (
+        <div className={styles.overlay}>
+          <div className={styles.deleteDialog}>
+            <p>确认删除这个本地技能？</p>
+            <div className={styles.dialogActions}>
+              <button className={styles.btnDanger} onClick={async () => {
+                await saveLocalSkills(localSkills.filter(s => s.id !== deleteLocalTarget))
+                setDeleteLocalTarget(null)
+                if (activeSkillId === deleteLocalTarget) setActiveSkillId(null)
+              }}>删除</button>
+              <button className={styles.btnSecondary} onClick={() => setDeleteLocalTarget(null)}>取消</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -189,7 +312,7 @@ export default function SkillsPanel() {
         <div className={styles.overlay}>
           <div className={styles.formDialog}>
             <div className={styles.formHeader}>
-              <span>{editingId ? '编辑技能' : '新建技能'}</span>
+              <span>{isLocalForm ? (editingLocalId ? '编辑本地技能' : '新建本地技能') : (editingId ? '编辑技能' : '新建技能')}</span>
               <button className={styles.closeBtn} onClick={() => setShowForm(false)}>✕</button>
             </div>
 
@@ -283,7 +406,7 @@ export default function SkillsPanel() {
 }
 
 function SkillCard({
-  skill, active, onSelect, onEdit, onDelete, isBuiltin = false,
+  skill, active, onSelect, onEdit, onDelete, isBuiltin = false, isLocal = false,
 }: {
   skill: Skill
   active: boolean
@@ -291,6 +414,7 @@ function SkillCard({
   onEdit: () => void
   onDelete: () => void
   isBuiltin?: boolean
+  isLocal?: boolean
 }) {
   return (
     <div className={`${styles.card} ${active ? styles.cardActive : ''}`} onClick={onSelect}>
@@ -303,6 +427,7 @@ function SkillCard({
           </span>
           <span className={styles.toolCount}>{skill.allowed_tools.length} 工具</span>
           {isBuiltin && <span className={styles.builtinBadge}>内置</span>}
+          {isLocal && <span className={styles.localBadge}>本地</span>}
         </div>
       </div>
       {!isBuiltin && (

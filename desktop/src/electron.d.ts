@@ -21,11 +21,21 @@ interface NekoBridgeWindow {
   close(): void
 }
 
+interface NekoBridgeApp {
+  getDataPath(): Promise<string>
+}
+
+interface NekoBridgeLog {
+  getPath(): Promise<string>
+}
+
 interface NekoBridge {
   file: NekoBridgeFile
   shell: NekoBridgeShell
   storage: NekoBridgeStorage
   window: NekoBridgeWindow
+  app: NekoBridgeApp
+  log: NekoBridgeLog
 }
 
 declare interface Window {

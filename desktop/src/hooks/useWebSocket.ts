@@ -188,7 +188,15 @@ export function useWebSocket(sessionId: string | null) {
 
         // ── Auto-execute decision ────────────────────────────────────
         const inToolWhitelist = securityConfig.toolWhitelist.includes(toolName)
-        const autoRun = securityConfig.fullAccessMode || inToolWhitelist || riskLevel === 'LOW'
+        // Sandbox threshold: levels that auto-run without confirmation
+        const THRESHOLD_AUTO: Record<string, string[]> = {
+          'off':    ['LOW', 'MEDIUM', 'HIGH'],
+          'HIGH':   ['LOW', 'MEDIUM'],
+          'MEDIUM': ['LOW'],
+          'LOW':    [],
+        }
+        const autoByThreshold = (THRESHOLD_AUTO[securityConfig.sandboxThreshold ?? 'MEDIUM'] ?? ['LOW']).includes(riskLevel)
+        const autoRun = securityConfig.fullAccessMode || inToolWhitelist || autoByThreshold
 
         if (autoRun) {
           if (inToolWhitelist) {

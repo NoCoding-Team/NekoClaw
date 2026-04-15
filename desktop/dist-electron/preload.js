@@ -20,6 +20,12 @@ const nekoBridge = {
     minimize: () => electron.ipcRenderer.send("window:minimize"),
     maximize: () => electron.ipcRenderer.send("window:maximize"),
     close: () => electron.ipcRenderer.send("window:close")
+  },
+  app: {
+    getDataPath: () => electron.ipcRenderer.invoke("app:getDataPath")
+  },
+  log: {
+    getPath: () => electron.ipcRenderer.invoke("log:getPath")
   }
 };
 electron.contextBridge.exposeInMainWorld("nekoBridge", nekoBridge);

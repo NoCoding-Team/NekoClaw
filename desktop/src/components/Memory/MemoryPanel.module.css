@@ -273,3 +273,53 @@
 }
 
 .btnDanger:hover { background: rgba(220, 38, 38, 0.25); }
+
+/* ── Local memory additions ─────────────────────────────────────────────── */
+.localTag {
+  font-size: 10px;
+  font-weight: 600;
+  color: #f5a623;
+  background: rgba(245, 166, 35, 0.12);
+  border: 1px solid rgba(245, 166, 35, 0.3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+/* Source filter tabs */
+.sourceTabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+
+.sourceTab {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  position: relative;
+  top: 1px;
+}
+.sourceTab:hover { color: var(--text-primary); }
+.sourceTabActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Category select in dialog */
+.categorySelect {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface, var(--bg-hover));
+  color: var(--text-primary);
+  font-size: 13px;
+  margin-bottom: 10px;
+  outline: none;
+}
+.categorySelect:focus { border-color: var(--accent); }
+.categorySelect option { background: var(--bg-base); }

@@ -219,6 +219,78 @@ function SecurityTab() {
         )}
       </div>
 
+      <div className={styles.secDivider} />
+
+      {/* 沙盒确认阈值 */}
+      <SandboxThresholdBlock cfg={cfg} setSecurityConfig={setSecurityConfig} />
+
+    </div>
+  )
+}
+
+// ── SandboxThresholdBlock ──────────────────────────────────────────────────────
+function SandboxThresholdBlock({
+  cfg,
+  setSecurityConfig,
+}: {
+  cfg: SecurityConfig
+  setSecurityConfig: (patch: Partial<SecurityConfig>) => void
+}) {
+  const [confirmOff, setConfirmOff] = useState(false)
+
+  type Level = SecurityConfig['sandboxThreshold']
+  const levels: { value: Level; label: string; desc: string }[] = [
+    { value: 'LOW',    label: '全部确认',    desc: 'LOW 及以上均需确认' },
+    { value: 'MEDIUM', label: '中等以上',    desc: 'MEDIUM / HIGH 需要确认（默认）' },
+    { value: 'HIGH',   label: '仅高风险',    desc: '仅 HIGH 需要确认，MEDIUM 自动放行' },
+    { value: 'off',    label: '关闭沙盒',    desc: '所有工具调用自动执行，无需确认' },
+  ]
+
+  const handleSelect = (v: Level) => {
+    if (v === 'off') { setConfirmOff(true); return }
+    setSecurityConfig({ sandboxThreshold: v })
+  }
+
+  return (
+    <div className={styles.secBlock}>
+      <div className={styles.secBlockHeader}>
+        <span className={styles.secBlockTitle}>沙盒确认阈值</span>
+        <span className={styles.secBlockDesc}>达到该风险级别的工具调用会弹出确认对话框</span>
+      </div>
+      <div className={styles.thresholdGrid}>
+        {levels.map(lv => (
+          <button
+            key={lv.value}
+            className={`${styles.thresholdCard} ${cfg.sandboxThreshold === lv.value ? styles.thresholdCardActive : ''} ${lv.value === 'off' ? styles.thresholdCardDanger : ''}`}
+            onClick={() => handleSelect(lv.value)}
+          >
+            <span className={styles.thresholdLabel}>{lv.label}</span>
+            <span className={styles.thresholdDesc}>{lv.desc}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 关闭沙盒二次确认 */}
+      {confirmOff && (
+        <div className={styles.overlay}>
+          <div className={styles.confirmDialog}>
+            <div className={styles.confirmTitle}>⚠️ 确认关闭沙盒？</div>
+            <div className={styles.confirmText}>
+              关闭沙盒后，所有工具调用将<strong>自动执行</strong>，无需确认弹窗。
+              HIGH 风险操作（删除文件、执行系统命令等）也会直接运行。
+            </div>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.btnDanger}
+                onClick={() => { setSecurityConfig({ sandboxThreshold: 'off' }); setConfirmOff(false) }}
+              >
+                我已知晓，关闭沙盒
+              </button>
+              <button className={styles.btnSecondary} onClick={() => setConfirmOff(false)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

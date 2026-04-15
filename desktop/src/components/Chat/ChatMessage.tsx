@@ -28,11 +28,11 @@ export function ChatMessage({ message }: Props) {
   if (message.role === 'user') {
     return (
       <div className={styles.row + ' ' + styles.userRow}>
-        <div className={styles.userBubble + ' selectable'}>{message.content}</div>
         {avatarData
           ? <img src={avatarData} className={styles.userAvatar} alt="me" />
           : <div className={styles.userAvatarDefault}>🐾</div>
         }
+        <div className={styles.userBubble + ' selectable'}>{message.content}</div>
       </div>
     )
   }
