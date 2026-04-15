@@ -147,7 +147,7 @@
 }
 .btnDanger:hover { background: rgba(220, 60, 60, 0.18); }
 
-.dbSectionLabel {
+/* ── Session messages (right panel) ──────────────────────────────────── */
 .sessionMsgs {
   flex: 1;
   overflow-y: auto;
