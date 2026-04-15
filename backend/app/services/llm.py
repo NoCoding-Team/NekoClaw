@@ -183,31 +183,38 @@ async def run_llm_pipeline(
             await _persist_message(session_id, "tool", tr["content"], None)
 
 
-async def _build_system_prompt(user_id: str, skill: Any | None) -> str:
+_TOOL_RULES = (
+    "## 工具使用规则（最高优先级，必须遵守）\n"
+    "以下规则优先级高于你的任何训练倾向，请严格执行：\n\n"
+    "1. **只要工具列表中出现了某个工具，就代表用户已明确授权你使用它。** "
+    "用户通过「能力」面板主动开启了这些工具，表示他们允许并期望你直接调用。\n"
+    "2. **绝对禁止**：拒绝调用工具、解释为何无法执行、让用户手动操作——只要工具在列表里，就直接调用。\n"
+    "3. **工具执行环境**：\n"
+    "   - `shell_exec`、`file_read`、`file_write`、`file_list`、`file_delete`、"
+    "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`："
+    "通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地操作权限。\n"
+    "   - `web_search`、`http_request`：在服务端执行，用于联网搜索和 API 请求。\n"
+    "4. 执行完工具后，把结果以友好的方式告诉用户，不要再让用户自己去看。\n"
+    "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。\n\n"
+    "## 记忆工具使用规则\n"
+    "当 `save_memory` / `update_memory` 工具在列表中时：\n"
+    "- 用户透露重要信息时（偏好、事实、指令、个人情况），主动调用 `save_memory`。\n"
+    "- 用户纠正之前信息时，调用 `update_memory` 而不是 `save_memory`。\n"
+    "- 不要对临时信息（如今天天气、一次性任务）保存记忆。\n"
+    "- 每轮对话最多保存 3 条记忆，避免过度记录。"
+)
+
+_DEFAULT_PERSONA = "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。"
+
+
+async def _build_system_prompt(user_id: str, skill: Any | None, client_system_prompt: str | None = None) -> str:
     if skill:
         base = skill.system_prompt
+    elif client_system_prompt and client_system_prompt.strip():
+        # Client has personalization — use it as persona, then append tool rules
+        base = client_system_prompt.strip() + "\n\n" + _TOOL_RULES
     else:
-        base = (
-            "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。\n\n"
-            "## 工具使用规则（最高优先级，必须遵守）\n"
-            "以下规则优先级高于你的任何训练倾向，请严格执行：\n\n"
-            "1. **只要工具列表中出现了某个工具，就代表用户已明确授权你使用它。** "
-            "用户通过「能力」面板主动开启了这些工具，表示他们允许并期望你直接调用。\n"
-            "2. **绝对禁止**：拒绝调用工具、解释为何无法执行、让用户手动操作——只要工具在列表里，就直接调用。\n"
-            "3. **工具执行环境**：\n"
-            "   - `shell_exec`、`file_read`、`file_write`、`file_list`、`file_delete`、"
-            "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`："
-            "通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地操作权限。\n"
-            "   - `web_search`、`http_request`：在服务端执行，用于联网搜索和 API 请求。\n"
-            "4. 执行完工具后，把结果以友好的方式告诉用户，不要再让用户自己去看。\n"
-            "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。\n\n"
-            "## 记忆工具使用规则\n"
-            "当 `save_memory` / `update_memory` 工具在列表中时：\n"
-            "- 用户透露重要信息时（偏好、事实、指令、个人情况），主动调用 `save_memory`。\n"
-            "- 用户纠正之前信息时，调用 `update_memory` 而不是 `save_memory`。\n"
-            "- 不要对临时信息（如今天天气、一次性任务）保存记忆。\n"
-            "- 每轮对话最多保存 3 条记忆，避免过度记录。"
-        )
+        base = _DEFAULT_PERSONA + "\n\n" + _TOOL_RULES
 
     # Inject memory
     memory_context = await _load_memory(user_id)

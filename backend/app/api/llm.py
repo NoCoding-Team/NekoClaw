@@ -20,6 +20,7 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 class EnhanceRequest(PydanticBase):
     messages: list[dict[str, Any]]
     skill_id: str | None = None
+    client_system_prompt: str | None = None  # personalization prompt from desktop
 
 
 class EnhanceResponse(PydanticBase):
@@ -42,7 +43,7 @@ async def enhance_messages(
             skill = await db.get(Skill, payload.skill_id)
 
     # Build enhanced system prompt (includes memory injection)
-    system_prompt = await _build_system_prompt(current_user.id, skill)
+    system_prompt = await _build_system_prompt(current_user.id, skill, payload.client_system_prompt)
 
     # Replace any existing system messages, then prepend the enhanced one
     non_system = [m for m in payload.messages if m.get("role") != "system"]

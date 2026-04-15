@@ -322,7 +322,10 @@ export function useLocalLLM(sessionId: string | null) {
           const res = await fetch(`${sv}/api/llm/enhance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
-            body: JSON.stringify({ messages: history }),
+            body: JSON.stringify({
+              messages: history,
+              client_system_prompt: useAppStore.getState().personalizationConfig?.systemPrompt || null,
+            }),
             signal: AbortSignal.timeout(5000),
           })
           if (res.ok) enhancedHistory = (await res.json()).messages
