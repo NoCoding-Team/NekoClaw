@@ -33,7 +33,8 @@ const nekoBridge = {
     getMessages: (sessionId) => electron.ipcRenderer.invoke("db:getMessages", sessionId).then((r) => r.messages ?? []),
     insertMessage: (msg) => electron.ipcRenderer.invoke("db:insertMessage", msg),
     markSynced: (sessionId) => electron.ipcRenderer.invoke("db:markSynced", sessionId),
-    readLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:readLegacyLocalMemories")
+    readLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:readLegacyLocalMemories"),
+    deleteLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:deleteLegacyLocalMemories")
   }
 };
 electron.contextBridge.exposeInMainWorld("nekoBridge", nekoBridge);

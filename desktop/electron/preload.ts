@@ -52,6 +52,9 @@ export const nekoBridge = {
     readLegacyLocalMemories: (): Promise<{
       entries: Array<{ id: string; category: string; content: string; created_at: string }>
     }> => ipcRenderer.invoke('db:readLegacyLocalMemories'),
+
+    deleteLegacyLocalMemories: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('db:deleteLegacyLocalMemories'),
   },
 }
 

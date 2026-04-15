@@ -300,3 +300,13 @@ ipcMain.handle('db:readLegacyLocalMemories', async () => {
     return { entries: Array.isArray(entries) ? entries : [] }
   } catch { return { entries: [] } }
 })
+
+ipcMain.handle('db:deleteLegacyLocalMemories', async () => {
+  try {
+    const filePath = path.join(app.getPath('userData'), 'neko_local_memories.json')
+    await fs.unlink(filePath)
+    return { success: true }
+  } catch {
+    return { success: true } // already gone, treat as success
+  }
+})

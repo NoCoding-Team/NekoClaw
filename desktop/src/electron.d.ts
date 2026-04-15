@@ -54,6 +54,7 @@ interface NekoBridgeDb {
   insertMessage(msg: Omit<LocalDBMessage, 'synced'>): Promise<{ success?: boolean; error?: string }>
   markSynced(sessionId: string): Promise<{ success?: boolean; error?: string }>
   readLegacyLocalMemories(): Promise<{ entries: Array<{ id: string; category: string; content: string; created_at: string }> }>
+  deleteLegacyLocalMemories(): Promise<{ success: boolean }>
 }
 
 interface NekoBridge {

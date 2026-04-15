@@ -118,8 +118,10 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
       // needed for preload modules
+      webSecurity: false
+      // allow renderer to fetch external APIs (CORS disabled; contextIsolation still guards node access)
     }
   });
   win.once("ready-to-show", () => {
@@ -293,6 +295,15 @@ electron.ipcMain.handle("db:readLegacyLocalMemories", async () => {
     return { entries: Array.isArray(entries) ? entries : [] };
   } catch {
     return { entries: [] };
+  }
+});
+electron.ipcMain.handle("db:deleteLegacyLocalMemories", async () => {
+  try {
+    const filePath = path.join(electron.app.getPath("userData"), "neko_local_memories.json");
+    await fs.unlink(filePath);
+    return { success: true };
+  } catch {
+    return { success: true };
   }
 });
 //# sourceMappingURL=main.js.map

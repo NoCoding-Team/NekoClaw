@@ -131,6 +131,28 @@ export function useWebSocket(sessionId: string | null) {
           if (dbBridge) {
             dbBridge.insertMessage({ id: uuidv4(), sessionId, role: 'assistant', content: finalContent, toolCalls: null, tokenCount: finalContent.length, createdAt: Date.now() }).catch(() => {})
           }
+          // 自动批量同步（当 syncEnabled=true 时）
+          const { syncEnabled, serverUrl: svSync, token: tkSync } = useAppStore.getState()
+          if (syncEnabled && tkSync && dbBridge) {
+            ;(async () => {
+              try {
+                const unsynced = await dbBridge.getMessages(sessionId)
+                const batch = unsynced
+                  .filter((m) => m.synced === 0 && (m.role === 'user' || m.role === 'assistant'))
+                  .map((m) => ({ role: m.role, content: m.content }))
+                if (batch.length > 0) {
+                  await fetch(`${svSync}/api/sessions/${sessionId}/messages/batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tkSync}` },
+                    body: JSON.stringify(batch),
+                  })
+                  await dbBridge.markSynced(sessionId)
+                }
+              } catch {
+                // silently retain synced=0 for retry next time
+              }
+            })()
+          }
           // 两段式标题：仅在第一轮对话时触发
           const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
           const isFirstRound = allMsgs.filter((m) => m.role === 'assistant').length === 1

@@ -13,6 +13,10 @@ import AbilitiesPanel from './components/Abilities/AbilitiesPanel'
 export default function App() {
   const { token, serverConnected, serverUrl, setSessions, setActiveSession, setProfile } = useAppStore()
 
+  // 旧版本地记忆迁移弹窗状态
+  const [migrateEntries, setMigrateEntries] = useState<Array<{ id: string; category: string; content: string; created_at: string }> | null>(null)
+  const [migrating, setMigrating] = useState(false)
+
   // 登录状态恢复时拉取用户信息
   useEffect(() => {
     if (!token) return
@@ -22,7 +26,7 @@ export default function App() {
       .catch(() => {})
   }, [token]) // eslint-disable-line
 
-  // 迁移旧版 neko_local_memories.json → 服务器记忆
+  // 检测旧版 neko_local_memories.json，有则弹出迁移提示
   useEffect(() => {
     if (!token) return
     ;(async () => {
@@ -30,21 +34,36 @@ export default function App() {
         const db = window.nekoBridge?.db
         if (!db) return
         const result = await db.readLegacyLocalMemories()
-        const entries = result.entries
-        if (!entries.length) return
-        await Promise.allSettled(
-          entries.map((e) =>
-            fetch(`${serverUrl}/api/memory`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ content: e.content, category: e.category ?? 'other' }),
-            }),
-          ),
-        )
-        // The IPC handler already renamed/cleaned the file; no further action needed
+        if (result.entries.length > 0) {
+          setMigrateEntries(result.entries)
+        }
       } catch {}
     })()
   }, [token]) // eslint-disable-line
+
+  async function handleMigrateConfirm() {
+    if (!migrateEntries || !token) return
+    setMigrating(true)
+    try {
+      await Promise.allSettled(
+        migrateEntries.map((e) =>
+          fetch(`${serverUrl}/api/memory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ content: e.content, category: e.category ?? 'other' }),
+          }),
+        ),
+      )
+    } catch {}
+    await window.nekoBridge?.db?.deleteLegacyLocalMemories()
+    setMigrateEntries(null)
+    setMigrating(false)
+  }
+
+  async function handleMigrateDecline() {
+    await window.nekoBridge?.db?.deleteLegacyLocalMemories()
+    setMigrateEntries(null)
+  }
 
   // 登录后自动从服务器拉取 sessions，并选中最新的一条
   useEffect(() => {
@@ -87,6 +106,32 @@ export default function App() {
       <Sidebar />
       <MainContent />
       <SettingsPanel />
+      {migrateEntries && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: '#1e1e2a', border: '1px solid #333', borderRadius: 12, padding: '24px 28px', width: 360, color: '#e0e0e0' }}>
+            <p style={{ margin: '0 0 8px', fontWeight: 600 }}>发现旧版本地记忆</p>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#aaa' }}>
+              检测到 {migrateEntries.length} 条旧版本地记忆（neko_local_memories.json）。是否将它们导入到服务器记忆库？
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleMigrateDecline}
+                disabled={migrating}
+                style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #555', background: 'transparent', color: '#ccc', cursor: 'pointer' }}
+              >
+                跳过
+              </button>
+              <button
+                onClick={handleMigrateConfirm}
+                disabled={migrating}
+                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#7b5ea7', color: '#fff', cursor: 'pointer' }}
+              >
+                {migrating ? '导入中…' : '导入'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
