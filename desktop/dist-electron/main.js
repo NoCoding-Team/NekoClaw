@@ -25,6 +25,58 @@ const electron = require("electron");
 const path = require("path");
 const fs = require("fs/promises");
 const os = require("os");
+let _db = null;
+function getDb() {
+  if (_db) return _db;
+  const Database = require("better-sqlite3");
+  const dbPath = path.join(electron.app.getPath("userData"), "neko.db");
+  _db = new Database(dbPath);
+  _db.pragma("journal_mode = WAL");
+  _db.exec(`
+    CREATE TABLE IF NOT EXISTS local_sessions (
+      id         TEXT PRIMARY KEY,
+      title      TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL,
+      synced     INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS local_messages (
+      id          TEXT PRIMARY KEY,
+      session_id  TEXT NOT NULL REFERENCES local_sessions(id) ON DELETE CASCADE,
+      role        TEXT NOT NULL,
+      content     TEXT NOT NULL DEFAULT '',
+      tool_calls  TEXT,
+      token_count INTEGER NOT NULL DEFAULT 0,
+      created_at  INTEGER NOT NULL,
+      synced      INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+  return _db;
+}
+function dbGetSessions(onlyUnsynced = false) {
+  const db = getDb();
+  const sql = onlyUnsynced ? "SELECT id, title, created_at as createdAt, synced FROM local_sessions WHERE synced = 0 ORDER BY created_at DESC" : "SELECT id, title, created_at as createdAt, synced FROM local_sessions ORDER BY created_at DESC";
+  return db.prepare(sql).all();
+}
+function dbUpsertSession(id, title, createdAt) {
+  getDb().prepare(
+    "INSERT INTO local_sessions (id, title, created_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET title = excluded.title"
+  ).run(id, title, createdAt);
+}
+function dbGetMessages(sessionId) {
+  return getDb().prepare(
+    "SELECT id, session_id as sessionId, role, content, tool_calls as toolCalls, token_count as tokenCount, created_at as createdAt, synced FROM local_messages WHERE session_id = ? ORDER BY created_at ASC"
+  ).all(sessionId);
+}
+function dbInsertMessage(msg) {
+  getDb().prepare(
+    "INSERT OR IGNORE INTO local_messages (id, session_id, role, content, tool_calls, token_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(msg.id, msg.sessionId, msg.role, msg.content, msg.toolCalls ?? null, msg.tokenCount, msg.createdAt);
+}
+function dbMarkSynced(sessionId) {
+  const db = getDb();
+  db.prepare("UPDATE local_sessions SET synced = 1 WHERE id = ?").run(sessionId);
+  db.prepare("UPDATE local_messages SET synced = 1 WHERE session_id = ?").run(sessionId);
+}
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 electron.app.setName("NekoClaw");
 if (process.platform === "win32") {
@@ -190,4 +242,57 @@ electron.ipcMain.handle("shell:openExternal", async (_e, url) => {
 });
 electron.ipcMain.handle("app:getDataPath", () => electron.app.getPath("userData"));
 electron.ipcMain.handle("log:getPath", () => getOpLogPath());
+electron.ipcMain.handle("db:getSessions", (_e, opts = {}) => {
+  try {
+    return { sessions: dbGetSessions(opts.onlyUnsynced ?? false) };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("db:upsertSession", (_e, id, title, createdAt) => {
+  try {
+    dbUpsertSession(id, title, createdAt);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("db:getMessages", (_e, sessionId) => {
+  try {
+    return { messages: dbGetMessages(sessionId) };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("db:insertMessage", (_e, msg) => {
+  try {
+    dbInsertMessage(msg);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("db:markSynced", (_e, sessionId) => {
+  try {
+    dbMarkSynced(sessionId);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("db:readLegacyLocalMemories", async () => {
+  try {
+    const filePath = path.join(electron.app.getPath("userData"), "neko_local_memories.json");
+    try {
+      await fs.access(filePath);
+    } catch {
+      return { entries: [] };
+    }
+    const raw = await fs.readFile(filePath, "utf-8");
+    const entries = JSON.parse(raw);
+    return { entries: Array.isArray(entries) ? entries : [] };
+  } catch {
+    return { entries: [] };
+  }
+});
 //# sourceMappingURL=main.js.map

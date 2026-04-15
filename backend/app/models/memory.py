@@ -1,5 +1,6 @@
 import uuid
-from sqlalchemy import String, Text, ForeignKey, Integer
+from datetime import datetime
+from sqlalchemy import String, Text, ForeignKey, Integer, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -14,3 +15,4 @@ class Memory(BaseModel):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     source_session_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

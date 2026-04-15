@@ -65,6 +65,11 @@ async def create_tables():
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data TEXT NULL"
             )
         )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE memories ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ NULL"
+            )
+        )
 
 
 async def _seed_builtin_skills():

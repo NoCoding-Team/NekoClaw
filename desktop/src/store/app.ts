@@ -7,6 +7,7 @@ const STORAGE_AUTH = 'neko_auth'
 const STORAGE_ACTIVE_SESSION = 'neko_active_session'
 const STORAGE_PERSONAL = 'neko_personal'
 const STORAGE_SECURITY = 'neko_security'
+const STORAGE_SYNC_ENABLED = 'neko_sync_enabled'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -213,6 +214,10 @@ export interface AppState {
   toolCallCounts: Record<string, number>
   incrementToolCallCount: (tool: string) => void
   resetToolCallCounts: () => void
+
+  // Sync: local-first chat history sync to server
+  syncEnabled: boolean
+  setSyncEnabled: (v: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -362,4 +367,10 @@ export const useAppStore = create<AppState>((set) => ({
       toolCallCounts: { ...s.toolCallCounts, [tool]: (s.toolCallCounts[tool] ?? 0) + 1 },
     })),
   resetToolCallCounts: () => set({ toolCallCounts: {} }),
+
+  syncEnabled: localStorage.getItem(STORAGE_SYNC_ENABLED) === 'true',
+  setSyncEnabled: (v) => {
+    localStorage.setItem(STORAGE_SYNC_ENABLED, String(v))
+    set({ syncEnabled: v })
+  },
 }))

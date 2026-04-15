@@ -323,3 +323,15 @@
 }
 .categorySelect:focus { border-color: var(--accent); }
 .categorySelect option { background: var(--bg-base); }
+
+/* Sync banner */
+.syncBanner {
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(124, 106, 244, 0.08);
+  border: 1px solid rgba(124, 106, 244, 0.2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  flex-shrink: 0;
+}

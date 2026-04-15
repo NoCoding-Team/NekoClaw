@@ -13,6 +13,30 @@ const PROVIDERS = [
   { value: 'custom',    label: '自定义',      placeholder: 'http://localhost:11434/v1' },
 ]
 
+// ── GeneralTab ─────────────────────────────────────────────────────────────────
+function GeneralTab() {
+  const { syncEnabled, setSyncEnabled } = useAppStore()
+  return (
+    <div>
+      {/* 本地优先 / 云同步 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>自动同步到服务器</div>
+          <div className={styles.secRowDesc}>
+            开启后，本地对话历史将自动同步到服务器；关闭则仅保存在本机。
+          </div>
+        </div>
+        <button
+          className={`${styles.toggle} ${syncEnabled ? styles.toggleOn : ''}`}
+          onClick={() => setSyncEnabled(!syncEnabled)}
+          aria-checked={syncEnabled}
+          role="switch"
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── SecurityTab ────────────────────────────────────────────────────────────────
 function SecurityTab() {
   const { securityConfig, setSecurityConfig, toolCallCounts } = useAppStore()
@@ -921,7 +945,7 @@ export function SettingsPanel() {
             {tab === 'general' && (
               <div>
                 <h2 className={styles.sectionTitle}>通用</h2>
-                <p className={styles.comingSoon}>功能开发中…</p>
+                <GeneralTab />
               </div>
             )}
 

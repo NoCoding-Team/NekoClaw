@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+﻿import { useEffect, useState, useCallback } from 'react'
 import styles from './MemoryPanel.module.css'
 import { useAppStore } from '../../store/app'
 import { useToast, throwIfError } from '../../hooks/useToast'
@@ -12,57 +12,27 @@ interface Memory {
   created_at: string
 }
 
-interface LocalMemory {
+interface LocalSession {
   id: string
-  category: string
-  content: string
-  created_at: string
+  title: string
+  messageCount: number
+  createdAt: number
 }
 
 const CATEGORIES = ['all', 'preference', 'fact', 'instruction', 'history', 'other']
 
 export default function MemoryPanel() {
-  const { token, serverUrl } = useAppStore()
+  const { token, serverUrl, syncEnabled } = useAppStore()
   const [memories, setMemories] = useState<Memory[]>([])
-  const [localMemories, setLocalMemories] = useState<LocalMemory[]>([])
-  const [dataPath, setDataPath] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('all')
-  const [source, setSource] = useState<'all' | 'server' | 'local'>('all')
+  const [panel, setPanel] = useState<'memories' | 'local'>('memories')
   const [loading, setLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
-  const [deleteLocalTarget, setDeleteLocalTarget] = useState<string | null>(null)
   const [importText, setImportText] = useState('')
   const [showImport, setShowImport] = useState(false)
-  const [showAddLocal, setShowAddLocal] = useState(false)
-  const [localForm, setLocalForm] = useState({ category: 'general', content: '' })
+  const [localSessions, setLocalSessions] = useState<LocalSession[]>([])
+  const [syncingId, setSyncingId] = useState<string | null>(null)
   const { toast, showToast, dismissToast } = useToast()
-
-  // Get userData path for local file storage
-  useEffect(() => {
-    window.nekoBridge?.app?.getDataPath()
-      .then(p => setDataPath(p))
-      .catch(() => {})
-  }, [])
-
-  const localMemPath = dataPath
-    ? dataPath.replace(/\\/g, '/') + '/neko_local_memories.json'
-    : null
-
-  const loadLocalMemories = useCallback(async () => {
-    if (!localMemPath) return
-    try {
-      const res = await window.nekoBridge.file.read(localMemPath)
-      if (res.content) setLocalMemories(JSON.parse(res.content))
-    } catch { setLocalMemories([]) }
-  }, [localMemPath])
-
-  useEffect(() => { loadLocalMemories() }, [loadLocalMemories])
-
-  const saveLocalMemories = async (updated: LocalMemory[]) => {
-    if (!localMemPath) return
-    setLocalMemories(updated)
-    await window.nekoBridge.file.write(localMemPath, JSON.stringify(updated, null, 2))
-  }
 
   const fetchMemories = useCallback(async () => {
     if (!token) return
@@ -84,6 +54,25 @@ export default function MemoryPanel() {
 
   useEffect(() => { fetchMemories() }, [fetchMemories])
 
+  const loadLocalSessions = useCallback(async () => {
+    const db = window.nekoBridge?.db
+    if (!db) return
+    try {
+      const result = await db.getSessions({ onlyUnsynced: true })
+      const sessions = result.sessions ?? []
+      const items: LocalSession[] = []
+      for (const s of sessions) {
+        const msgs = await db.getMessages(s.id)
+        items.push({ id: s.id, title: s.title, messageCount: msgs.length, createdAt: s.createdAt })
+      }
+      setLocalSessions(items)
+    } catch { setLocalSessions([]) }
+  }, [])
+
+  useEffect(() => {
+    if (panel === 'local') loadLocalSessions()
+  }, [panel, loadLocalSessions])
+
   async function handleDelete(id: number) {
     try {
       const res = await fetch(`${serverUrl}/api/memory/${id}`, {
@@ -98,22 +87,41 @@ export default function MemoryPanel() {
     }
   }
 
-  async function handleDeleteLocal(id: string) {
-    await saveLocalMemories(localMemories.filter(m => m.id !== id))
-    setDeleteLocalTarget(null)
-  }
+  async function handleSyncSession(ls: LocalSession) {
+    if (!token) return
+    setSyncingId(ls.id)
+    try {
+      const resSession = await fetch(`${serverUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: ls.title || '本地会话' }),
+      })
+      if (!resSession.ok) throw new Error('创建会话失败')
+      const serverSession = await resSession.json()
 
-  async function handleAddLocal() {
-    if (!localForm.content.trim()) return
-    const newMem: LocalMemory = {
-      id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      category: localForm.category,
-      content: localForm.content.trim(),
-      created_at: new Date().toISOString(),
+      const db = window.nekoBridge?.db
+      if (db) {
+        const msgs = await db.getMessages(ls.id)
+        const batch = msgs
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .map(m => ({ role: m.role, content: m.content }))
+        if (batch.length > 0) {
+          await fetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(batch),
+          })
+        }
+        await db.markSynced(ls.id)
+      }
+
+      setLocalSessions(prev => prev.filter(s => s.id !== ls.id))
+      showToast('已同步到服务器')
+    } catch (e: any) {
+      showToast(e.message || '同步失败')
+    } finally {
+      setSyncingId(null)
     }
-    await saveLocalMemories([...localMemories, newMem])
-    setLocalForm({ category: 'general', content: '' })
-    setShowAddLocal(false)
   }
 
   async function handleExport() {
@@ -157,11 +165,7 @@ export default function MemoryPanel() {
     fetchMemories()
   }
 
-  // Merge and filter
-  const filteredServer = (source === 'local') ? [] :
-    (activeTab === 'all' ? memories : memories.filter(m => m.category === activeTab))
-  const filteredLocal = (source === 'server') ? [] :
-    (activeTab === 'all' ? localMemories : localMemories.filter(m => m.category === activeTab))
+  const filtered = activeTab === 'all' ? memories : memories.filter(m => m.category === activeTab)
 
   return (
     <div className={styles.panel}>
@@ -169,90 +173,106 @@ export default function MemoryPanel() {
       <div className={styles.header}>
         <span className={styles.title}>记忆库</span>
         <div className={styles.actions}>
-          {source !== 'server' && (
-            <button className={styles.btnSecondary} onClick={() => setShowAddLocal(true)}>+ 本地记忆</button>
-          )}
           <button className={styles.btnSecondary} onClick={() => setShowImport(true)}>导入</button>
           <button className={styles.btnSecondary} onClick={handleExport}>导出 MD</button>
         </div>
       </div>
 
-      {/* Source tabs */}
+      {/* Panel toggle */}
       <div className={styles.sourceTabs}>
-        {(['all', 'server', 'local'] as const).map(s => {
-          const labels = { all: '全部', server: '服务端', local: '仅本机' }
-          return (
-            <button
-              key={s}
-              className={`${styles.sourceTab} ${source === s ? styles.sourceTabActive : ''}`}
-              onClick={() => setSource(s)}
-            >
-              {labels[s]}
-            </button>
-          )
-        })}
+        <button
+          className={`${styles.sourceTab} ${panel === 'memories' ? styles.sourceTabActive : ''}`}
+          onClick={() => setPanel('memories')}
+        >
+          记忆
+        </button>
+        <button
+          className={`${styles.sourceTab} ${panel === 'local' ? styles.sourceTabActive : ''}`}
+          onClick={() => setPanel('local')}
+        >
+          本地会话
+          {localSessions.length > 0 && <span className={styles.badge}>{localSessions.length}</span>}
+        </button>
       </div>
 
-      <div className={styles.tabs}>
-        {CATEGORIES.map(cat => {
-          const count = cat === 'all'
-            ? filteredServer.length + filteredLocal.length
-            : [...filteredServer, ...filteredLocal].filter(m => m.category === cat).length
-          return (
-            <button
-              key={cat}
-              className={`${styles.tab} ${activeTab === cat ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab(cat)}
-            >
-              {cat === 'all' ? '全部' : cat}
-              {cat !== 'all' && <span className={styles.badge}>{count}</span>}
-            </button>
-          )
-        })}
-      </div>
+      {panel === 'memories' ? (
+        <>
+          <div className={styles.tabs}>
+            {CATEGORIES.map(cat => {
+              const count = cat === 'all' ? memories.length : memories.filter(m => m.category === cat).length
+              return (
+                <button
+                  key={cat}
+                  className={`${styles.tab} ${activeTab === cat ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab(cat)}
+                >
+                  {cat === 'all' ? '全部' : cat}
+                  {cat !== 'all' && <span className={styles.badge}>{count}</span>}
+                </button>
+              )
+            })}
+          </div>
 
-      {loading ? (
-        <div className={styles.loading}>加载中…</div>
-      ) : filteredServer.length === 0 && filteredLocal.length === 0 ? (
-        <div className={styles.empty}>暂无记忆条目</div>
+          {loading ? (
+            <div className={styles.loading}>加载中…</div>
+          ) : filtered.length === 0 ? (
+            <div className={styles.empty}>暂无记忆条目</div>
+          ) : (
+            <ul className={styles.list}>
+              {filtered.map(m => (
+                <li key={m.id} className={styles.item}>
+                  <div className={styles.itemContent}>{m.content}</div>
+                  <div className={styles.itemMeta}>
+                    <span className={styles.catTag}>{m.category}</span>
+                    <span className={styles.time}>{new Date(m.created_at).toLocaleDateString('zh-CN')}</span>
+                    {m.source_session_id && (
+                      <span className={styles.sessionTag}>会话 #{m.source_session_id}</span>
+                    )}
+                  </div>
+                  <button
+                    className={styles.deleteBtn}
+                    onClick={() => setDeleteTarget(m.id)}
+                    title="删除"
+                  >✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
-        <ul className={styles.list}>
-          {filteredServer.map(m => (
-            <li key={`s-${m.id}`} className={styles.item}>
-              <div className={styles.itemContent}>{m.content}</div>
-              <div className={styles.itemMeta}>
-                <span className={styles.catTag}>{m.category}</span>
-                <span className={styles.time}>{new Date(m.created_at).toLocaleDateString('zh-CN')}</span>
-                {m.source_session_id && (
-                  <span className={styles.sessionTag}>会话 #{m.source_session_id}</span>
-                )}
-              </div>
-              <button
-                className={styles.deleteBtn}
-                onClick={() => setDeleteTarget(m.id)}
-                title="删除"
-              >✕</button>
-            </li>
-          ))}
-          {filteredLocal.map(m => (
-            <li key={`l-${m.id}`} className={styles.item}>
-              <div className={styles.itemContent}>{m.content}</div>
-              <div className={styles.itemMeta}>
-                <span className={styles.catTag}>{m.category}</span>
-                <span className={styles.localTag}>仅本机</span>
-                <span className={styles.time}>{new Date(m.created_at).toLocaleDateString('zh-CN')}</span>
-              </div>
-              <button
-                className={styles.deleteBtn}
-                onClick={() => setDeleteLocalTarget(m.id)}
-                title="删除"
-              >✕</button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {!syncEnabled && (
+            <div className={styles.syncBanner}>
+              本地优先模式已开启，对话默认仅存储在本机
+            </div>
+          )}
+          {localSessions.length === 0 ? (
+            <div className={styles.empty}>没有未同步的本地会话</div>
+          ) : (
+            <ul className={styles.list}>
+              {localSessions.map(ls => (
+                <li key={ls.id} className={styles.item} style={{ position: 'relative' }}>
+                  <div className={styles.itemContent}>{ls.title || '未命名会话'}</div>
+                  <div className={styles.itemMeta}>
+                    <span className={styles.catTag}>{ls.messageCount} 条消息</span>
+                    <span className={styles.time}>{new Date(ls.createdAt).toLocaleDateString('zh-CN')}</span>
+                  </div>
+                  <button
+                    className={styles.btnSecondary}
+                    onClick={() => handleSyncSession(ls)}
+                    disabled={syncingId === ls.id || !token}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }}
+                  >
+                    {syncingId === ls.id ? '同步中…' : '同步'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
-      {/* Server delete confirm */}
+      {/* Delete confirm */}
       {deleteTarget !== null && (
         <div className={styles.overlay}>
           <div className={styles.dialog}>
@@ -265,50 +285,7 @@ export default function MemoryPanel() {
         </div>
       )}
 
-      {/* Local delete confirm */}
-      {deleteLocalTarget !== null && (
-        <div className={styles.overlay}>
-          <div className={styles.dialog}>
-            <p>确认删除这条本地记忆？</p>
-            <div className={styles.dialogActions}>
-              <button className={styles.btnDanger} onClick={() => handleDeleteLocal(deleteLocalTarget)}>删除</button>
-              <button className={styles.btnSecondary} onClick={() => setDeleteLocalTarget(null)}>取消</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 添加本地记忆 dialog */}
-      {showAddLocal && (
-        <div className={styles.overlay}>
-          <div className={styles.dialog}>
-            <p className={styles.dialogTitle}>添加本地记忆</p>
-            <p className={styles.dialogHint}>记忆仅存储在本机，不上传到服务器</p>
-            <select
-              className={styles.categorySelect}
-              value={localForm.category}
-              onChange={e => setLocalForm(p => ({ ...p, category: e.target.value }))}
-            >
-              {CATEGORIES.filter(c => c !== 'all').map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <textarea
-              className={styles.importArea}
-              value={localForm.content}
-              onChange={e => setLocalForm(p => ({ ...p, content: e.target.value }))}
-              placeholder="输入记忆内容…"
-              rows={4}
-            />
-            <div className={styles.dialogActions}>
-              <button className={styles.btnPrimary} onClick={handleAddLocal}>添加</button>
-              <button className={styles.btnSecondary} onClick={() => setShowAddLocal(false)}>取消</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 导入对话框 */}
+      {/* Import dialog */}
       {showImport && (
         <div className={styles.overlay}>
           <div className={styles.dialog}>
@@ -318,7 +295,7 @@ export default function MemoryPanel() {
               className={styles.importArea}
               value={importText}
               onChange={e => setImportText(e.target.value)}
-              placeholder="- [preference] 我喜欢简洁的代码风格&#10;- [fact] 我的主要语言是 TypeScript"
+              placeholder={`- [preference] 我喜欢简洁的代码风格\n- [fact] 我的主要语言是 TypeScript`}
               rows={8}
             />
             <div className={styles.dialogActions}>
@@ -331,4 +308,3 @@ export default function MemoryPanel() {
     </div>
   )
 }
-

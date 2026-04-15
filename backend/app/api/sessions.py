@@ -133,3 +133,31 @@ async def create_message(
     await db.commit()
     await db.refresh(msg)
     return msg
+
+
+@router.post("/{session_id}/messages/batch", status_code=201)
+async def batch_create_messages(
+    session_id: str,
+    body: list[MessageCreate],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a batch of local messages to a server session (sync use case)."""
+    result = await db.execute(
+        select(Session).where(Session.id == session_id, Session.deleted_at.is_(None))
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise NotFoundError("Session not found")
+    if session.user_id != current_user.id:
+        raise ForbiddenError()
+
+    for item in body:
+        msg = Message(
+            session_id=session_id,
+            role=item.role,
+            content=item.content,
+        )
+        db.add(msg)
+    await db.commit()
+    return {"ok": True, "count": len(body)}

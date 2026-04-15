@@ -103,8 +103,6 @@ async def websocket_session(session_id: str, websocket: WebSocket):
                 asyncio.create_task(
                     _handle_message(session_id, user_id, data, websocket)
                 )
-
-
             elif event == "tool_result":
                 call_id = data.get("call_id")
                 if call_id and call_id in _pending_tool_calls:
@@ -136,6 +134,7 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
     content = data.get("content", "")
     skill_id = data.get("skill_id")
     allowed_tools: list[str] | None = data.get("allowed_tools")  # None=未指定(不限), []=无工具, [...]= 指定工具列表
+    local_history: list[dict] | None = data.get("local_history")  # Client-side history for fallback
 
     # Persist user message
     async with AsyncSessionLocal() as db:
@@ -156,6 +155,7 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
         user_id=user_id,
         skill_id=skill_id,
         allowed_tools_override=allowed_tools,
+        local_history=local_history,
         ws=ws,
     )
 

@@ -39,6 +39,7 @@ async def run_llm_pipeline(
     skill_id: str | None,
     ws: WebSocket,
     allowed_tools_override: list[str] | None = None,
+    local_history: list[dict] | None = None,
 ):
     async with AsyncSessionLocal() as db:
         # Load session config
@@ -83,9 +84,21 @@ async def run_llm_pipeline(
     messages = [{"role": "system", "content": system_prompt}]
     total_tokens = sum(m.token_count for m in history)
 
-    # Context compression check
+    # If no server history, fall back to local_history provided by client
+    if not history and local_history:
+        for lm in local_history:
+            role = lm.get("role", "user")
+            if role not in ("user", "assistant", "tool"):
+                continue
+            entry: dict[str, Any] = {"role": role, "content": lm.get("content") or ""}
+            if lm.get("tool_calls"):
+                entry["tool_calls"] = lm["tool_calls"]
+            messages.append(entry)
+
+    # Context compression check (fires memory refresh first)
     context_limit = llm_config.context_limit if llm_config else 128000
     if total_tokens > context_limit * COMPRESS_RATIO and len(history) > 10:
+        await _memory_refresh(session_id, user_id, history, llm_config)
         history = await _compress_history(session_id, history, context_limit, llm_config, ws)
 
     for m in history:
@@ -140,7 +153,7 @@ async def run_llm_pipeline(
 
             if tool_def["executor"] == "server":
                 await send_event(ws, "cat_state", {"state": "working"})
-                result_content = await execute_server_tool(tool_name, args)
+                result_content = await execute_server_tool(tool_name, args, user_id)
             else:
                 # Forward to PC client
                 await send_event(ws, "tool_call", {
@@ -187,7 +200,13 @@ async def _build_system_prompt(user_id: str, skill: Any | None) -> str:
             "通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地操作权限。\n"
             "   - `web_search`、`http_request`：在服务端执行，用于联网搜索和 API 请求。\n"
             "4. 执行完工具后，把结果以友好的方式告诉用户，不要再让用户自己去看。\n"
-            "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。"
+            "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。\n\n"
+            "## 记忆工具使用规则\n"
+            "当 `save_memory` / `update_memory` 工具在列表中时：\n"
+            "- 用户透露重要信息时（偏好、事实、指令、个人情况），主动调用 `save_memory`。\n"
+            "- 用户纠正之前信息时，调用 `update_memory` 而不是 `save_memory`。\n"
+            "- 不要对临时信息（如今天天气、一次性任务）保存记忆。\n"
+            "- 每轮对话最多保存 3 条记忆，避免过度记录。"
         )
 
     # Inject memory
@@ -199,14 +218,20 @@ async def _build_system_prompt(user_id: str, skill: Any | None) -> str:
 
 async def _load_memory(user_id: str) -> str:
     from app.models.memory import Memory
+    from sqlalchemy import func as sqlfunc
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(Memory)
             .where(Memory.user_id == user_id, Memory.deleted_at.is_(None))
-            .order_by(Memory.created_at.desc())
+            .order_by(sqlfunc.coalesce(Memory.last_used_at, Memory.created_at).desc())
             .limit(50)
         )
         entries = result.scalars().all()
+        # Update last_used_at for fetched memories
+        now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+        for e in entries:
+            e.last_used_at = now
+        await db.commit()
     if not entries:
         return ""
     lines = [f"[{e.category}] {e.content}" for e in entries]
@@ -338,3 +363,71 @@ async def _compress_history(
         await db.commit()
 
     return [summary_msg] + list(to_keep)
+
+
+async def _memory_refresh(
+    session_id: str,
+    user_id: str,
+    history: list,
+    llm_config: Any | None,
+) -> None:
+    """
+    Pre-compaction memory refresh: ask the LLM (silently) to save important memories
+    before history is compressed away. Fires at most once per session.
+    """
+    if not llm_config:
+        return
+
+    # One-time-per-session guard stored in module-level set
+    if session_id in _memory_refresh_done:
+        return
+    _memory_refresh_done.add(session_id)
+
+    # Build a condensed view of recent conversation for the refresh prompt
+    recent = history[-20:]
+    conv_text = "\n".join(f"{m.role}: {m.content or ''}" for m in recent)
+
+    # Load existing memories to avoid redundant saves
+    existing = await _load_memory(user_id)
+    existing_block = f"\n\n已有记忆:\n{existing}" if existing else ""
+
+    refresh_messages = [
+        {
+            "role": "system",
+            "content": (
+                "你是记忆整理助手。请检查以下对话，找出值得长期保存的用户信息（偏好、事实、指令等）。"
+                "使用 save_memory 工具保存，使用 update_memory 工具更新已过时的记忆。"
+                "临时信息和一次性任务不需要保存。每次最多保存 5 条。"
+                + existing_block
+            ),
+        },
+        {"role": "user", "content": f"请分析以下对话：\n\n{conv_text}"},
+    ]
+
+    from app.services.tools.definitions import get_openai_tools
+    refresh_tools = get_openai_tools(["save_memory", "update_memory"])
+
+    try:
+        from openai import AsyncOpenAI
+        from app.core.security import decrypt_api_key
+        api_key = decrypt_api_key(llm_config.api_key_encrypted)
+        client = AsyncOpenAI(api_key=api_key, base_url=llm_config.base_url)
+        resp = await client.chat.completions.create(
+            model=llm_config.model,
+            messages=refresh_messages,
+            tools=refresh_tools if refresh_tools else None,
+            stream=False,
+        )
+        tool_calls = resp.choices[0].message.tool_calls or []
+        for tc in tool_calls:
+            try:
+                args = json.loads(tc.function.arguments)
+            except Exception:
+                continue
+            await execute_server_tool(tc.function.name, args, user_id)
+    except Exception:
+        pass  # memory refresh is best-effort, never crash the main pipeline
+
+
+# Per-session set to ensure memory refresh fires at most once
+_memory_refresh_done: set[str] = set()

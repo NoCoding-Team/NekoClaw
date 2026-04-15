@@ -35,6 +35,58 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["method", "url"],
         },
     },
+    {
+        "name": "save_memory",
+        "executor": "server",
+        "description": (
+            "Save a new long-term memory about the user. "
+            "Use this when the user reveals something important: preferences, facts, instructions, or personal context. "
+            "Do NOT use this for transient information. category must be one of: preference, fact, instruction, history, other."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "enum": ["preference", "fact", "instruction", "history", "other"],
+                    "description": "Memory category",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Memory content (max 1000 characters)",
+                },
+            },
+            "required": ["category", "content"],
+        },
+    },
+    {
+        "name": "update_memory",
+        "executor": "server",
+        "description": (
+            "Update or correct an existing memory. "
+            "Use this when the user corrects previous information, or when a preference/fact has changed. "
+            "You must provide the exact old content to identify the memory."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "old_content": {
+                    "type": "string",
+                    "description": "Exact content of the memory to update",
+                },
+                "new_content": {
+                    "type": "string",
+                    "description": "New content to replace the old memory (max 1000 characters)",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": ["preference", "fact", "instruction", "history", "other"],
+                    "description": "New category (can be same as old)",
+                },
+            },
+            "required": ["old_content", "new_content", "category"],
+        },
+    },
     # ── Client-side tools ─────────────────────────────────────────────
     {
         "name": "file_read",

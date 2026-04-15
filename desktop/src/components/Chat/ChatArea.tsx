@@ -35,9 +35,29 @@ export function ChatArea() {
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 
-  // Load history messages from server when switching to a session that has none cached
+  // Load history messages when switching to a session
   useEffect(() => {
-    if (!activeSessionId || activeSessionId.startsWith('local-')) return
+    if (!activeSessionId) return
+
+    // For local- sessions, load from SQLite
+    if (activeSessionId.startsWith('local-')) {
+      if (messagesBySession[activeSessionId]?.length) return
+      ;(async () => {
+        const db = window.nekoBridge?.db
+        if (!db) return
+        try {
+          const localMsgs = await db.getMessages(activeSessionId)
+          setMessages(
+            activeSessionId,
+            localMsgs
+              .filter((m) => m.role === 'user' || m.role === 'assistant')
+              .map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })),
+          )
+        } catch {}
+      })()
+      return
+    }
+
     if (messagesBySession[activeSessionId]?.length) return   // already loaded
     setIsLoadingHistory(true)
     ;(async () => {

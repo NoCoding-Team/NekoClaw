@@ -22,6 +22,30 @@ export default function App() {
       .catch(() => {})
   }, [token]) // eslint-disable-line
 
+  // 迁移旧版 neko_local_memories.json → 服务器记忆
+  useEffect(() => {
+    if (!token) return
+    ;(async () => {
+      try {
+        const db = window.nekoBridge?.db
+        if (!db) return
+        const result = await db.readLegacyLocalMemories()
+        const entries = result.entries
+        if (!entries.length) return
+        await Promise.allSettled(
+          entries.map((e) =>
+            fetch(`${serverUrl}/api/memory`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ content: e.content, category: e.category ?? 'other' }),
+            }),
+          ),
+        )
+        // The IPC handler already renamed/cleaned the file; no further action needed
+      } catch {}
+    })()
+  }, [token]) // eslint-disable-line
+
   // 登录后自动从服务器拉取 sessions，并选中最新的一条
   useEffect(() => {
     if (!token) return
