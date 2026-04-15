@@ -185,12 +185,14 @@ async function autoUpdateTitle(
   serverUrl: string,
   token: string,
 ) {
-  if (!token || sessionId.startsWith('local-')) return
+  const isLocal = sessionId.startsWith('local-')
+  if (!token && !isLocal) return
 
   // Stage 1: 立即截取前15字
   const shortTitle = userContent.slice(0, 15) + (userContent.length > 15 ? '…' : '')
-  await patchSessionTitle(serverUrl, token, sessionId, shortTitle)
+  if (!isLocal) await patchSessionTitle(serverUrl, token, sessionId, shortTitle)
   useAppStore.getState().updateSessionTitle(sessionId, shortTitle)
+  window.nekoBridge?.db?.upsertSession(sessionId, shortTitle, Date.now()).catch(() => {})
 
   // Stage 2: 用 LLM 生成语义标题（不阻塞主流程，在后台跑）
   try {
@@ -211,8 +213,9 @@ async function autoUpdateTitle(
       new AbortController().signal,
     )
     const finalTitle = generatedTitle.trim().slice(0, 30) || shortTitle
-    await patchSessionTitle(serverUrl, token, sessionId, finalTitle)
+    if (!isLocal) await patchSessionTitle(serverUrl, token, sessionId, finalTitle)
     useAppStore.getState().updateSessionTitle(sessionId, finalTitle)
+    window.nekoBridge?.db?.upsertSession(sessionId, finalTitle, Date.now()).catch(() => {})
   } catch {
     // Stage 2 失败不影响任何功能，Stage 1 的标题已生效
   }
@@ -376,9 +379,7 @@ export function useLocalLLM(sessionId: string | null) {
           const isFirstRound = msgs.filter((m) => m.role === 'assistant').length === 1
           if (isFirstRound) {
             const { serverUrl: sv, token: tk } = useAppStore.getState()
-            if (tk) {
-              autoUpdateTitle(sid, content, finalMsg.content, localLLMConfig, sv, tk)
-            }
+            autoUpdateTitle(sid, content, finalMsg.content, localLLMConfig, sv, tk ?? '')
           }
         }
         setCatState('idle')
