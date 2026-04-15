@@ -65,22 +65,47 @@ export default function App() {
     setMigrateEntries(null)
   }
 
-  // 登录后自动从服务器拉取 sessions，并选中最新的一条
+  // 登录后自动从服务器拉取 sessions，并合并本地 SQLite 中的 local-* 会话
   useEffect(() => {
     if (!token) return
     ;(async () => {
+      // 1. 先从本地 SQLite 读取 local-* 会话（Mode B 未同步的会话）
+      const dbBridge = window.nekoBridge?.db
+      const localOnlySessions: Array<{ id: string; title: string }> = []
+      if (dbBridge) {
+        try {
+          const result = await dbBridge.getSessions()
+          ;(result.sessions ?? [])
+            .filter((s) => s.id.startsWith('local-'))
+            .forEach((s) => localOnlySessions.push({ id: s.id, title: s.title }))
+        } catch {}
+      }
+
+      // 2. 从服务器拉取会话
       try {
         const res = await fetch(`${serverUrl}/api/sessions`, {
           headers: { Authorization: `Bearer ${token}` },
         })
-        if (!res.ok) return
+        if (!res.ok) {
+          // 服务器异常时仅展示本地会话
+          if (localOnlySessions.length > 0) {
+            setSessions(localOnlySessions)
+            const lastId = localStorage.getItem('neko_active_session')
+            const restored = lastId && localOnlySessions.find((s) => s.id === lastId)
+            setActiveSession(restored ? lastId! : localOnlySessions[0].id)
+          }
+          return
+        }
         const data: Array<{ id: string; title: string; skill_id: string | null }> = await res.json()
-        if (data.length > 0) {
-          setSessions(data.map((s) => ({ id: s.id, title: s.title, skillId: s.skill_id ?? undefined })))
+        const serverSessions = data.map((s) => ({ id: s.id, title: s.title, skillId: s.skill_id ?? undefined }))
+        // local-* 会话排在前面（最近使用），server 会话紧随其后
+        const allSessions = [...localOnlySessions, ...serverSessions]
+        if (allSessions.length > 0) {
+          setSessions(allSessions)
           // 优先恢复上次打开的对话，否则用最新一条
           const lastId = localStorage.getItem('neko_active_session')
-          const restored = lastId && data.find((s) => s.id === lastId)
-          setActiveSession(restored ? lastId! : data[0].id)
+          const restored = lastId && allSessions.find((s) => s.id === lastId)
+          setActiveSession(restored ? lastId! : allSessions[0].id)
         } else {
           const newRes = await fetch(`${serverUrl}/api/sessions`, {
             method: 'POST',
@@ -94,7 +119,13 @@ export default function App() {
           }
         }
       } catch {
-        // 网络异常时静默忽略，用户可手动创建
+        // 网络异常时展示本地会话
+        if (localOnlySessions.length > 0) {
+          setSessions(localOnlySessions)
+          const lastId = localStorage.getItem('neko_active_session')
+          const restored = lastId && localOnlySessions.find((s) => s.id === lastId)
+          setActiveSession(restored ? lastId! : localOnlySessions[0].id)
+        }
       }
     })()
   }, [token])

@@ -26,9 +26,9 @@ export default function MemoryPanel() {
     setLoading(true)
     try {
       const result = await mem.list()
-      const items: MemoryFile[] = (result.files ?? []).map((f: { name: string; modifiedAt?: number }) => ({
+      const items: MemoryFile[] = (result.files ?? []).map((f: { name: string; mtime?: number; modifiedAt?: number }) => ({
         name: f.name,
-        modifiedAt: f.modifiedAt ?? 0,
+        modifiedAt: f.mtime ?? f.modifiedAt ?? 0,
       }))
       // Sort: MEMORY.md first, then by modifiedAt desc
       items.sort((a, b) => {
