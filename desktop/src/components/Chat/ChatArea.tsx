@@ -1,5 +1,5 @@
 import { useRef, useEffect, KeyboardEvent, useState } from 'react'
-import { useAppStore } from '../../store/app'
+import { useAppStore, ChatMessage as ChatMsg } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -7,6 +7,25 @@ import { useLocalLLM } from '../../hooks/useLocalLLM'
 import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
+
+/** 将连续的 tool 消息合并成一条，让所有工具卡片显示在同一个气泡里 */
+function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
+  const result: ChatMsg[] = []
+  for (const msg of msgs) {
+    if (msg.role === 'tool') {
+      const last = result[result.length - 1]
+      if (last?.role === 'tool') {
+        result[result.length - 1] = {
+          ...last,
+          toolCalls: [...(last.toolCalls ?? []), ...(msg.toolCalls ?? [])],
+        }
+        continue
+      }
+    }
+    result.push(msg)
+  }
+  return result
+}
 
 const WindowControls = () => (
   <div className={styles.windowControls}>
@@ -303,7 +322,7 @@ export function ChatArea() {
       </div>
       {showAssets && <AssetsPanel onClose={() => setShowAssets(false)} />}
       <div className={styles.messages}>
-        {messages.map((m) => (
+        {groupToolMessages(messages).map((m) => (
           <ChatMessage key={m.id} message={m} />
         ))}
         <div ref={bottomRef} />
