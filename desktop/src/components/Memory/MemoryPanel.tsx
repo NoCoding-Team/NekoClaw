@@ -101,6 +101,24 @@ export default function MemoryPanel() {
     setLocalSessionMsgs(msgs)
   }, [])
 
+  // ── Delete local SQLite session ─────────────────────────────────────────
+  const deleteLocalSession = useCallback(async (id: string) => {
+    const db = window.nekoBridge?.db
+    if (!db) { showToast('DB 不可用'); return }
+    try {
+      await db.deleteSession(id)
+      setLocalSessions(prev => prev.filter(s => s.id !== id))
+      if (selectedLocalSession?.id === id) {
+        setSelectedLocalSession(null)
+        setLocalSessionMsgs([])
+      }
+      // 也从全局 store 中移除（如果还在里面）
+      useAppStore.getState().removeSession(id)
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : '删除失败')
+    }
+  }, [selectedLocalSession, showToast])
+
   // ── Sync local session to server ──────────────────────────────────────
   const syncSessionToServer = useCallback(async (session: LocalDBSession) => {
     if (!token || !serverUrl) { showToast('请先连接服务器'); return }
@@ -443,16 +461,24 @@ export default function MemoryPanel() {
                   >
                     <div className={styles.fileItemRow}>
                       <div className={styles.fileName}>{s.title || '(无标题)'}</div>
-                      {serverConnected && token && (
+                      <div className={styles.sessionItemActions}>
+                        {serverConnected && token && (
+                          <button
+                            className={`${styles.sessionActionBtn} ${styles.sessionSyncBtn}`}
+                            onClick={(e) => { e.stopPropagation(); void syncSessionToServer(s) }}
+                            disabled={syncingSessionId === s.id}
+                            title="同步到服务器"
+                          >
+                            {syncingSessionId === s.id ? '…' : '↑'}
+                          </button>
+                        )}
                         <button
-                          className={styles.sessionSyncBtn}
-                          onClick={(e) => { e.stopPropagation(); void syncSessionToServer(s) }}
+                          className={`${styles.sessionActionBtn} ${styles.sessionDeleteBtn}`}
+                          onClick={(e) => { e.stopPropagation(); void deleteLocalSession(s.id) }}
                           disabled={syncingSessionId === s.id}
-                          title="同步到服务器"
-                        >
-                          {syncingSessionId === s.id ? '…' : '↑'}
-                        </button>
-                      )}
+                          title="删除本地会话"
+                        >×</button>
+                      </div>
                     </div>
                     <div className={styles.fileMeta}>
                       {new Date(s.createdAt).toLocaleDateString('zh-CN')}
@@ -499,16 +525,22 @@ export default function MemoryPanel() {
           ) : selectedLocalSession ? (
             <>
               <div className={styles.editorToolbar}>
-                <span className={styles.editorLabel}>💬 {selectedLocalSession.title || '本地对话'}</span>
-                {serverConnected && token && (
+                <span className={styles.editorLabel}>{selectedLocalSession.title || '本地对话'}</span>
+                <div className={styles.actions}>
+                  {serverConnected && token && (
+                    <button
+                      className={styles.btnSecondary}
+                      onClick={() => void syncSessionToServer(selectedLocalSession)}
+                      disabled={syncingSessionId === selectedLocalSession.id}
+                    >
+                      {syncingSessionId === selectedLocalSession.id ? '同步中…' : '↑ 同步到服务器'}
+                    </button>
+                  )}
                   <button
-                    className={styles.btnPrimary}
-                    onClick={() => void syncSessionToServer(selectedLocalSession)}
-                    disabled={syncingSessionId === selectedLocalSession.id}
-                  >
-                    {syncingSessionId === selectedLocalSession.id ? '同步中…' : '↑ 同步到服务器'}
-                  </button>
-                )}
+                    className={styles.btnDanger}
+                    onClick={() => void deleteLocalSession(selectedLocalSession.id)}
+                  >删除</button>
+                </div>
               </div>
               <div className={styles.sessionMsgs}>
                 {localSessionMsgs.length === 0 ? (
@@ -520,7 +552,7 @@ export default function MemoryPanel() {
                       className={`${styles.sessionMsg} ${m.role === 'user' ? styles.sessionMsgUser : styles.sessionMsgAssistant}`}
                     >
                       <span className={styles.sessionMsgRole}>{m.role === 'user' ? '你' : '猫咪'}</span>
-                      <pre className={styles.sessionMsgContent}>{m.content}</pre>
+                      <div className={styles.sessionMsgContent}>{m.content}</div>
                     </div>
                   ))
                 )}
