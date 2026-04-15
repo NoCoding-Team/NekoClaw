@@ -594,6 +594,7 @@ export function useLocalLLM(sessionId: string | null) {
           })
 
           // Execute each tool call
+          let loopAborted = false
           for (const tc of result.toolCalls) {
             const callId = tc.id || uuidv4()
             roundToolCount++
@@ -611,6 +612,7 @@ export function useLocalLLM(sessionId: string | null) {
               }
               appendMessage(sid, { id: uuidv4(), role: 'tool', content: limitMsg, toolCalls: [toolCard] })
               llmMessages.push({ role: 'tool', content: limitMsg, tool_call_id: callId })
+              loopAborted = true
               continue
             }
 
@@ -627,6 +629,7 @@ export function useLocalLLM(sessionId: string | null) {
               }
               appendMessage(sid, { id: uuidv4(), role: 'tool', content: loopMsg, toolCalls: [toolCard] })
               llmMessages.push({ role: 'tool', content: loopMsg, tool_call_id: callId })
+              loopAborted = true
               continue
             }
 
@@ -673,7 +676,8 @@ export function useLocalLLM(sessionId: string | null) {
             llmMessages.push({ role: 'tool', content: toolResult, tool_call_id: callId })
           }
 
-          // Create new streaming placeholder for next round
+          // Create new streaming placeholder for next round (skip if loop was aborted)
+          if (loopAborted) break
           const nextMsgId = uuidv4()
           appendMessage(sid, { id: nextMsgId, role: 'assistant', content: '', streaming: true })
           setCatState('thinking')

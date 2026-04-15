@@ -1,5 +1,5 @@
 import { useRef, useEffect, KeyboardEvent, useState } from 'react'
-import { useAppStore, ChatMessage as ChatMsg } from '../../store/app'
+import { useAppStore, ChatMessage as ChatMsg, ToolCall } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -8,48 +8,66 @@ import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
 
-/** 将连续的 tool 消息合并，并将 [assistant(前言), tool+, assistant(回复)?] 合并成同一轮次气泡 */
+/**
+ * 将同一 agent 轮次（两条 user 消息之间）的所有工具调用合并为单一气泡。
+ *
+ * 根因：多轮工具调用时，每轮 LLM 迭代都会在 store 里插入一条新的空 assistant
+ * 占位消息，把连续 tool 消息链打断，简单的"连续合并"无法覆盖此场景。
+ * 正确做法：以 user 消息为分割点划分 agent turn，将 turn 内全部 toolCalls
+ * 收集到一条 assistant 消息里，取最后一条 assistant 的 content/streaming 作为回复。
+ */
 function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
-  // Step 1: 合并连续的 tool 消息
-  const step1: ChatMsg[] = []
-  for (const msg of msgs) {
-    if (msg.role === 'tool') {
-      const last = step1[step1.length - 1]
-      if (last?.role === 'tool') {
-        step1[step1.length - 1] = {
-          ...last,
-          toolCalls: [...(last.toolCalls ?? []), ...(msg.toolCalls ?? [])],
-        }
-        continue
-      }
-    }
-    step1.push(msg)
-  }
-
-  // Step 2: 将 [assistant(前言), tool, assistant(回复)?] 合并为一个混合轮次
   const result: ChatMsg[] = []
   let i = 0
-  while (i < step1.length) {
-    const msg = step1[i]
-    const nextMsg = step1[i + 1]
-    // 当前是 assistant（无工具），且下一个是 tool：开始合并
-    if (msg.role === 'assistant' && !msg.toolCalls?.length && nextMsg?.role === 'tool') {
-      const followup = step1[i + 2]?.role === 'assistant' ? step1[i + 2] : null
-      const merged: ChatMsg = {
-        id: msg.id,
-        role: 'assistant',
-        preamble: msg.content || undefined,
-        toolCalls: nextMsg.toolCalls,
-        content: followup?.content ?? '',
-        streaming: followup?.streaming,
-      }
-      result.push(merged)
-      i += followup ? 3 : 2
+
+  while (i < msgs.length) {
+    const msg = msgs[i]
+
+    if (msg.role === 'user') {
+      result.push(msg)
+      i++
       continue
     }
-    result.push(msg)
-    i++
+
+    // 收集从 i 开始直到下一条 user 消息（不含）的整个 agent turn
+    const turnStart = i
+    while (i < msgs.length && msgs[i].role !== 'user') {
+      i++
+    }
+    const turnMsgs = msgs.slice(turnStart, i)
+
+    // 汇总该 turn 内所有 toolCalls
+    const allToolCalls: ToolCall[] = []
+    for (const m of turnMsgs) {
+      if (m.role === 'tool') allToolCalls.push(...(m.toolCalls ?? []))
+    }
+
+    if (allToolCalls.length === 0) {
+      // 无工具调用：逐条推入，ChatMessage 内部会过滤空消息
+      result.push(...turnMsgs)
+      continue
+    }
+
+    // 取最后一条 assistant 消息作为最终回复
+    let finalContent = ''
+    let isStreaming: boolean | undefined
+    for (let k = turnMsgs.length - 1; k >= 0; k--) {
+      if (turnMsgs[k].role === 'assistant') {
+        finalContent = turnMsgs[k].content
+        isStreaming = turnMsgs[k].streaming
+        break
+      }
+    }
+
+    result.push({
+      id: turnMsgs[0].id,
+      role: 'assistant',
+      toolCalls: allToolCalls,
+      content: finalContent,
+      streaming: isStreaming,
+    })
   }
+
   return result
 }
 
