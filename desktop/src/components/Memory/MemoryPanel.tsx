@@ -4,6 +4,7 @@ import { useToast } from '../../hooks/useToast'
 import { useAppStore } from '../../store/app'
 import Toast from '../Toast/Toast'
 
+
 interface MemoryFile {
   name: string
   modifiedAt: number
@@ -25,6 +26,10 @@ export default function MemoryPanel() {
   const [loading, setLoading] = useState(false)
   const [dbMemories, setDbMemories] = useState<DbMemory[]>([])
   const [selectedDbMemory, setSelectedDbMemory] = useState<DbMemory | null>(null)
+  const [localSessions, setLocalSessions] = useState<LocalDBSession[]>([])
+  const [selectedLocalSession, setSelectedLocalSession] = useState<LocalDBSession | null>(null)
+  const [localSessionMsgs, setLocalSessionMsgs] = useState<LocalDBMessage[]>([])
+  const [syncingSessionId, setSyncingSessionId] = useState<string | null>(null)
   const { toast, showToast, dismissToast } = useToast()
   const { token, serverUrl, serverConnected } = useAppStore()
 
@@ -73,6 +78,76 @@ export default function MemoryPanel() {
     if (serverConnected && token) loadDbMemories()
     else setDbMemories([])
   }, [loadDbMemories, serverConnected, token])
+
+  // ── Load local SQLite sessions ────────────────────────────────────────
+  const loadLocalSessions = useCallback(async () => {
+    const db = window.nekoBridge?.db
+    if (!db) return
+    const result = await db.getSessions()
+    setLocalSessions(result.sessions ?? [])
+  }, [])
+
+  useEffect(() => { loadLocalSessions() }, [loadLocalSessions])
+
+  // ── Select local session → load messages ─────────────────────────────
+  const selectLocalSession = useCallback(async (session: LocalDBSession) => {
+    setSelectedLocalSession(session)
+    setSelectedFile(null)
+    setSelectedDbMemory(null)
+    setEditing(false)
+    const db = window.nekoBridge?.db
+    if (!db) return
+    const msgs = await db.getMessages(session.id)
+    setLocalSessionMsgs(msgs)
+  }, [])
+
+  // ── Sync local session to server ──────────────────────────────────────
+  const syncSessionToServer = useCallback(async (session: LocalDBSession) => {
+    if (!token || !serverUrl) { showToast('请先连接服务器'); return }
+    setSyncingSessionId(session.id)
+    try {
+      const db = window.nekoBridge?.db
+      if (!db) throw new Error('DB不可用')
+
+      const localMsgs = await db.getMessages(session.id)
+      const msgs = localMsgs.filter(m => m.role === 'user' || m.role === 'assistant')
+
+      const createRes = await fetch(`${serverUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: session.title || '新对话' }),
+      })
+      if (!createRes.ok) throw new Error(`创建会话失败 ${createRes.status}`)
+      const serverSession: { id: string; title: string; skill_id?: string | null } = await createRes.json()
+
+      if (msgs.length > 0) {
+        const batchRes = await fetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(msgs.map(m => ({ role: m.role, content: m.content }))),
+        })
+        if (!batchRes.ok) throw new Error(`上传消息失败 ${batchRes.status}`)
+      }
+
+      const store = useAppStore.getState()
+      const cachedMsgs = store.messagesBySession[session.id] ?? []
+      store.setMessages(serverSession.id, cachedMsgs)
+      store.replaceSession(session.id, { id: serverSession.id, title: serverSession.title, skillId: serverSession.skill_id ?? undefined })
+
+      await db.deleteSession(session.id)
+
+      setLocalSessions(prev => prev.filter(s => s.id !== session.id))
+      if (selectedLocalSession?.id === session.id) {
+        setSelectedLocalSession(null)
+        setLocalSessionMsgs([])
+      }
+      showToast(`「${session.title || '对话'}」已同步到服务器`)
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : '同步失败')
+    } finally {
+      setSyncingSessionId(null)
+    }
+  }, [token, serverUrl, selectedLocalSession, showToast])
 
   // ── Read file content ─────────────────────────────────────────────────
   const readFile = useCallback(async (name: string) => {
@@ -355,6 +430,39 @@ export default function MemoryPanel() {
               ))}
             </ul>
           )}
+          {/* 本地 SQLite 会话 */}
+          {localSessions.length > 0 && (
+            <>
+              <div className={styles.dbSectionLabel}>💬 本地会话</div>
+              <ul className={styles.list}>
+                {localSessions.map(s => (
+                  <li
+                    key={s.id}
+                    className={`${styles.fileItem} ${selectedLocalSession?.id === s.id ? styles.fileItemActive : ''}`}
+                    onClick={() => selectLocalSession(s)}
+                  >
+                    <div className={styles.fileItemRow}>
+                      <div className={styles.fileName}>{s.title || '(无标题)'}</div>
+                      {serverConnected && token && (
+                        <button
+                          className={styles.sessionSyncBtn}
+                          onClick={(e) => { e.stopPropagation(); void syncSessionToServer(s) }}
+                          disabled={syncingSessionId === s.id}
+                          title="同步到服务器"
+                        >
+                          {syncingSessionId === s.id ? '…' : '↑'}
+                        </button>
+                      )}
+                    </div>
+                    <div className={styles.fileMeta}>
+                      {new Date(s.createdAt).toLocaleDateString('zh-CN')}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
           {/* 服务端 DB 记忆条目 */}
           {serverConnected && token && dbMemories.length > 0 && (
             <>
@@ -386,8 +494,38 @@ export default function MemoryPanel() {
 
         {/* ── Right: Content view / editor ───────────────────────────── */}
         <div className={styles.contentArea}>
-          {!selectedFile && !selectedDbMemory ? (
+          {!selectedFile && !selectedDbMemory && !selectedLocalSession ? (
             <div className={styles.placeholder}>← 选择一个文件查看</div>
+          ) : selectedLocalSession ? (
+            <>
+              <div className={styles.editorToolbar}>
+                <span className={styles.editorLabel}>💬 {selectedLocalSession.title || '本地对话'}</span>
+                {serverConnected && token && (
+                  <button
+                    className={styles.btnPrimary}
+                    onClick={() => void syncSessionToServer(selectedLocalSession)}
+                    disabled={syncingSessionId === selectedLocalSession.id}
+                  >
+                    {syncingSessionId === selectedLocalSession.id ? '同步中…' : '↑ 同步到服务器'}
+                  </button>
+                )}
+              </div>
+              <div className={styles.sessionMsgs}>
+                {localSessionMsgs.length === 0 ? (
+                  <div className={styles.placeholder}>暂无消息</div>
+                ) : (
+                  localSessionMsgs.map(m => (
+                    <div
+                      key={m.id}
+                      className={`${styles.sessionMsg} ${m.role === 'user' ? styles.sessionMsgUser : styles.sessionMsgAssistant}`}
+                    >
+                      <span className={styles.sessionMsgRole}>{m.role === 'user' ? '你' : '猫咪'}</span>
+                      <pre className={styles.sessionMsgContent}>{m.content}</pre>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
           ) : selectedDbMemory ? (
             <>
               <div className={styles.editorToolbar}>

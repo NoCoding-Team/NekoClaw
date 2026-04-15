@@ -101,6 +101,69 @@
 .fileItem:hover .fileDeleteBtn { opacity: 1; }
 .fileDeleteBtn:hover { background: rgba(220, 60, 60, 0.15); color: #e05555; }
 
+.sessionSyncBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--accent, #7c6af4);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  padding: 0;
+  line-height: 1;
+}
+.fileItem:hover .sessionSyncBtn { opacity: 1; }
+.sessionSyncBtn:hover { background: rgba(124, 106, 244, 0.15); }
+.sessionSyncBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Session messages (right panel) ──────────────────────────────────── */
+.sessionMsgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sessionMsg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sessionMsgRole {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.sessionMsgUser .sessionMsgRole { color: var(--accent, #7c6af4); }
+
+.sessionMsgContent {
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.sessionMsgUser .sessionMsgContent {
+  background: rgba(124, 106, 244, 0.10);
+}
+
 .dbSectionLabel {
   font-size: 11px;
   font-weight: 600;
