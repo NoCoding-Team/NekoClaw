@@ -1,259 +1,109 @@
 ## Context
 
-NekoClaw 当前架构：Electron + React 前端（`desktop/`）+ FastAPI 后端（`backend/`）。消息历史全量存于服务端 PostgreSQL，前端内存状态不持久化。记忆库（`Memory` 表）已有 CRUD 和注入逻辑，但本地记忆（`neko_local_memories.json`）从未接入 LLM pipeline，是死功能。
+NekoClaw 当前记忆系统基于 PostgreSQL/SQLite `memories` 表存储原子化条目，通过 `save_memory`/`update_memory` server tool 写入，每次对话前 SELECT 最近 50 条注入 system prompt。这套设计在 Mode A（服务端托管）下基本可用，但在 Mode B（用户自定义 API Key、PC 端直连 LLM）下完全失效——`useLocalLLM` 的流式解析不支持 tool calls，LLM 返回的工具调用被静默丢弃。
 
-本设计覆盖：本地优先消息存储、LLM 主动记忆工具、memory refresh 机制、以及 WebSocket 协议的最小化扩展。
+OpenClaw 采用 Markdown 文件存储记忆（`MEMORY.md` + 每日笔记），用户可直接阅读和编辑，且天然适合本地优先场景。本次变更将记忆载体从数据库迁移到 Markdown 文件，同时为 Mode B 补齐 tool call 支持。
 
----
+**约束**：
+- Electron 主进程负责文件 I/O，渲染进程通过 IPC 访问
+- 不迁移已有 `memories` 表数据，新旧并存
+- 用户在模型中心已配置 embedding model（`AuxModelConfig`），可用于语义搜索
 
 ## Goals / Non-Goals
 
 **Goals:**
-- 确定本地存储方案（SQLite vs. JSONL vs. localStorage）
-- 确定消息本地/服务端的同步策略和 source of truth
-- 确定 LLM 主动记忆工具的接口设计和安全边界
-- 确定 memory refresh 的触发时机和执行方式
-- 确定 WS 协议扩展的最小化方案
+- Mode B 下 LLM 可在对话流中通过 tool call 读写 Markdown 记忆文件
+- 记忆文件本地优先存储，用户可手动同步到云端
+- MemoryPanel 作为文件浏览器和编辑器，用户可直接查看和修改记忆
+- 每次对话自动注入 `MEMORY.md` + 近两天每日笔记到 system prompt
 
 **Non-Goals:**
-- 语义记忆搜索 / embedding（后续，需要向量数据库）
-- Dreaming sweep（OpenClaw 实验性功能，优先级低）
-- 多设备记忆冲突合并（当前只考虑单设备）
-- 离线 LLM 推理（不在本项目范围）
-
----
+- 自动云端同步（仅手动上传/拉取）
+- 迁移已有 `memories` 表数据
+- Dreaming sweep（后台记忆提炼）
+- 多设备冲突解决
+- 完整的向量数据库——使用轻量 embedding + SQLite 存储
 
 ## Decisions
 
-### D1：本地存储选型 — better-sqlite3
-
-**选择**：`better-sqlite3`，存储于 `{userData}/neko.db`
-
-**理由**：
-- 同步 API，在 Electron 主进程中使用更简洁（无需 async/await 污染主进程代码）
-- 单文件可移动、可备份，用户理解成本低
-- 未来可存 embedding blob，支持本地语义搜索
-- 对比 JSONL：可查询、可索引、不怕并发写；对比 localStorage：容量无上限，适合大量消息
-
-**Schema（本地端）**：
-
-```sql
-CREATE TABLE local_sessions (
-  id TEXT PRIMARY KEY,       -- 与服务端 session id 相同（有同步时）或 "local-{uuid}"
-  title TEXT NOT NULL,
-  created_at INTEGER NOT NULL,  -- Unix timestamp ms
-  synced INTEGER DEFAULT 0      -- 0=未同步, 1=已同步
-);
-
-CREATE TABLE local_messages (
-  id TEXT PRIMARY KEY,          -- UUID
-  session_id TEXT NOT NULL REFERENCES local_sessions(id),
-  role TEXT NOT NULL,           -- user | assistant | tool
-  content TEXT,
-  tool_calls TEXT,              -- JSON string
-  token_count INTEGER DEFAULT 0,
-  created_at INTEGER NOT NULL,
-  synced INTEGER DEFAULT 0
-);
-```
-
----
-
-### D2：消息 Source of Truth 与同步策略
-
-**选择**：本地为主，服务端为可选副本
+### D1: 记忆文件结构
 
 ```
-自动同步关闭（默认）：
-  用户发消息
-    → Electron 主进程写 local_messages（同步写，不会丢）
-    → WS 发送时携带 local_history（近 N 条）作为上下文
-    → 服务端 pipeline 使用 local_history，不写 DB messages 表
-    → 服务端只写 Memory 表（记忆条目）
-
-自动同步开启：
-  用户发消息
-    → Electron 写本地 SQLite（先写）
-    → WS 发送同时，异步 POST /api/sessions/{id}/messages 批量同步
-    → 服务端 pipeline 照常从 DB 读历史（已同步）
-    → 失败时本地标记 synced=0，下次重试
+{userData}/memory/
+├── MEMORY.md              # 长期记忆（用户画像、偏好、事实）
+└── memory/
+    ├── 2026-04-14.md      # 每日笔记
+    ├── 2026-04-15.md
+    └── ...
 ```
 
-**service end 的 pipeline 变化**（最小化）：
+**选择**：平铺 Markdown 文件 + 日期分文件。
+**替代方案**：SQLite FTS5 全文索引 → 对用户不透明，不可编辑；JSON 文件 → 不如 Markdown 人类友好。
+**理由**：Markdown 可读、可编辑、可版本控制，与 OpenClaw 模型一致。
 
-```python
-# 现有代码：
-history = await db.execute(select(Message).where(...))
+### D2: Mode B 流式 tool call 解析 + Agentic Loop
 
-# 新增：如果服务端没有该 session 的消息，使用客户端传来的 local_history
-if not history and ws_payload.get("local_history"):
-    history = [LocalMessage(**m) for m in ws_payload["local_history"]]
-```
+**选择**：修改 `streamOpenAI` / `streamAnthropic` 返回结构化 `StreamResult`（content + toolCalls + finishReason），`sendMessage` 包裹为 `while` 循环（agentic loop），每轮执行工具后将结果追加到 messages 再次调用 LLM。
 
-**关键决策**：服务端 `messages` 表不废弃，同步开启时仍然写入，保持向后兼容。
-
----
-
-### D3：WS 协议最小化扩展
-
-**扩展 `message` 事件 payload**：
-
-```ts
-// 现有
-{ event: "message", content: string, skill_id: string|null, allowed_tools: string[]|null }
-
-// 新增字段（可选）
-{ 
-  event: "message", 
-  content: string, 
-  skill_id: string|null,
-  allowed_tools: string[]|null,
-  local_history?: Array<{         // 仅在 sync_disabled 时携带
-    role: string,                 // user | assistant | tool
-    content: string | null,
-    tool_calls: any[] | null,
-    created_at: string,           // ISO string
-  }>
+```typescript
+interface StreamResult {
+  content: string
+  toolCalls: { id: string; name: string; arguments: string }[] | null
+  finishReason: string
 }
 ```
 
-`local_history` 只传最近的消息窗口（前端限制：`context_limit * 0.6 / avg_tokens_per_msg`，约 100 条上限），防止 payload 过大。
+**替代方案**：
+- 对话后单独提取记忆（`extractMemoriesAsync`）→ 已实现但不支持 memory_read/search，且用户无感知。
+- 非流式 agentic loop → 延迟过高，用户看不到打字效果。
 
----
+**理由**：流式 + agentic loop 提供最完整的工具支持和最好的用户体验，且后端 `run_llm_pipeline` 已有此模式可参考。
 
-### D4：LLM 主动记忆工具接口
+### D3: 工具定义位于前端
 
-**两个新 server tools**：
+**选择**：新建 `desktop/src/hooks/toolDefinitions.ts`，导出 `getLocalToolDefinitions(enabledSkills)` 返回 OpenAI function calling schema 数组。`memory_write`/`memory_read`/`memory_search` 始终包含，其余工具按启用状态过滤后一并传入 LLM API 的 `tools` 参数。
 
-```python
-# save_memory
-{
-  "name": "save_memory",
-  "executor": "server",
-  "description": "保存需要跨对话记住的信息到记忆库。仅在对话中出现值得长期记住的事实、偏好或决策时调用。不要将临时性内容或当前任务细节存入记忆。",
-  "parameters": {
-    "category": "preference | fact | instruction | history | other",
-    "content": "string (max 1000 chars)"
-  }
-}
+**理由**：Mode B 不经过后端，工具定义必须在前端维护。
 
-# update_memory  
-{
-  "name": "update_memory",
-  "executor": "server",
-  "description": "更新或修正记忆库中已有的记忆条目。当用户纠正之前存入的信息时调用。",
-  "parameters": {
-    "memory_id": "string",
-    "content": "string (max 1000 chars)",
-    "category": "string (optional)"
-  }
-}
-```
+### D4: Electron MemoryService 架构
 
-**安全边界**：
-- content 长度限制 1000 字符（防止过长内容污染 system prompt）
-- category 白名单：`["preference", "fact", "instruction", "history", "other"]`
-- 写入前做基础 sanitization（去除控制字符）
-- `update_memory` 必须校验 `memory_id` 属于当前 `user_id`
+**选择**：在 `electron/main.ts` 中注册 MemoryService，提供 IPC handler：
+- `memory:read(path)` → `fs.readFile({userData}/memory/{path})`
+- `memory:write(path, content)` → `fs.writeFile(...)` + 更新 embedding 索引
+- `memory:list()` → 列目录
+- `memory:search(query)` → 调用 embedding model API 获取 query vector → SQLite 余弦相似度检索
 
-**system prompt 中的记忆使用引导**：
+**preload.ts** 暴露 `nekoBridge.memory.*`，**localTools.ts** 新增 `memory_write`/`memory_read`/`memory_search` case 调用对应 IPC。
 
-在 `_build_system_prompt` 的默认提示词中增加一段说明：
-```
-## 记忆使用规则
-当对话中出现以下情况时，主动调用 save_memory 工具：
-- 用户明确说"记住..."、"下次..."
-- 用户透露持久性偏好（语言、格式、工具选择等）
-- 用户提到关于自己的重要事实（职业、项目、习惯等）
-不要将临时任务细节或本次对话专属内容存入记忆。
-```
+### D5: 记忆注入策略
 
-**Memory 表新增字段**：
+**选择**：`sendMessage` 构建 system prompt 时：
+1. 读取 `MEMORY.md` 全文
+2. 读取今天 + 昨天的 `memory/YYYY-MM-DD.md`
+3. 拼接为 `## 长期记忆\n{MEMORY.md}\n## 近期笔记\n{daily notes}` 注入 system prompt
 
-```sql
-ALTER TABLE memories ADD COLUMN last_used_at TIMESTAMP;
-```
+**Mode A 路径**：后端 `_build_system_prompt` 同理改为读文件，文件存储在服务端用户目录。
 
-`_load_memory` 查询改为：
-```python
-ORDER BY COALESCE(last_used_at, created_at) DESC LIMIT 50
-```
-使最近被 LLM 读取/写入的记忆优先注入。
+### D6: MemoryPanel 设计
 
----
+**选择**：左侧文件列表（MEMORY.md + daily notes 按日期倒序）+ 右侧 Markdown 渲染/编辑切换。底部操作栏：新建每日笔记、上传到云端、从云端拉取。
 
-### D5：Memory Refresh（compaction 前）
+**替代方案**：保持原有 DB 条目列表 → 与新的 Markdown 文件体系不匹配。
 
-**触发条件**：`total_tokens > context_limit * COMPRESS_RATIO`（即 compaction 即将触发前）
+### D7: Tool call 安全防护
 
-**执行方式**：在 `_compress_history()` 调用前插入一个静默轮次：
+复用 `useWebSocket.ts` 中已有的安全机制：
+- 循环守卫（`detectLoop`）：检测重复调用
+- 调用上限（`maxToolCallsPerRound`）：默认 20 次/轮
+- 沙盒阈值 + 用户确认弹窗
+- Tool whitelist
 
-```python
-# 压缩前 memory refresh
-if needs_compression:
-    await _memory_refresh(session_id, user_id, messages, llm_config, ws)
-    # refresh 完成后再执行 compaction
-    history = await _compress_history(...)
-```
+在 agentic loop 中集成相同逻辑，确保 Mode B 与 Mode A 安全一致。
 
-`_memory_refresh` 的实现：发送一条临时的 system 消息给 LLM：
-```
-"在我们总结对话前，请检查本次对话是否有值得长期记住的信息。如果有，请现在调用 save_memory 工具保存它们。如果没有，请回复'无需保存'。"
-```
-只处理 tool calls，忽略文字回复，执行完立即返回，不计入对话历史。
+## Risks / Trade-offs
 
----
-
-### D6：死代码清理策略
-
-**删除范围**：
-- `MemoryPanel.tsx`：删除 `LocalMemory` interface、`localMemories` state、`loadLocalMemories`、`saveLocalMemories`、`handleDeleteLocal`、`handleAddLocal`、`showAddLocal`、`source` tab 中的`local` 选项、列表中的 local 条目渲染
-- `MemoryPanel.tsx`：保留服务端记忆的增删改查、导出/导入
-- `preload.ts`：`nekoBridge.file.read/write` 保留（本地历史还需要用），但不再用于记忆存储
-- 首次启动：检测 `neko_local_memories.json` 是否存在，如存在提示用户是否导入到服务端记忆库（一次性迁移）
-
----
-
-## Architecture Overview
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                         NekoClaw (新架构)                               │
-│                                                                        │
-│  ┌─────────────── Electron ───────────────┐                           │
-│  │                                        │                           │
-│  │  React UI                              │                           │
-│  │    MemoryPanel (仅服务端记忆)           │                           │
-│  │    ChatArea (读本地 SQLite 显示历史)    │                           │
-│  │                                        │                           │
-│  │  preload nekoBridge                    │                           │
-│  │    .db.getMessages(sessionId)          │                           │
-│  │    .db.saveMessage(msg)                │                           │
-│  │    .db.syncStatus()                    │                           │
-│  │                                        │                           │
-│  │  Main Process                          │                           │
-│  │    better-sqlite3 → neko.db            │                           │
-│  │      local_sessions                    │                           │
-│  │      local_messages                    │                           │
-│  └───────────────────────────────────────-┘                           │
-│              │ WS + local_history (when sync off)                      │
-│              ▼                                                         │
-│  ┌─────────────── FastAPI Backend ────────┐                           │
-│  │                                        │                           │
-│  │  run_llm_pipeline                      │                           │
-│  │    ├── 读 messages from DB (sync on)    │                           │
-│  │    │   OR local_history from WS payload │                           │
-│  │    ├── _build_system_prompt             │                           │
-│  │    │     _load_memory (Memory 表)       │                           │
-│  │    ├── compaction 前 memory refresh     │                           │
-│  │    └── tool 执行                        │                           │
-│  │         ├── save_memory  ──────────────┼──→ Memory 表              │
-│  │         └── update_memory ─────────────┼──→ Memory 表              │
-│  │                                        │                           │
-│  └────────────────────────────────────────┘                           │
-│                         │                                              │
-│                PostgreSQL                                              │
-│                  memories (long-term)                                  │
-│                  sessions / messages (当 sync on)                      │
-└────────────────────────────────────────────────────────────────────────┘
-```
+- **[Embedding 模型依赖]** → `memory_search` 需要用户配置 embedding model；未配置时 fallback 到关键词搜索（文件内容 `includes` 匹配）。
+- **[大文件性能]** → MEMORY.md 过大时注入 system prompt 占用大量 token → 限制注入长度（如前 4000 token），超出部分依赖 search 工具按需检索。
+- **[Anthropic tool_use 格式差异]** → Anthropic SSE 的 tool_use 格式与 OpenAI 不同（content_block_start + input_json_delta），需要两套解析逻辑 → 已在 D2 中规划。
+- **[Agentic loop 无限循环]** → LLM 反复调用工具不停止 → 通过 `MAX_TOOL_ROUNDS`（默认 10）和循环守卫兜底。
+- **[文件并发写入]** → 多个 tool call 同时写同一文件 → 串行执行同一轮 tool calls，不并行。

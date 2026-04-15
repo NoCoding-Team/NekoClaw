@@ -1,66 +1,52 @@
-## 1. 死代码清理
+## 1. Electron MemoryService 基础设施
 
-- [x] 1.1 删除 `MemoryPanel.tsx` 中所有 `LocalMemory` / `localMemories` 相关代码（interface、state、读写逻辑、UI 渲染）
-- [x] 1.2 删除 `MemoryPanel.tsx` 中 `source` state 及"仅本机"source tab UI，简化为仅保留 category 过滤
-- [x] 1.3 删除 `MemoryPanel.tsx` 中 `dataPath` / `localMemPath` 相关逻辑（nekoBridge.app.getDataPath 调用）
+- [x] 1.1 在 `electron/main.ts` 实现 MemoryService：`read(path)`、`write(path, content)`、`list()` 三个方法，操作 `{userData}/memory/` 目录，包含路径遍历防护（拒绝 `..` 和绝对路径）和扩展名校验（仅 `.md`）
+- [x] 1.2 注册 IPC handler：`memory:read`、`memory:write`、`memory:list`、`memory:search`，将请求委托给 MemoryService
+- [x] 1.3 在 `electron/preload.ts` 通过 `contextBridge.exposeInMainWorld` 暴露 `nekoBridge.memory` 对象（read / write / list / search 方法）
+- [x] 1.4 更新 `desktop/src/electron.d.ts` 添加 `nekoBridge.memory` 类型声明
 
-## 2. Electron SQLite 基础设施
+## 2. 流式 Tool Call 解析
 
-- [x] 2.1 安装 `better-sqlite3` 及其 TypeScript 类型定义（`@types/better-sqlite3`）；配置 `electron-rebuild` 确保 native module 与 Electron 版本匹配
-- [x] 2.2 在 Electron 主进程（`electron/main.ts`）中初始化 `neko.db`，创建 `local_sessions` 和 `local_messages` 表（`IF NOT EXISTS`）
-- [x] 2.3 封装 `DbService`（主进程）：`saveSession`、`saveMessage`、`getMessages`、`getSessions`、`getUnsyncedMessages`、`markSynced`
-- [x] 2.4 在 `preload.ts` 中通过 IPC 暴露 `window.nekoBridge.db.*` 接口，对应主进程 `DbService` 的各方法
-- [x] 2.5 在 `electron.d.ts` 中补充 `nekoBridge.db` 的 TypeScript 类型声明
+- [x] 2.1 修改 `streamOpenAI` 返回 `StreamResult`（content + toolCalls + finishReason），解析 `delta.tool_calls` 数组，按 index 累积拼接 id/name/arguments 片段
+- [x] 2.2 修改 `streamAnthropic` 返回 `StreamResult`，解析 `content_block_start`（type=tool_use）+ `input_json_delta` 事件，累积拼接工具调用参数
+- [x] 2.3 定义 `StreamResult` / `ToolCallDelta` TypeScript 接口
 
-## 3. 本地优先消息流
+## 3. 前端工具定义
 
-- [x] 3.1 修改 `useWebSocket.ts`：发消息前先调用 `nekoBridge.db.saveMessage` 将 user 消息写入本地 SQLite
-- [x] 3.2 修改 `useWebSocket.ts`：收到 `llm_done` 事件后，将完整的 assistant 消息写入本地 SQLite
-- [x] 3.3 修改 `useWebSocket.ts`：根据 `neko_sync_enabled` 设置决定是否在 WS payload 中携带 `local_history`；`local_history` 取最近 100 条（超出截断最旧的）
-- [x] 3.4 修改 `ChatArea.tsx` 或会话加载逻辑：打开会话时从本地 SQLite 加载历史消息（优先本地，服务端作为 fallback）
+- [x] 3.1 新建 `desktop/src/hooks/toolDefinitions.ts`，导出 `getLocalToolDefinitions()` 函数，返回 OpenAI function calling schema 数组，包含 `memory_write`、`memory_read`、`memory_search` 及已有客户端工具
+- [x] 3.2 在 `localTools.ts` 的 `executeLocalTool` 中新增 `memory_write`、`memory_read`、`memory_search` case，调用 `nekoBridge.memory.*`
 
-## 4. 设置：同步开关
+## 4. Agentic Loop
 
-- [x] 4.1 在 `store/app.ts` 中新增 `syncEnabled: boolean`（持久化到 `localStorage` key `neko_sync_enabled`，默认 `false`）
-- [x] 4.2 在设置页面（`PersonalizationPanel.tsx` 或独立设置组件）新增"聊天记录同步到服务端"开关 UI
-- [x] 4.3 同步开启时，`useWebSocket.ts` 中消息发送后异步触发批量同步（调用 `POST /api/sessions/{id}/messages/batch`，失败时静默保留 `synced=0`）
+- [x] 4.1 重构 `useLocalLLM.sendMessage`：将单次 stream 调用改为 `while` 循环（agentic loop），支持 LLM → tool_calls → 执行 → 追回消息 → 再次调用 LLM 的多轮流程
+- [x] 4.2 集成安全防护：MAX_TOOL_ROUNDS 轮次上限（默认 10）、循环守卫（detectLoop）、调用上限（maxToolCallsPerRound）
+- [x] 4.3 Agentic loop 中将 tool call 信息渲染为 UI 卡片（复用 useWebSocket 中 ToolCall 类型和 appendMessage 逻辑）
 
-## 5. 服务端：本地历史 Fallback
+## 5. 记忆注入
 
-- [x] 5.1 修改 `backend/app/api/ws.py` 中的消息接收逻辑，从 WS payload 中解析 `local_history` 字段并传入 pipeline
-- [x] 5.2 修改 `run_llm_pipeline` 函数签名，新增 `local_history` 参数（`list[dict] | None`）
-- [x] 5.3 在 `run_llm_pipeline` 中，当数据库查询结果为空且 `local_history` 不为 None 时，使用 `local_history` 构建消息上下文
-- [x] 5.4 新增 `POST /api/sessions/{session_id}/messages/batch` 接口，支持客户端批量上传消息（幂等，重复 message_id 忽略）
+- [x] 5.1 在 `sendMessage` 构建 system prompt 前，通过 `nekoBridge.memory.read` 读取 `MEMORY.md` + 今天/昨天的 `memory/YYYY-MM-DD.md`，拼接为 `## 长期记忆` + `## 近期笔记` 注入 system prompt
+- [x] 5.2 添加注入长度限制：MEMORY.md 内容截断至约 4000 token（按字符估算），超出部分不注入
+- [x] 5.3 移除 `extractMemoriesAsync` 函数及其在 `sendMessage` 末尾的调用
 
-## 6. 迁移：旧本地记忆
+## 6. MemoryPanel UI 重写
 
-- [x] 6.1 在 Electron 主进程启动时检测 `{userData}/neko_local_memories.json` 是否存在
-- [x] 6.2 若存在且 token 有效（已登录），向渲染进程发送 `migrate-local-memories` 事件，前端展示一次性迁移提示弹窗
-- [x] 6.3 用户确认导入时，将旧本地记忆调用 `POST /api/memory` 批量写入服务端；用户拒绝时直接跳过
-- [x] 6.4 提示处理完成后删除 `neko_local_memories.json`（无论用户选择导入还是拒绝）
+- [x] 6.1 重写 `MemoryPanel.tsx` 左侧为文件列表视图：MEMORY.md 置顶，每日笔记按日期倒序，显示文件名和修改时间
+- [x] 6.2 实现右侧 Markdown 渲染模式：选中文件后渲染 Markdown 内容
+- [x] 6.3 实现编辑模式切换：编辑按钮 → 纯文本编辑器 → 保存/取消按钮
+- [x] 6.4 实现"新建今日笔记"快捷按钮：创建 `memory/{today}.md` 或打开已有文件
+- [x] 6.5 更新 `MemoryPanel.module.css` 适配新的文件浏览器 + 编辑器布局
 
-## 7. LLM 主动记忆工具
+## 7. 记忆语义搜索
 
-- [x] 7.1 在 `backend/app/services/tools/definitions.py` 中注册 `save_memory` 工具定义（executor: server）
-- [x] 7.2 在 `backend/app/services/tools/definitions.py` 中注册 `update_memory` 工具定义（executor: server）
-- [x] 7.3 在 `backend/app/services/tools/server_tools.py` 中实现 `execute_save_memory(args, user_id)`：category 白名单校验 + content sanitization + 写入 Memory 表 + 更新 `last_used_at`
-- [x] 7.4 在 `backend/app/services/tools/server_tools.py` 中实现 `execute_update_memory(args, user_id)`：校验 memory_id 归属 + content sanitization + 更新 Memory 表
-- [x] 7.5 修改 `execute_server_tool` 入口，将 `user_id` 传入（当前工具执行不携带 user_id，需要扩展）
-- [x] 7.6 在 `_build_system_prompt` 的默认提示词中新增记忆使用规则段落（见 active-memory spec R3.1）
+- [x] 7.1 在 MemoryService 中实现 `search(query)` 方法：有 embedding model 配置时，调用 embedding API 将 query 向量化 + SQLite 余弦相似度检索；无配置时 fallback 到关键词匹配
+- [x] 7.2 实现 embedding 索引管理：`memory:write` 成功后异步更新该文件的 embedding 向量（按段落/chunk 切分存入 SQLite）
+- [x] 7.3 在 `electron/main.ts` 初始化时检查是否有 embedding model 配置，存在则预建索引
 
-## 8. Memory 表扩展
+## 8. 云端同步与后端适配
 
-- [x] 8.1 在 `backend/app/models/memory.py` 中新增 `last_used_at: Mapped[datetime | None]` 字段
-- [x] 8.2 创建对应 Alembic migration（或在 `startup.py` 中使用 `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE` 兼容方式）
-- [x] 8.3 修改 `backend/app/services/llm.py` 中 `_load_memory` 的排序逻辑：`ORDER BY COALESCE(last_used_at, created_at) DESC`
-
-## 9. Memory Refresh（compaction 前）
-
-- [x] 9.1 在 `backend/app/services/llm.py` 中实现 `_memory_refresh(session_id, user_id, messages, llm_config, ws)` 函数
-- [x] 9.2 `_memory_refresh` 向 LLM 发送静默 system 消息（不写入 DB，不推送 token 到前端），处理 tool calls 后返回
-- [x] 9.3 在 `run_llm_pipeline` 中，compaction 判断条件满足时，先调用 `_memory_refresh` 再调用 `_compress_history`；使用布尔标志防止同一对话重复触发
-
-## 10. MemoryPanel UI 更新
-
-- [x] 10.1 完成死代码清理（依赖任务 1.x）后，重新审视 MemoryPanel 结构，确认 source tab 已正确简化
-- [x] 10.2 若 `syncEnabled=false`，在 MemoryPanel 顶部显示提示条："聊天记录存储于本机，未开启同步"，附"前往设置"链接
+- [x] 8.1 MemoryPanel 添加"上传到云端"按钮：选中文件 → POST 文件内容到后端 memory files API
+- [x] 8.2 MemoryPanel 添加"从云端拉取"按钮：GET 云端文件列表 → 选择下载 → 覆盖本地
+- [x] 8.3 后端新增 `/api/memory/files` REST API（GET 列表 / GET 内容 / PUT 写入），服务端存储用户记忆文件
+- [x] 8.4 后端 `_build_system_prompt` 改为从 Markdown 文件读取记忆内容（Mode A 路径），替代 DB SELECT
+- [x] 8.5 后端 `server_tools.py` 中 `save_memory` / `update_memory` 替换为 `memory_write` / `memory_read` / `memory_search`（操作服务端文件）
+- [x] 8.6 后端 `_memory_refresh` 更新静默消息，引导 LLM 使用 `memory_write` 工具
