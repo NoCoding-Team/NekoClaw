@@ -24,9 +24,9 @@
 
 ## 5. 记忆注入
 
-- [ ] 5.1 在 `sendMessage` 构建 system prompt 前，通过 `nekoBridge.memory.read` 读取 `MEMORY.md` + 今天/昨天的 `memory/YYYY-MM-DD.md`，拼接为 `## 长期记忆` + `## 近期笔记` 注入 system prompt
-- [ ] 5.2 添加注入长度限制：MEMORY.md 内容截断至约 4000 token（按字符估算），超出部分不注入
-- [ ] 5.3 移除 `extractMemoriesAsync` 函数及其在 `sendMessage` 末尾的调用
+- [x] 5.1 在 `sendMessage` 构建 system prompt 前，通过 `nekoBridge.memory.read` 读取 `MEMORY.md` + 今天/昨天的 `memory/YYYY-MM-DD.md`，拼接为 `## 长期记忆` + `## 近期笔记` 注入 system prompt
+- [x] 5.2 添加注入长度限制：MEMORY.md 内容截断至约 4000 token（按字符估算），超出部分不注入
+- [x] 5.3 移除 `extractMemoriesAsync` 函数及其在 `sendMessage` 末尾的调用
 
 ## 6. MemoryPanel UI 重写
 

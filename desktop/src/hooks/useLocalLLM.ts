@@ -10,7 +10,7 @@
 import { useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore } from '../store/app'
-import type { LocalLLMConfig, ToolCall } from '../store/app'
+import type { ToolCall } from '../store/app'
 import { executeLocalTool } from './localTools'
 import { getLocalToolDefinitions } from './toolDefinitions'
 
@@ -267,91 +267,6 @@ async function streamAnthropic(
   }
 }
 
-// ── Memory extraction ─────────────────────────────────────────────────────
-/**
- * Fire-and-forget: ask the local LLM to extract memorable facts from the
- * recent conversation and save them to the backend memory store.
- * Runs after every assistant response when a backend token is available.
- */
-async function extractMemoriesAsync(
-  config: LocalLLMConfig,
-  apiKey: string,
-  messages: { role: string; content: string }[],
-  serverUrl: string,
-  authToken: string,
-) {
-  const turns = messages.filter(m => m.role === 'user' || m.role === 'assistant')
-  if (turns.length < 2) return
-  // Keep last 4 messages (2 turns) to minimise cost
-  const recentTurns = turns.slice(-4)
-
-  const extractPrompt =
-    '你是记忆提取助手。分析以下对话，提取值得**长期记忆**的用户信息（偏好、个人事实、明确指令、个人经历）。' +
-    '忽略闲聊和临时性问题，宁缺毋滥。\n' +
-    '以 JSON 数组返回，每项含 category 和 content。' +
-    'category 取值：preference / fact / instruction / history / other。' +
-    '无值得记忆的内容返回 []。只输出 JSON，不加任何解释。'
-
-  try {
-    const baseUrl = config.baseUrl.replace(/\/$/, '')
-    const isAnthropic = config.provider === 'anthropic' && baseUrl.includes('anthropic.com')
-    let rawContent = ''
-
-    if (isAnthropic) {
-      const res = await fetch(`${baseUrl}/v1/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({ model: config.model, system: extractPrompt, messages: recentTurns, max_tokens: 500 }),
-        signal: AbortSignal.timeout(10000),
-      })
-      if (!res.ok) return
-      const data = await res.json()
-      rawContent = data.content?.[0]?.text ?? ''
-    } else {
-      const res = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'system', content: extractPrompt }, ...recentTurns],
-          max_tokens: 500,
-          temperature: 0.1,
-          stream: false,
-        }),
-        signal: AbortSignal.timeout(10000),
-      })
-      if (!res.ok) return
-      const data = await res.json()
-      rawContent = data.choices?.[0]?.message?.content ?? ''
-    }
-
-    const jsonMatch = rawContent.trim().match(/\[[\s\S]*\]/)
-    if (!jsonMatch) return
-    const items: { category: string; content: string }[] = JSON.parse(jsonMatch[0])
-    const VALID_CATS = new Set(['preference', 'fact', 'instruction', 'history', 'other'])
-    await Promise.all(
-      items
-        .filter(item => item.content?.trim())
-        .map(item =>
-          fetch(`${serverUrl}/api/memory`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-            body: JSON.stringify({
-              category: VALID_CATS.has(item.category) ? item.category : 'other',
-              content: item.content.trim().slice(0, 1000),
-            }),
-          }).catch(() => {}),
-        ),
-    )
-  } catch {
-    // best-effort — never block UI
-  }
-}
-
 // ── Hook ───────────────────────────────────────────────────────────────────
 async function persistMessage(
   serverUrl: string,
@@ -492,8 +407,74 @@ export function useLocalLLM(sessionId: string | null) {
 
       // Read history from store *after* appending, to avoid stale closure
       const allMsgs = useAppStore.getState().messagesBySession[sid] ?? []
+
+      // ── Memory injection ──────────────────────────────────────────────
+      let memoryBlock = ''
+      try {
+        const memBridge = window.nekoBridge?.memory
+        if (memBridge) {
+          // Read MEMORY.md (long-term)
+          const longTermRaw = await memBridge.read('MEMORY.md').catch(() => ({ content: '' }))
+          const longTermContent = (longTermRaw as { content?: string }).content ?? ''
+
+          // Read today + yesterday daily notes
+          const today = new Date()
+          const yesterday = new Date(today)
+          yesterday.setDate(yesterday.getDate() - 1)
+          const fmt = (d: Date) => d.toISOString().slice(0, 10)
+          const todayFile = `${fmt(today)}.md`
+          const yesterdayFile = `${fmt(yesterday)}.md`
+          const [todayRaw, yesterdayRaw] = await Promise.all([
+            memBridge.read(todayFile).catch(() => ({ content: '' })),
+            memBridge.read(yesterdayFile).catch(() => ({ content: '' })),
+          ])
+          const todayContent = (todayRaw as { content?: string }).content ?? ''
+          const yesterdayContent = (yesterdayRaw as { content?: string }).content ?? ''
+
+          // Build memory block (truncate long-term to ~4000 chars ≈ 4000 tokens)
+          const MAX_LONG_TERM_CHARS = 4000
+          const truncatedLongTerm = longTermContent.length > MAX_LONG_TERM_CHARS
+            ? longTermContent.slice(0, MAX_LONG_TERM_CHARS) + '\n...(已截断)'
+            : longTermContent
+
+          const parts: string[] = []
+          if (truncatedLongTerm.trim()) {
+            parts.push(`## 长期记忆\n${truncatedLongTerm}`)
+          }
+          const dailyParts: string[] = []
+          if (yesterdayContent.trim()) dailyParts.push(`### ${fmt(yesterday)}\n${yesterdayContent}`)
+          if (todayContent.trim()) dailyParts.push(`### ${fmt(today)}\n${todayContent}`)
+          if (dailyParts.length > 0) {
+            parts.push(`## 近期笔记\n${dailyParts.join('\n\n')}`)
+          }
+          if (parts.length > 0) memoryBlock = parts.join('\n\n')
+        }
+      } catch {
+        // Memory injection is best-effort
+      }
+
+      const MEMORY_GUIDANCE = `\n## 记忆使用规则
+你可以通过工具管理你的记忆文件：
+- memory_write: 写入记忆文件。MEMORY.md 存储长期事实和偏好，YYYY-MM-DD.md 存储每日笔记。
+- memory_read: 读取记忆文件内容。
+- memory_search: 搜索所有记忆文件。
+
+何时主动写入记忆：
+- 用户明确要求"记住..."、"下次..."
+- 用户透露持久性偏好（语言、格式、工具选择等）
+- 用户提到关于自己的重要长期事实（职业、项目、习惯等）
+- 用户纠正之前的错误时，更新 MEMORY.md 对应内容
+
+不要写入记忆的内容：
+- 当前任务的临时细节
+- 本次对话专属的上下文
+- 大段代码或文件内容`
+
       // Prepend system prompt from personalization config
-      const systemPrompt = useAppStore.getState().personalizationConfig?.systemPrompt
+      const baseSystemPrompt = useAppStore.getState().personalizationConfig?.systemPrompt ?? ''
+      const systemPromptParts = [baseSystemPrompt, memoryBlock, MEMORY_GUIDANCE].filter(Boolean)
+      const systemPrompt = systemPromptParts.join('\n\n')
+
       const history = [
         ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
         ...allMsgs
@@ -714,14 +695,6 @@ export function useLocalLLM(sessionId: string | null) {
           if (isFirstRound) {
             const { serverUrl: sv, token: tk } = useAppStore.getState()
             autoUpdateTitle(sid, content, finalMsg.content, localLLMConfig, sv, tk ?? '')
-          }
-          // 记忆提取（best-effort，后台执行，不阻塞 UI）
-          const { serverUrl: msv, token: mtk } = useAppStore.getState()
-          if (mtk) {
-            const convMsgs = [...msgs.slice(0, -1), finalMsg]
-              .filter(m => m.role === 'user' || m.role === 'assistant')
-              .map(m => ({ role: m.role, content: m.content }))
-            extractMemoriesAsync(localLLMConfig, apiKey, convMsgs, msv, mtk).catch(() => {})
           }
         }
         setCatState('idle')
