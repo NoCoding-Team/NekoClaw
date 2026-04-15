@@ -87,6 +87,21 @@
   width: 100%;
 }
 
+/* 嵌入 aiBubble 里的工具列表 */
+.toolCardListInline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: -2px 0 0;
+}
+
+/* 工具执行完成后的回复文本区块 */
+.toolResponse {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
 /* Tool call card */
 .toolCardList {
   display: flex;

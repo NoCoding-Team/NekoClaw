@@ -38,24 +38,19 @@ export function ChatMessage({ message }: Props) {
     )
   }
 
-  // 混合轮次：assistant + 工具卡片 + 回复（preamble 或 toolCalls 存在）
-  if (message.role === 'assistant' && message.toolCalls?.length) {
+  // 混合轮次：工具卡片嵌入单一 aiBubble，前言不展示
+if (message.role === 'assistant' && message.toolCalls?.length) {
     return (
       <div className={styles.row}>
         <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
-        <div className={styles.aiTurnStack}>
-          {message.preamble && (
-            <div className={styles.aiBubble + ' selectable'}>
-              <AiMarkdown content={message.preamble} />
-            </div>
-          )}
-          <div className={styles.toolCardList}>
+        <div className={styles.aiBubble + ' selectable'}>
+          <div className={styles.toolCardListInline}>
             {message.toolCalls.map((tc) => (
               <ToolCallCard key={tc.callId} tc={tc} />
             ))}
           </div>
           {(message.content || message.streaming) && (
-            <div className={styles.aiBubble + ' selectable'}>
+            <div className={styles.toolResponse}>
               <AiMarkdown content={message.content || (message.streaming ? '▋' : '')} />
             </div>
           )}
