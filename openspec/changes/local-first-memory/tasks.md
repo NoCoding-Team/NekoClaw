@@ -13,8 +13,8 @@
 
 ## 3. 前端工具定义
 
-- [ ] 3.1 新建 `desktop/src/hooks/toolDefinitions.ts`，导出 `getLocalToolDefinitions()` 函数，返回 OpenAI function calling schema 数组，包含 `memory_write`、`memory_read`、`memory_search` 及已有客户端工具
-- [ ] 3.2 在 `localTools.ts` 的 `executeLocalTool` 中新增 `memory_write`、`memory_read`、`memory_search` case，调用 `nekoBridge.memory.*`
+- [x] 3.1 新建 `desktop/src/hooks/toolDefinitions.ts`，导出 `getLocalToolDefinitions()` 函数，返回 OpenAI function calling schema 数组，包含 `memory_write`、`memory_read`、`memory_search` 及已有客户端工具
+- [x] 3.2 在 `localTools.ts` 的 `executeLocalTool` 中新增 `memory_write`、`memory_read`、`memory_search` case，调用 `nekoBridge.memory.*`
 
 ## 4. Agentic Loop
 
