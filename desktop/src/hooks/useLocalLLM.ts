@@ -395,8 +395,8 @@ export function useLocalLLM(sessionId: string | null) {
       appendMessage(sid, { id: userMsgId, role: 'user', content })
 
       // Persist user message to backend or local SQLite
-      const { serverUrl, token } = useAppStore.getState()
-      if (token && !sid.startsWith('local-')) {
+      const { serverUrl, token, syncEnabled } = useAppStore.getState()
+      if (token && syncEnabled && !sid.startsWith('local-')) {
         persistMessage(serverUrl, token, sid, 'user', content)
       } else if (sid.startsWith('local-')) {
         const dbBridge = window.nekoBridge?.db
@@ -503,10 +503,11 @@ export function useLocalLLM(sessionId: string | null) {
       }
 
       // 模式 B：服务端注入记忆/Skill Prompt（best-effort，失败时直接用本地 history）
+      // 仅当用户开启「同步到云端」时才联系服务器，否则完全离线
       let enhancedHistory = history
       try {
-        const { serverUrl: sv, token: tk } = useAppStore.getState()
-        if (tk) {
+        const { serverUrl: sv, token: tk, syncEnabled: se } = useAppStore.getState()
+        if (tk && se) {
           const res = await fetch(`${sv}/api/llm/enhance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
@@ -686,8 +687,8 @@ export function useLocalLLM(sessionId: string | null) {
           const finalMsg = { ...last, streaming: false }
           setMessages(sid, [...msgs.slice(0, -1), finalMsg])
           // Persist assistant message to backend or local SQLite
-          const { serverUrl, token } = useAppStore.getState()
-          if (token && !sid.startsWith('local-')) {
+          const { serverUrl, token, syncEnabled: seAssist } = useAppStore.getState()
+          if (token && seAssist && !sid.startsWith('local-')) {
             persistMessage(serverUrl, token, sid, 'assistant', finalMsg.content)
           } else if (sid.startsWith('local-')) {
             const dbBridge = window.nekoBridge?.db
