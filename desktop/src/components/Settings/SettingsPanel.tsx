@@ -517,6 +517,20 @@ function ModelCenterTab() {
   const [showKey, setShowKey]   = useState(false)
   const [maxTokens, setMaxTokens] = useState(String(localLLMConfig?.maxTokens ?? 8192))
   const [temperature, setTemperature] = useState(String(localLLMConfig?.temperature ?? 0.7))
+
+  // Embedding model
+  const [embEnabled, setEmbEnabled] = useState(localLLMConfig?.embeddingModel?.enabled ?? false)
+  const [embBaseUrl, setEmbBaseUrl] = useState(localLLMConfig?.embeddingModel?.baseUrl ?? '')
+  const [embModel,   setEmbModel]   = useState(localLLMConfig?.embeddingModel?.model ?? '')
+  const [embApiKey,  setEmbApiKey]  = useState('')
+  const [embSameKey, setEmbSameKey] = useState(!(localLLMConfig?.embeddingModel?.apiKeyB64))
+
+  // Rerank model
+  const [rkEnabled, setRkEnabled] = useState(localLLMConfig?.rerankModel?.enabled ?? false)
+  const [rkBaseUrl,  setRkBaseUrl]  = useState(localLLMConfig?.rerankModel?.baseUrl ?? '')
+  const [rkModel,    setRkModel]    = useState(localLLMConfig?.rerankModel?.model ?? '')
+  const [rkApiKey,   setRkApiKey]   = useState('')
+  const [rkSameKey,  setRkSameKey]  = useState(!(localLLMConfig?.rerankModel?.apiKeyB64))
   interface FallbackItem { id: number; name: string; provider: string; baseUrl: string; model: string; apiKey: string }
   const [fallbacks, setFallbacks] = useState<FallbackItem[]>([])
   const [fbIdSeq, setFbIdSeq]     = useState(0)
@@ -576,6 +590,18 @@ function ModelCenterTab() {
         apiKeyB64: keyToStore,
         maxTokens: parseInt(maxTokens) || 8192,
         temperature: parseFloat(temperature) || 0.7,
+        embeddingModel: embEnabled ? {
+          enabled: true,
+          baseUrl: embBaseUrl.trim(),
+          model: embModel.trim(),
+          apiKeyB64: embSameKey ? '' : (embApiKey.trim() ? await encryptKey(embApiKey.trim()) : localLLMConfig?.embeddingModel?.apiKeyB64 ?? ''),
+        } : undefined,
+        rerankModel: rkEnabled ? {
+          enabled: true,
+          baseUrl: rkBaseUrl.trim(),
+          model: rkModel.trim(),
+          apiKeyB64: rkSameKey ? '' : (rkApiKey.trim() ? await encryptKey(rkApiKey.trim()) : localLLMConfig?.rerankModel?.apiKeyB64 ?? ''),
+        } : undefined,
       })
       setOk(testKey ? '连接测试通过，已保存 ✓' : '已保存 ✓')
     } catch (e: unknown) {
@@ -727,6 +753,90 @@ function ModelCenterTab() {
             <button className={styles.addFallbackBtn} onClick={addFallback}>
               ＋ 添加备用模型
             </button>
+          </div>
+
+          {/* Embedding 模型 */}
+          <div className={styles.auxSection}>
+            <div className={styles.auxSectionHeader}>
+              <span className={styles.auxSectionTitle}>
+                <span>🔢</span> Embedding 模型
+              </span>
+              <label className={styles.auxToggleLabel}>
+                <input type="checkbox" checked={embEnabled} onChange={e => setEmbEnabled(e.target.checked)} />
+                <span className={styles.auxToggleTrack}><span className={styles.auxToggleThumb} /></span>
+              </label>
+            </div>
+            <div className={styles.formHint}>用于向量化文本，供记忆检索和语义搜索使用。</div>
+            {embEnabled && (
+              <div className={styles.auxForm}>
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>Base URL</label>
+                  <input className={styles.formInput} value={embBaseUrl}
+                    onChange={e => setEmbBaseUrl(e.target.value)}
+                    placeholder="https://api.openai.com/v1（留空同主模型）" />
+                </div>
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>模型</label>
+                  <input className={styles.formInput} value={embModel}
+                    onChange={e => setEmbModel(e.target.value)}
+                    placeholder="text-embedding-3-small" />
+                </div>
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>API Key</label>
+                  <label className={styles.sameAsMainLabel}>
+                    <input type="checkbox" checked={embSameKey} onChange={e => setEmbSameKey(e.target.checked)} />
+                    与主模型相同
+                  </label>
+                  {!embSameKey && (
+                    <input className={styles.formInput} type="password" value={embApiKey}
+                      onChange={e => setEmbApiKey(e.target.value)}
+                      placeholder={localLLMConfig?.embeddingModel?.apiKeyB64 ? '••••••• (留空不修改)' : 'sk-...'} />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 重排序模型 */}
+          <div className={styles.auxSection}>
+            <div className={styles.auxSectionHeader}>
+              <span className={styles.auxSectionTitle}>
+                <span>📊</span> 重排序模型
+              </span>
+              <label className={styles.auxToggleLabel}>
+                <input type="checkbox" checked={rkEnabled} onChange={e => setRkEnabled(e.target.checked)} />
+                <span className={styles.auxToggleTrack}><span className={styles.auxToggleThumb} /></span>
+              </label>
+            </div>
+            <div className={styles.formHint}>对检索结果进行精排，提升记忆召回准确率。</div>
+            {rkEnabled && (
+              <div className={styles.auxForm}>
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>Base URL</label>
+                  <input className={styles.formInput} value={rkBaseUrl}
+                    onChange={e => setRkBaseUrl(e.target.value)}
+                    placeholder="https://api.cohere.com/v1（留空同主模型）" />
+                </div>
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>模型</label>
+                  <input className={styles.formInput} value={rkModel}
+                    onChange={e => setRkModel(e.target.value)}
+                    placeholder="rerank-v3.5" />
+                </div>
+                <div className={styles.formRow}>
+                  <label className={styles.formLabel}>API Key</label>
+                  <label className={styles.sameAsMainLabel}>
+                    <input type="checkbox" checked={rkSameKey} onChange={e => setRkSameKey(e.target.checked)} />
+                    与主模型相同
+                  </label>
+                  {!rkSameKey && (
+                    <input className={styles.formInput} type="password" value={rkApiKey}
+                      onChange={e => setRkApiKey(e.target.value)}
+                      placeholder={localLLMConfig?.rerankModel?.apiKeyB64 ? '••••••• (留空不修改)' : 'sk-...'} />
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {err && <div className={styles.errMsg}>{err}</div>}

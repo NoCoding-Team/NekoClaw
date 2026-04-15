@@ -21,6 +21,13 @@ function loadRecentServers(): string[] {
   }
 }
 
+export interface AuxModelConfig {
+  enabled: boolean
+  baseUrl: string    // empty = same as main model
+  model: string
+  apiKeyB64: string  // empty = same as main model
+}
+
 export interface LocalLLMConfig {
   provider: string   // 'openai' | 'anthropic' | 'custom'
   baseUrl: string
@@ -28,6 +35,8 @@ export interface LocalLLMConfig {
   apiKeyB64: string  // base64 or safeStorage-encrypted bytes encoded as base64
   maxTokens: number
   temperature: number
+  embeddingModel?: AuxModelConfig
+  rerankModel?: AuxModelConfig
 }
 
 function loadLocalLLMConfig(): LocalLLMConfig | null {

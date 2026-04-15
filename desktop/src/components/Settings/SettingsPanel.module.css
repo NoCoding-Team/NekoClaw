@@ -586,6 +586,87 @@
   padding: 6px 10px;
 }
 
+/* Auxiliary model sections (Embedding / Rerank) */
+.auxSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.auxSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.auxSectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.auxToggleLabel {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.auxToggleLabel input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.auxToggleTrack {
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  transition: background 0.2s, border-color 0.2s;
+  position: relative;
+  display: block;
+}
+.auxToggleLabel input:checked ~ .auxToggleTrack {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.auxToggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.2s, background 0.2s;
+  display: block;
+}
+.auxToggleLabel input:checked ~ .auxToggleTrack .auxToggleThumb {
+  transform: translateX(16px);
+  background: #fff;
+}
+.auxForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+.sameAsMainLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 4px;
+}
+
 /* ── Security Page ─────────────────────────────────────────────────────── */
 .securityPage {
   display: flex;
