@@ -152,8 +152,18 @@ async def run_llm_pipeline(
                 continue
 
             if tool_def["executor"] == "server":
+                await send_event(ws, "server_tool_call", {
+                    "call_id": call_id,
+                    "tool": tool_name,
+                    "args": args,
+                    "risk_level": risk_level,
+                })
                 await send_event(ws, "cat_state", {"state": "working"})
                 result_content = await execute_server_tool(tool_name, args, user_id)
+                await send_event(ws, "server_tool_done", {
+                    "call_id": call_id,
+                    "result": result_content[:300],
+                })
             else:
                 # Forward to PC client
                 await send_event(ws, "tool_call", {

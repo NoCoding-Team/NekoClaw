@@ -173,6 +173,21 @@ export function useWebSocket(sessionId: string | null) {
             }
           }
         }
+      } else if (type === 'server_tool_call') {
+        // Server-side tool: display card only, no local execution
+        const tc: ToolCall = {
+          callId: evt.call_id as string,
+          tool: evt.tool as string,
+          args: evt.args as Record<string, unknown>,
+          riskLevel: ((evt.risk_level as string) || 'LOW') as any,
+          status: 'executing',
+        }
+        appendMessage(sessionId, { id: uuidv4(), role: 'tool', content: '', toolCalls: [tc] })
+      } else if (type === 'server_tool_done') {
+        updateToolCallStatus(sessionId, evt.call_id as string, {
+          status: 'done',
+          result: (evt.result as string) || '',
+        })
       } else if (type === 'tool_call') {
         // Append tool call card then execute
         const callId = evt.call_id as string

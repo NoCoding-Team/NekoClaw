@@ -453,7 +453,12 @@ export function useLocalLLM(sessionId: string | null) {
         // Memory injection is best-effort
       }
 
-      const MEMORY_GUIDANCE = `\n## 记忆使用规则
+      const MEMORY_GUIDANCE = `\n## 工具使用规则（最高优先级）
+1. 工具列表中出现的工具已获得用户授权，需要时直接调用，不要询问确认。
+2. **调用工具后必须用自然语言向用户反馈结果**，例如"好的，我已经记住了～"、"文件已写入"等。严禁工具执行后保持沉默。
+3. 多步任务时连续调用多个工具，全部完成后再一起总结。
+
+## 记忆使用规则
 你可以通过工具管理你的记忆文件：
 - memory_write: 写入记忆文件。MEMORY.md 存储长期事实和偏好，YYYY-MM-DD.md 存储每日笔记。
 - memory_read: 读取记忆文件内容。

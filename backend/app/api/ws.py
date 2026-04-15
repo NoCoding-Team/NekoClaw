@@ -2,14 +2,16 @@
 WebSocket endpoint for real-time session communication.
 
 Event Types (server → client):
-  cat_state      - {state: "idle"|"thinking"|"working"|"success"|"error"}
-  llm_thinking   - {}
-  llm_token      - {token: str}
-  llm_done       - {message_id: str}
-  tool_call      - {call_id: str, tool: str, args: dict, risk_level: str}
-  tool_denied    - {call_id: str, reason: str}
-  tool_error     - {call_id: str, error: str}
-  pong           - {}
+  cat_state           - {state: "idle"|"thinking"|"working"|"success"|"error"}
+  llm_thinking        - {}
+  llm_token           - {token: str}
+  llm_done            - {message_id: str}
+  tool_call           - {call_id: str, tool: str, args: dict, risk_level: str}  # client tool
+  server_tool_call    - {call_id: str, tool: str, args: dict, risk_level: str}  # server tool (display only)
+  server_tool_done    - {call_id: str, result: str}                             # server tool completed
+  tool_denied         - {call_id: str, reason: str}
+  tool_error          - {call_id: str, error: str}
+  pong                - {}
 
 Event Types (client → server):
   message        - {content: str, skill_id?: str}
