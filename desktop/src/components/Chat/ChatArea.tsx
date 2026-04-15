@@ -136,7 +136,9 @@ export function ChatArea() {
             if (m.toolCalls) {
               try { tool_calls = typeof m.toolCalls === 'string' ? JSON.parse(m.toolCalls) : m.toolCalls } catch { /* ignore */ }
             }
-            return { role: m.role, content: m.content, tool_calls }
+            // 携带原始时间戳（SQLite ms → ISO 字符串），保证服务端 created_at 有序
+            const created_at = m.createdAt ? new Date(m.createdAt).toISOString() : undefined
+            return { role: m.role, content: m.content, tool_calls, created_at }
           })),
         })
         if (!batchRes.ok) throw new Error(`上传消息失败 ${batchRes.status}`)

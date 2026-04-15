@@ -160,6 +160,8 @@ async def batch_create_messages(
             content=item.content,
             tool_calls=item.tool_calls,
         )
+        if item.created_at is not None:
+            msg.created_at = item.created_at
         db.add(msg)
     await db.commit()
     return {"ok": True, "count": len(body)}

@@ -31,6 +31,7 @@ class MessageCreate(BaseModel):
     role: str   # 'user' | 'assistant' | 'tool'
     content: str = ''
     tool_calls: list | None = None
+    created_at: datetime | None = None  # 批量同步时携带原始时间戳，保证顺序
 
 
 class SessionUpdate(BaseModel):
