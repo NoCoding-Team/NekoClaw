@@ -248,8 +248,8 @@ export function useLocalLLM(sessionId: string | null) {
       // ── Materialize local session on first message ──────────────────────
       let sid = sessionId
       if (sessionId.startsWith('local-')) {
-        const { serverUrl: sv, token: tk } = useAppStore.getState()
-        if (tk) {
+        const { serverUrl: sv, token: tk, syncEnabled } = useAppStore.getState()
+        if (tk && syncEnabled) {
           try {
             const res = await fetch(`${sv}/api/sessions`, {
               method: 'POST',
@@ -261,17 +261,31 @@ export function useLocalLLM(sessionId: string | null) {
               useAppStore.getState().replaceSession(sessionId, { id: s.id, title: s.title })
               sid = s.id
             }
-          } catch { /* keep local id, messages won't be persisted */ }
+          } catch { /* keep local id */ }
+        }
+        // If still local (not materialized), ensure session row exists in SQLite
+        if (sid.startsWith('local-')) {
+          const dbBridge = window.nekoBridge?.db
+          if (dbBridge) {
+            const sTitle = useAppStore.getState().sessions.find((s) => s.id === sid)?.title ?? '新对话'
+            dbBridge.upsertSession(sid, sTitle, Date.now()).catch(() => {})
+          }
         }
       }
 
       // Append user message first
-      appendMessage(sid, { id: uuidv4(), role: 'user', content })
+      const userMsgId = uuidv4()
+      appendMessage(sid, { id: userMsgId, role: 'user', content })
 
-      // Persist user message to backend (best-effort)
+      // Persist user message to backend or local SQLite
       const { serverUrl, token } = useAppStore.getState()
       if (token && !sid.startsWith('local-')) {
         persistMessage(serverUrl, token, sid, 'user', content)
+      } else if (sid.startsWith('local-')) {
+        const dbBridge = window.nekoBridge?.db
+        if (dbBridge) {
+          dbBridge.insertMessage({ id: userMsgId, sessionId: sid, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
+        }
       }
 
       // Read history from store *after* appending, to avoid stale closure
@@ -345,10 +359,15 @@ export function useLocalLLM(sessionId: string | null) {
         if (last?.streaming) {
           const finalMsg = { ...last, streaming: false }
           setMessages(sid, [...msgs.slice(0, -1), finalMsg])
-          // Persist assistant message to backend (best-effort)
+          // Persist assistant message to backend or local SQLite
           const { serverUrl, token } = useAppStore.getState()
           if (token && !sid.startsWith('local-')) {
             persistMessage(serverUrl, token, sid, 'assistant', finalMsg.content)
+          } else if (sid.startsWith('local-')) {
+            const dbBridge = window.nekoBridge?.db
+            if (dbBridge) {
+              dbBridge.insertMessage({ id: msgId, sessionId: sid, role: 'assistant', content: finalMsg.content, toolCalls: null, tokenCount: finalMsg.content.length, createdAt: Date.now() }).catch(() => {})
+            }
           }
           // 两段式标题：仅在第一轮对话（只有1条 user + 1条 assistant）时触发
           const isFirstRound = msgs.filter((m) => m.role === 'assistant').length === 1
