@@ -31,7 +31,8 @@ const nekoBridge = {
     read: (path) => electron.ipcRenderer.invoke("memory:read", path),
     write: (path, content) => electron.ipcRenderer.invoke("memory:write", path, content),
     list: () => electron.ipcRenderer.invoke("memory:list"),
-    search: (query) => electron.ipcRenderer.invoke("memory:search", query)
+    search: (query) => electron.ipcRenderer.invoke("memory:search", query),
+    setEmbeddingConfig: (config) => electron.ipcRenderer.invoke("memory:setEmbeddingConfig", config)
   },
   db: {
     getSessions: (opts) => electron.ipcRenderer.invoke("db:getSessions", opts ?? {}),

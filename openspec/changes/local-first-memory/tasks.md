@@ -38,9 +38,9 @@
 
 ## 7. 记忆语义搜索
 
-- [ ] 7.1 在 MemoryService 中实现 `search(query)` 方法：有 embedding model 配置时，调用 embedding API 将 query 向量化 + SQLite 余弦相似度检索；无配置时 fallback 到关键词匹配
-- [ ] 7.2 实现 embedding 索引管理：`memory:write` 成功后异步更新该文件的 embedding 向量（按段落/chunk 切分存入 SQLite）
-- [ ] 7.3 在 `electron/main.ts` 初始化时检查是否有 embedding model 配置，存在则预建索引
+- [x] 7.1 在 MemoryService 中实现 `search(query)` 方法：有 embedding model 配置时，调用 embedding API 将 query 向量化 + SQLite 余弦相似度检索；无配置时 fallback 到关键词匹配
+- [x] 7.2 实现 embedding 索引管理：`memory:write` 成功后异步更新该文件的 embedding 向量（按段落/chunk 切分存入 SQLite）
+- [x] 7.3 在 `electron/main.ts` 初始化时检查是否有 embedding model 配置，存在则预建索引
 
 ## 8. 云端同步与后端适配
 

@@ -31,6 +31,8 @@ export const nekoBridge = {
     write: (path: string, content: string) => ipcRenderer.invoke('memory:write', path, content),
     list: () => ipcRenderer.invoke('memory:list'),
     search: (query: string) => ipcRenderer.invoke('memory:search', query),
+    setEmbeddingConfig: (config: { enabled: boolean; baseUrl: string; model: string; apiKey: string }) =>
+      ipcRenderer.invoke('memory:setEmbeddingConfig', config),
   },
   db: {
     getSessions: (opts?: { onlyUnsynced?: boolean }): Promise<{

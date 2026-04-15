@@ -48,6 +48,26 @@ function loadLocalLLMConfig(): LocalLLMConfig | null {
   }
 }
 
+/** Push embedding model config to Electron main process for indexing */
+async function syncEmbeddingConfig(cfg: LocalLLMConfig | null) {
+  const bridge = (window as any).nekoBridge
+  if (!bridge?.memory?.setEmbeddingConfig) return
+  const emb = cfg?.embeddingModel
+  if (!emb?.enabled || !emb.model) {
+    bridge.memory.setEmbeddingConfig({ enabled: false, baseUrl: '', model: '', apiKey: '' })
+    return
+  }
+  try {
+    const keyB64 = emb.apiKeyB64 || cfg!.apiKeyB64
+    const { decrypted } = await bridge.storage.decrypt(keyB64)
+    const baseUrl = emb.baseUrl || cfg!.baseUrl
+    bridge.memory.setEmbeddingConfig({ enabled: true, baseUrl, model: emb.model, apiKey: decrypted })
+  } catch { /* ignore decrypt failure */ }
+}
+
+// Fire on initial load
+syncEmbeddingConfig(loadLocalLLMConfig())
+
 export interface PersonalizationConfig {
   userName: string
   timezone: string
@@ -354,6 +374,8 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.removeItem(STORAGE_LOCAL_LLM)
     }
     set({ localLLMConfig: cfg })
+    // Push embedding config to main process
+    syncEmbeddingConfig(cfg)
   },
 
   personalizationConfig: loadPersonalizationConfig(),

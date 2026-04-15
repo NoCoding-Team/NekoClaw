@@ -354,14 +354,162 @@ const MemoryService = {
   },
 }
 
+// ── Embedding Service — vector-based memory search ────────────────────────
+interface EmbeddingConfig {
+  enabled: boolean
+  baseUrl: string
+  model: string
+  apiKey: string // decrypted plain text
+}
+
+let _embeddingConfig: EmbeddingConfig | null = null
+
+function ensureEmbeddingTable() {
+  const db = getDb()
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS memory_embeddings (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_path TEXT NOT NULL,
+      chunk_idx INTEGER NOT NULL,
+      chunk     TEXT NOT NULL,
+      vector    TEXT NOT NULL,
+      UNIQUE(file_path, chunk_idx)
+    );
+    CREATE INDEX IF NOT EXISTS idx_emb_file ON memory_embeddings(file_path);
+  `)
+}
+
+/** Split text into paragraphs / chunks (~500 chars each) */
+function chunkText(text: string): string[] {
+  const paragraphs = text.split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+  const chunks: string[] = []
+  let buf = ''
+  for (const p of paragraphs) {
+    if (buf.length + p.length > 500 && buf.length > 0) {
+      chunks.push(buf)
+      buf = p
+    } else {
+      buf = buf ? buf + '\n\n' + p : p
+    }
+  }
+  if (buf) chunks.push(buf)
+  return chunks.length > 0 ? chunks : [text.slice(0, 500) || '']
+}
+
+/** Call OpenAI-compatible embedding API */
+async function getEmbeddings(texts: string[], config: EmbeddingConfig): Promise<number[][]> {
+  const url = config.baseUrl.replace(/\/$/, '') + '/embeddings'
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({ model: config.model, input: texts }),
+    signal: AbortSignal.timeout(30000),
+  })
+  if (!res.ok) throw new Error(`Embedding API error ${res.status}`)
+  const data = await res.json() as { data: Array<{ embedding: number[] }> }
+  return data.data.map(d => d.embedding)
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, normA = 0, normB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1)
+}
+
+/** Index a single file's embeddings (upserts chunks) */
+async function indexFileEmbeddings(relPath: string) {
+  if (!_embeddingConfig?.enabled) return
+  try {
+    const content = await MemoryService.read(relPath)
+    if (!content.trim()) return
+    const chunks = chunkText(content)
+    const vectors = await getEmbeddings(chunks, _embeddingConfig)
+    const db = getDb()
+    ensureEmbeddingTable()
+    // Delete old chunks for this file
+    db.prepare('DELETE FROM memory_embeddings WHERE file_path = ?').run(relPath)
+    const insert = db.prepare(
+      'INSERT INTO memory_embeddings (file_path, chunk_idx, chunk, vector) VALUES (?, ?, ?, ?)'
+    )
+    const tx = db.transaction(() => {
+      for (let i = 0; i < chunks.length; i++) {
+        insert.run(relPath, i, chunks[i], JSON.stringify(vectors[i]))
+      }
+    })
+    tx()
+  } catch {
+    // best-effort — don't block write operations
+  }
+}
+
+/** Semantic search across all indexed embeddings */
+async function semanticSearch(query: string, topK = 5): Promise<Array<{ path: string; snippet: string; score: number }>> {
+  if (!_embeddingConfig?.enabled) throw new Error('Embedding not configured')
+  ensureEmbeddingTable()
+  const [queryVec] = await getEmbeddings([query], _embeddingConfig)
+  const db = getDb()
+  const rows = db.prepare('SELECT file_path, chunk, vector FROM memory_embeddings').all() as Array<{
+    file_path: string; chunk: string; vector: string
+  }>
+  const scored = rows.map(r => ({
+    path: r.file_path,
+    snippet: r.chunk,
+    score: cosineSimilarity(queryVec, JSON.parse(r.vector)),
+  }))
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, topK)
+}
+
+/** Pre-build index for all memory files */
+async function prebuildEmbeddingIndex() {
+  if (!_embeddingConfig?.enabled) return
+  try {
+    const files = await MemoryService.list()
+    ensureEmbeddingTable()
+    const db = getDb()
+    const indexed = new Set(
+      (db.prepare('SELECT DISTINCT file_path FROM memory_embeddings').all() as Array<{ file_path: string }>)
+        .map(r => r.file_path)
+    )
+    for (const f of files) {
+      if (!indexed.has(f.path)) {
+        await indexFileEmbeddings(f.path)
+      }
+    }
+  } catch {
+    // best-effort
+  }
+}
+
+ipcMain.handle('memory:setEmbeddingConfig', async (_e, config: EmbeddingConfig) => {
+  _embeddingConfig = config
+  if (config.enabled) {
+    ensureEmbeddingTable()
+    // Kick off async index build
+    prebuildEmbeddingIndex()
+  }
+  return { success: true }
+})
+
 ipcMain.handle('memory:read', async (_e, relPath: string) => {
   try { return { content: await MemoryService.read(relPath) } }
   catch (err) { return { error: String(err) } }
 })
 
 ipcMain.handle('memory:write', async (_e, relPath: string, content: string) => {
-  try { await MemoryService.write(relPath, content); return { success: true } }
-  catch (err) { return { error: String(err) } }
+  try {
+    await MemoryService.write(relPath, content)
+    // Async update embedding index (fire & forget)
+    indexFileEmbeddings(relPath)
+    return { success: true }
+  } catch (err) { return { error: String(err) } }
 })
 
 ipcMain.handle('memory:list', async () => {
@@ -370,8 +518,16 @@ ipcMain.handle('memory:list', async () => {
 })
 
 ipcMain.handle('memory:search', async (_e, query: string) => {
-  // Phase 1: keyword fallback only; embedding search added in Task 7
+  // Use semantic search if embedding is configured, otherwise keyword fallback
   try {
+    if (_embeddingConfig?.enabled) {
+      try {
+        const results = await semanticSearch(query)
+        return { results: results.map(r => ({ path: r.path, snippet: r.snippet })) }
+      } catch {
+        // Fall through to keyword search
+      }
+    }
     const files = await MemoryService.list()
     const results: Array<{ path: string; snippet: string }> = []
     const lowerQ = query.toLowerCase()

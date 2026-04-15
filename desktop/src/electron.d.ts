@@ -62,6 +62,7 @@ interface NekoBridgeMemory {
   write(path: string, content: string): Promise<{ success?: boolean; error?: string }>
   list(): Promise<{ files?: Array<{ name: string; path: string; mtime: number }>; error?: string }>
   search(query: string): Promise<{ results?: Array<{ path: string; snippet: string }>; error?: string }>
+  setEmbeddingConfig(config: { enabled: boolean; baseUrl: string; model: string; apiKey: string }): Promise<{ success?: boolean }>
 }
 
 interface NekoBridge {

@@ -338,6 +338,121 @@ const MemoryService = {
     return results;
   }
 };
+let _embeddingConfig = null;
+function ensureEmbeddingTable() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS memory_embeddings (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_path TEXT NOT NULL,
+      chunk_idx INTEGER NOT NULL,
+      chunk     TEXT NOT NULL,
+      vector    TEXT NOT NULL,
+      UNIQUE(file_path, chunk_idx)
+    );
+    CREATE INDEX IF NOT EXISTS idx_emb_file ON memory_embeddings(file_path);
+  `);
+}
+function chunkText(text) {
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const chunks = [];
+  let buf = "";
+  for (const p of paragraphs) {
+    if (buf.length + p.length > 500 && buf.length > 0) {
+      chunks.push(buf);
+      buf = p;
+    } else {
+      buf = buf ? buf + "\n\n" + p : p;
+    }
+  }
+  if (buf) chunks.push(buf);
+  return chunks.length > 0 ? chunks : [text.slice(0, 500) || ""];
+}
+async function getEmbeddings(texts, config) {
+  const url = config.baseUrl.replace(/\/$/, "") + "/embeddings";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${config.apiKey}`
+    },
+    body: JSON.stringify({ model: config.model, input: texts }),
+    signal: AbortSignal.timeout(3e4)
+  });
+  if (!res.ok) throw new Error(`Embedding API error ${res.status}`);
+  const data = await res.json();
+  return data.data.map((d) => d.embedding);
+}
+function cosineSimilarity(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
+}
+async function indexFileEmbeddings(relPath) {
+  if (!(_embeddingConfig == null ? void 0 : _embeddingConfig.enabled)) return;
+  try {
+    const content = await MemoryService.read(relPath);
+    if (!content.trim()) return;
+    const chunks = chunkText(content);
+    const vectors = await getEmbeddings(chunks, _embeddingConfig);
+    const db = getDb();
+    ensureEmbeddingTable();
+    db.prepare("DELETE FROM memory_embeddings WHERE file_path = ?").run(relPath);
+    const insert = db.prepare(
+      "INSERT INTO memory_embeddings (file_path, chunk_idx, chunk, vector) VALUES (?, ?, ?, ?)"
+    );
+    const tx = db.transaction(() => {
+      for (let i = 0; i < chunks.length; i++) {
+        insert.run(relPath, i, chunks[i], JSON.stringify(vectors[i]));
+      }
+    });
+    tx();
+  } catch {
+  }
+}
+async function semanticSearch(query, topK = 5) {
+  if (!(_embeddingConfig == null ? void 0 : _embeddingConfig.enabled)) throw new Error("Embedding not configured");
+  ensureEmbeddingTable();
+  const [queryVec] = await getEmbeddings([query], _embeddingConfig);
+  const db = getDb();
+  const rows = db.prepare("SELECT file_path, chunk, vector FROM memory_embeddings").all();
+  const scored = rows.map((r) => ({
+    path: r.file_path,
+    snippet: r.chunk,
+    score: cosineSimilarity(queryVec, JSON.parse(r.vector))
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, topK);
+}
+async function prebuildEmbeddingIndex() {
+  if (!(_embeddingConfig == null ? void 0 : _embeddingConfig.enabled)) return;
+  try {
+    const files = await MemoryService.list();
+    ensureEmbeddingTable();
+    const db = getDb();
+    const indexed = new Set(
+      db.prepare("SELECT DISTINCT file_path FROM memory_embeddings").all().map((r) => r.file_path)
+    );
+    for (const f of files) {
+      if (!indexed.has(f.path)) {
+        await indexFileEmbeddings(f.path);
+      }
+    }
+  } catch {
+  }
+}
+electron.ipcMain.handle("memory:setEmbeddingConfig", async (_e, config) => {
+  _embeddingConfig = config;
+  if (config.enabled) {
+    ensureEmbeddingTable();
+    prebuildEmbeddingIndex();
+  }
+  return { success: true };
+});
 electron.ipcMain.handle("memory:read", async (_e, relPath) => {
   try {
     return { content: await MemoryService.read(relPath) };
@@ -348,6 +463,7 @@ electron.ipcMain.handle("memory:read", async (_e, relPath) => {
 electron.ipcMain.handle("memory:write", async (_e, relPath, content) => {
   try {
     await MemoryService.write(relPath, content);
+    indexFileEmbeddings(relPath);
     return { success: true };
   } catch (err) {
     return { error: String(err) };
@@ -362,6 +478,13 @@ electron.ipcMain.handle("memory:list", async () => {
 });
 electron.ipcMain.handle("memory:search", async (_e, query) => {
   try {
+    if (_embeddingConfig == null ? void 0 : _embeddingConfig.enabled) {
+      try {
+        const results2 = await semanticSearch(query);
+        return { results: results2.map((r) => ({ path: r.path, snippet: r.snippet })) };
+      } catch {
+      }
+    }
     const files = await MemoryService.list();
     const results = [];
     const lowerQ = query.toLowerCase();
