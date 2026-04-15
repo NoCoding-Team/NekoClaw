@@ -123,6 +123,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // needed for preload modules
+      webSecurity: false, // allow renderer to fetch external APIs (CORS disabled; contextIsolation still guards node access)
     },
   })
 
