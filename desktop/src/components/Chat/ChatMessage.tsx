@@ -51,7 +51,9 @@ export function ChatMessage({ message }: Props) {
     )
   }
 
-  // Assistant
+  // Assistant — skip empty non-streaming messages (e.g. tool-call wrappers)
+  if (!message.content && !message.streaming) return null
+
   return (
     <div className={styles.row}>
       <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
