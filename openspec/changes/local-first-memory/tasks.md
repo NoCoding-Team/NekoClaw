@@ -7,9 +7,9 @@
 
 ## 2. 流式 Tool Call 解析
 
-- [ ] 2.1 修改 `streamOpenAI` 返回 `StreamResult`（content + toolCalls + finishReason），解析 `delta.tool_calls` 数组，按 index 累积拼接 id/name/arguments 片段
-- [ ] 2.2 修改 `streamAnthropic` 返回 `StreamResult`，解析 `content_block_start`（type=tool_use）+ `input_json_delta` 事件，累积拼接工具调用参数
-- [ ] 2.3 定义 `StreamResult` / `ToolCallDelta` TypeScript 接口
+- [x] 2.1 修改 `streamOpenAI` 返回 `StreamResult`（content + toolCalls + finishReason），解析 `delta.tool_calls` 数组，按 index 累积拼接 id/name/arguments 片段
+- [x] 2.2 修改 `streamAnthropic` 返回 `StreamResult`，解析 `content_block_start`（type=tool_use）+ `input_json_delta` 事件，累积拼接工具调用参数
+- [x] 2.3 定义 `StreamResult` / `ToolCallDelta` TypeScript 接口
 
 ## 3. 前端工具定义
 

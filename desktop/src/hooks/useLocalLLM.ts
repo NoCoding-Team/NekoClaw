@@ -30,6 +30,19 @@ async function encryptKey(plaintext: string): Promise<string> {
 
 export { encryptKey }
 
+// ── StreamResult types ────────────────────────────────────────────────────
+export interface ToolCallDelta {
+  id: string
+  name: string
+  arguments: string
+}
+
+export interface StreamResult {
+  content: string
+  toolCalls: ToolCallDelta[] | null
+  finishReason: string
+}
+
 // ── OpenAI-compatible streaming ────────────────────────────────────────────
 async function streamOpenAI(
   baseUrl: string,
@@ -37,35 +50,41 @@ async function streamOpenAI(
   model: string,
   maxTokens: number,
   temperature: number,
-  messages: { role: string; content: string }[],
+  messages: { role: string; content: string; tool_calls?: unknown; tool_call_id?: string }[],
   onToken: (t: string) => void,
-  signal: AbortSignal
-) {
+  signal: AbortSignal,
+  tools?: unknown[],
+): Promise<StreamResult> {
   const url = baseUrl.replace(/\/$/, '') + '/chat/completions'
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    stream: true,
+    max_tokens: maxTokens,
+    temperature,
+  }
+  if (tools && tools.length > 0) body.tools = tools
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: true,
-      max_tokens: maxTokens,
-      temperature,
-    }),
+    body: JSON.stringify(body),
     signal,
   })
 
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`API 错误 ${res.status}: ${body}`)
+    const text = await res.text()
+    throw new Error(`API 错误 ${res.status}: ${text}`)
   }
 
   const reader = res.body!.getReader()
   const decoder = new TextDecoder()
   let buf = ''
+  let fullContent = ''
+  let finishReason = 'stop'
+  const toolCallAcc = new Map<number, ToolCallDelta>()
 
   while (true) {
     const { done, value } = await reader.read()
@@ -77,15 +96,52 @@ async function streamOpenAI(
       const trimmed = line.trim()
       if (!trimmed.startsWith('data:')) continue
       const payload = trimmed.slice(5).trim()
-      if (payload === '[DONE]') return
+      if (payload === '[DONE]') {
+        return {
+          content: fullContent,
+          toolCalls: toolCallAcc.size > 0 ? [...toolCallAcc.values()] : null,
+          finishReason,
+        }
+      }
       try {
         const evt = JSON.parse(payload)
-        const delta = evt.choices?.[0]?.delta?.content
-        if (delta) onToken(delta)
+        const choice = evt.choices?.[0]
+        if (!choice) continue
+
+        // Text content
+        const delta = choice.delta?.content
+        if (delta) {
+          fullContent += delta
+          onToken(delta)
+        }
+
+        // Tool calls (incremental)
+        if (choice.delta?.tool_calls) {
+          for (const tc of choice.delta.tool_calls) {
+            const idx: number = tc.index ?? 0
+            if (!toolCallAcc.has(idx)) {
+              toolCallAcc.set(idx, { id: '', name: '', arguments: '' })
+            }
+            const acc = toolCallAcc.get(idx)!
+            if (tc.id) acc.id = tc.id
+            if (tc.function?.name) acc.name = tc.function.name
+            if (tc.function?.arguments) acc.arguments += tc.function.arguments
+          }
+        }
+
+        // Finish reason
+        if (choice.finish_reason) {
+          finishReason = choice.finish_reason
+        }
       } catch {
         // ignore parse errors on individual lines
       }
     }
+  }
+  return {
+    content: fullContent,
+    toolCalls: toolCallAcc.size > 0 ? [...toolCallAcc.values()] : null,
+    finishReason,
   }
 }
 
@@ -96,14 +152,31 @@ async function streamAnthropic(
   model: string,
   maxTokens: number,
   temperature: number,
-  messages: { role: string; content: string }[],
+  messages: { role: string; content: string; tool_calls?: unknown; tool_call_id?: string }[],
   onToken: (t: string) => void,
-  signal: AbortSignal
-) {
+  signal: AbortSignal,
+  tools?: unknown[],
+): Promise<StreamResult> {
   const url = baseUrl.replace(/\/$/, '') + '/v1/messages'
   // Anthropic不允许 system role 在 messages 里，单独提取
   const systemParts = messages.filter(m => m.role === 'system').map(m => m.content)
   const chatMsgs = messages.filter(m => m.role !== 'system')
+  const body: Record<string, unknown> = {
+    model,
+    ...(systemParts.length ? { system: systemParts.join('\n') } : {}),
+    messages: chatMsgs,
+    stream: true,
+    max_tokens: maxTokens,
+    temperature,
+  }
+  if (tools && tools.length > 0) {
+    // Convert OpenAI function calling format to Anthropic tool format
+    body.tools = (tools as Array<{ type: string; function: { name: string; description: string; parameters: unknown } }>).map(t => ({
+      name: t.function.name,
+      description: t.function.description,
+      input_schema: t.function.parameters,
+    }))
+  }
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -112,25 +185,22 @@ async function streamAnthropic(
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({
-      model,
-      ...(systemParts.length ? { system: systemParts.join('\n') } : {}),
-      messages: chatMsgs,
-      stream: true,
-      max_tokens: maxTokens,
-      temperature,
-    }),
+    body: JSON.stringify(body),
     signal,
   })
 
   if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`API 错误 ${res.status}: ${body}`)
+    const text = await res.text()
+    throw new Error(`API 错误 ${res.status}: ${text}`)
   }
 
   const reader = res.body!.getReader()
   const decoder = new TextDecoder()
   let buf = ''
+  let fullContent = ''
+  let finishReason = 'stop'
+  // Accumulate tool_use blocks by content_block index
+  const toolBlocks = new Map<number, ToolCallDelta>()
 
   while (true) {
     const { done, value } = await reader.read()
@@ -144,13 +214,42 @@ async function streamAnthropic(
       const payload = trimmed.slice(5).trim()
       try {
         const evt = JSON.parse(payload)
+        // Text delta
         if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
-          onToken(evt.delta.text ?? '')
+          const text = evt.delta.text ?? ''
+          fullContent += text
+          onToken(text)
+        }
+        // Tool use block start
+        if (evt.type === 'content_block_start' && evt.content_block?.type === 'tool_use') {
+          const idx: number = evt.index
+          toolBlocks.set(idx, {
+            id: evt.content_block.id ?? '',
+            name: evt.content_block.name ?? '',
+            arguments: '',
+          })
+        }
+        // Tool use input delta
+        if (evt.type === 'content_block_delta' && evt.delta?.type === 'input_json_delta') {
+          const idx: number = evt.index
+          const block = toolBlocks.get(idx)
+          if (block) {
+            block.arguments += evt.delta.partial_json ?? ''
+          }
+        }
+        // Message delta (stop reason)
+        if (evt.type === 'message_delta' && evt.delta?.stop_reason) {
+          finishReason = evt.delta.stop_reason === 'tool_use' ? 'tool_calls' : evt.delta.stop_reason
         }
       } catch {
         // ignore
       }
     }
+  }
+  return {
+    content: fullContent,
+    toolCalls: toolBlocks.size > 0 ? [...toolBlocks.values()] : null,
+    finishReason,
   }
 }
 
