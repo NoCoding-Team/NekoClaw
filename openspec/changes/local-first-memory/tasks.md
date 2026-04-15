@@ -44,9 +44,9 @@
 
 ## 8. 云端同步与后端适配
 
-- [ ] 8.1 MemoryPanel 添加"上传到云端"按钮：选中文件 → POST 文件内容到后端 memory files API
-- [ ] 8.2 MemoryPanel 添加"从云端拉取"按钮：GET 云端文件列表 → 选择下载 → 覆盖本地
-- [ ] 8.3 后端新增 `/api/memory/files` REST API（GET 列表 / GET 内容 / PUT 写入），服务端存储用户记忆文件
-- [ ] 8.4 后端 `_build_system_prompt` 改为从 Markdown 文件读取记忆内容（Mode A 路径），替代 DB SELECT
-- [ ] 8.5 后端 `server_tools.py` 中 `save_memory` / `update_memory` 替换为 `memory_write` / `memory_read` / `memory_search`（操作服务端文件）
-- [ ] 8.6 后端 `_memory_refresh` 更新静默消息，引导 LLM 使用 `memory_write` 工具
+- [x] 8.1 MemoryPanel 添加"上传到云端"按钮：选中文件 → POST 文件内容到后端 memory files API
+- [x] 8.2 MemoryPanel 添加"从云端拉取"按钮：GET 云端文件列表 → 选择下载 → 覆盖本地
+- [x] 8.3 后端新增 `/api/memory/files` REST API（GET 列表 / GET 内容 / PUT 写入），服务端存储用户记忆文件
+- [x] 8.4 后端 `_build_system_prompt` 改为从 Markdown 文件读取记忆内容（Mode A 路径），替代 DB SELECT
+- [x] 8.5 后端 `server_tools.py` 中 `save_memory` / `update_memory` 替换为 `memory_write` / `memory_read` / `memory_search`（操作服务端文件）
+- [x] 8.6 后端 `_memory_refresh` 更新静默消息，引导 LLM 使用 `memory_write` 工具

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState, useCallback } from 'react'
 import styles from './MemoryPanel.module.css'
 import { useToast } from '../../hooks/useToast'
+import { useAppStore } from '../../store/app'
 import Toast from '../Toast/Toast'
 
 interface MemoryFile {
@@ -16,6 +17,7 @@ export default function MemoryPanel() {
   const [editBuffer, setEditBuffer] = useState('')
   const [loading, setLoading] = useState(false)
   const { toast, showToast, dismissToast } = useToast()
+  const { token, serverUrl, serverConnected } = useAppStore()
 
   // ── Load file list ────────────────────────────────────────────────────
   const loadFiles = useCallback(async () => {
@@ -111,6 +113,64 @@ export default function MemoryPanel() {
     }
   }
 
+  // ── Cloud sync ────────────────────────────────────────────────────────
+  const uploadToCloud = async () => {
+    if (!selectedFile || !token || !serverUrl) {
+      showToast('请先登录服务器')
+      return
+    }
+    const mem = window.nekoBridge?.memory
+    if (!mem) return
+    try {
+      const result = await mem.read(selectedFile)
+      const content = (result as { content?: string }).content ?? ''
+      const resp = await fetch(`${serverUrl}/api/memory/files/${encodeURIComponent(selectedFile)}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
+        body: content,
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      showToast(`${selectedFile} 已上传到云端`)
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '上传失败')
+    }
+  }
+
+  const pullFromCloud = async () => {
+    if (!token || !serverUrl) {
+      showToast('请先登录服务器')
+      return
+    }
+    try {
+      const resp = await fetch(`${serverUrl}/api/memory/files`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const cloudFiles = await resp.json() as Array<{ name: string }>
+      if (cloudFiles.length === 0) {
+        showToast('云端无记忆文件')
+        return
+      }
+      const mem = window.nekoBridge?.memory
+      if (!mem) return
+      let count = 0
+      for (const cf of cloudFiles) {
+        const fileResp = await fetch(`${serverUrl}/api/memory/files/${encodeURIComponent(cf.name)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!fileResp.ok) continue
+        const data = await fileResp.json() as { content: string }
+        await mem.write(cf.name, data.content)
+        count++
+      }
+      showToast(`已从云端拉取 ${count} 个文件`)
+      loadFiles()
+      if (selectedFile) readFile(selectedFile)
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '拉取失败')
+    }
+  }
+
   // ── Simple Markdown rendering (lightweight, no external deps) ─────────
   const renderMarkdown = (md: string) => {
     // Basic: headings, bold, italic, code blocks, inline code, lists, links
@@ -179,6 +239,18 @@ export default function MemoryPanel() {
           <button className={styles.btnSecondary} onClick={createTodayNote}>
             + 今日笔记
           </button>
+          {serverConnected && token && (
+            <>
+              <button className={styles.btnSecondary} onClick={pullFromCloud} title="从云端拉取所有记忆文件">
+                ↓ 拉取
+              </button>
+              {selectedFile && (
+                <button className={styles.btnSecondary} onClick={uploadToCloud} title="上传当前文件到云端">
+                  ↑ 上传
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
 

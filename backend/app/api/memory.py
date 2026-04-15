@@ -1,11 +1,14 @@
 import uuid
-from fastapi import APIRouter, Depends, Query
+import os
+import re
+from fastapi import APIRouter, Depends, Query, Body
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from app.core.deps import get_db, get_current_user
+from app.core.config import settings
 from app.core.exceptions import NotFoundError, ForbiddenError, ConflictError
 from app.models.memory import Memory
 from app.models.user import User
@@ -112,3 +115,65 @@ async def export_memories(
         content=markdown,
         headers={"Content-Disposition": "attachment; filename=nekoclaw_memories.md"},
     )
+
+
+# ── Memory Files API (Markdown file-based) ─────────────────────────────────
+
+def _user_memory_dir(user_id: str) -> str:
+    """Get the per-user memory file directory, creating it if needed."""
+    d = os.path.join(settings.MEMORY_FILES_DIR, user_id)
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _validate_memory_filename(name: str) -> str:
+    """Validate and sanitize a memory file name."""
+    if not name or not name.endswith('.md'):
+        raise NotFoundError("Only .md files are allowed")
+    # Reject path traversal and absolute paths
+    if '..' in name or '/' in name or '\\' in name or os.path.isabs(name):
+        raise ForbiddenError("Invalid file name")
+    if not re.match(r'^[\w\-. ]+\.md$', name):
+        raise ForbiddenError("Invalid file name characters")
+    return name
+
+
+@router.get("/files")
+async def list_memory_files(current_user: User = Depends(get_current_user)):
+    """List all memory files for the current user."""
+    d = _user_memory_dir(current_user.id)
+    files = []
+    for fname in os.listdir(d):
+        if fname.endswith('.md'):
+            fpath = os.path.join(d, fname)
+            stat = os.stat(fpath)
+            files.append({"name": fname, "mtime": stat.st_mtime})
+    files.sort(key=lambda f: (f["name"] != "MEMORY.md", -f["mtime"]))
+    return files
+
+
+@router.get("/files/{filename}")
+async def read_memory_file(filename: str, current_user: User = Depends(get_current_user)):
+    """Read a memory file's content."""
+    name = _validate_memory_filename(filename)
+    fpath = os.path.join(_user_memory_dir(current_user.id), name)
+    if not os.path.isfile(fpath):
+        raise NotFoundError("File not found")
+    with open(fpath, 'r', encoding='utf-8') as f:
+        return {"name": name, "content": f.read()}
+
+
+@router.put("/files/{filename}")
+async def write_memory_file(
+    filename: str,
+    content: str = Body(..., media_type="text/plain"),
+    current_user: User = Depends(get_current_user),
+):
+    """Write (create or overwrite) a memory file."""
+    name = _validate_memory_filename(filename)
+    # Sanitize content: strip ASCII control chars except \n \t
+    sanitized = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', content)
+    fpath = os.path.join(_user_memory_dir(current_user.id), name)
+    with open(fpath, 'w', encoding='utf-8') as f:
+        f.write(sanitized)
+    return {"name": name, "success": True}

@@ -1,7 +1,9 @@
 """
-Server-side tool execution: web_search, http_request, save_memory, update_memory.
+Server-side tool execution: web_search, http_request, memory_write, memory_read, memory_search.
+Legacy: save_memory, update_memory (DB-based, kept for backward compatibility).
 """
 import json
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -74,12 +76,99 @@ async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str
         return await execute_web_search(args)
     elif tool_name == "http_request":
         return await execute_http_request(args)
+    elif tool_name == "memory_write":
+        return await execute_memory_write(args, user_id)
+    elif tool_name == "memory_read":
+        return await execute_memory_read(args, user_id)
+    elif tool_name == "memory_search":
+        return await execute_memory_search(args, user_id)
+    # Legacy DB-based tools (backward compatibility)
     elif tool_name == "save_memory":
         return await execute_save_memory(args, user_id)
     elif tool_name == "update_memory":
         return await execute_update_memory(args, user_id)
     return json.dumps({"error": f"Unknown server tool: {tool_name}"})
 
+
+# ── File-based memory tools ────────────────────────────────────────────────
+
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _validate_memory_path(path: str) -> str:
+    """Validate memory file path (only .md, no traversal)."""
+    if not path or not path.endswith('.md'):
+        raise ValueError("Only .md files are allowed")
+    normalized = os.path.normpath(path)
+    if normalized.startswith('..') or '..' + os.sep in normalized or os.path.isabs(normalized):
+        raise ValueError("Path traversal not allowed")
+    return normalized
+
+
+def _user_memory_dir(user_id: str) -> str:
+    d = os.path.join(settings.MEMORY_FILES_DIR, user_id)
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+async def execute_memory_write(args: dict[str, Any], user_id: str | None) -> str:
+    if not user_id:
+        return json.dumps({"error": "user_id required"})
+    try:
+        path = _validate_memory_path(str(args.get("path", "")))
+        content = _CTRL_RE.sub("", str(args.get("content", "")))
+        fpath = os.path.join(_user_memory_dir(user_id), path)
+        os.makedirs(os.path.dirname(fpath), exist_ok=True)
+        with open(fpath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return json.dumps({"ok": True, "path": path})
+    except (ValueError, OSError) as e:
+        return json.dumps({"error": str(e)})
+
+
+async def execute_memory_read(args: dict[str, Any], user_id: str | None) -> str:
+    if not user_id:
+        return json.dumps({"error": "user_id required"})
+    try:
+        path = _validate_memory_path(str(args.get("path", "")))
+        fpath = os.path.join(_user_memory_dir(user_id), path)
+        if not os.path.isfile(fpath):
+            return json.dumps({"error": "File not found", "path": path})
+        with open(fpath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return json.dumps({"ok": True, "path": path, "content": content})
+    except (ValueError, OSError) as e:
+        return json.dumps({"error": str(e)})
+
+
+async def execute_memory_search(args: dict[str, Any], user_id: str | None) -> str:
+    if not user_id:
+        return json.dumps({"error": "user_id required"})
+    try:
+        query = str(args.get("query", "")).lower()
+        if not query:
+            return json.dumps({"error": "query must not be empty"})
+        d = _user_memory_dir(user_id)
+        results = []
+        for fname in os.listdir(d):
+            if not fname.endswith('.md'):
+                continue
+            fpath = os.path.join(d, fname)
+            with open(fpath, 'r', encoding='utf-8') as f:
+                content = f.read()
+            lines = content.split('\n')
+            for i, line in enumerate(lines):
+                if query in line.lower():
+                    start = max(0, i - 1)
+                    end = min(len(lines), i + 2)
+                    results.append({"path": fname, "snippet": '\n'.join(lines[start:end])})
+                    break
+        return json.dumps({"ok": True, "results": results}, ensure_ascii=False)
+    except OSError as e:
+        return json.dumps({"error": str(e)})
+
+
+# ── Legacy DB-based memory tools (backward compatibility) ──────────────────
 
 _CTRL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 

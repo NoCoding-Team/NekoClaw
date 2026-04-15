@@ -194,14 +194,16 @@ _TOOL_RULES = (
     "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`："
     "通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地操作权限。\n"
     "   - `web_search`、`http_request`：在服务端执行，用于联网搜索和 API 请求。\n"
+    "   - `memory_write`、`memory_read`、`memory_search`：在服务端读写用户记忆文件。\n"
     "4. 执行完工具后，把结果以友好的方式告诉用户，不要再让用户自己去看。\n"
     "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。\n\n"
     "## 记忆工具使用规则\n"
-    "当 `save_memory` / `update_memory` 工具在列表中时：\n"
-    "- 用户透露重要信息时（偏好、事实、指令、个人情况），主动调用 `save_memory`。\n"
-    "- 用户纠正之前信息时，调用 `update_memory` 而不是 `save_memory`。\n"
+    "当 `memory_write` / `memory_read` / `memory_search` 工具在列表中时：\n"
+    "- 记忆以 Markdown 文件存储：长期记忆写入 `MEMORY.md`，当日笔记写入 `YYYY-MM-DD.md`。\n"
+    "- 用户透露重要信息时（偏好、事实、指令、个人情况），先 `memory_read` 读取 MEMORY.md，追加新条目后 `memory_write` 回去。\n"
+    "- 用户纠正之前信息时，先读取再修改对应内容后写回。\n"
     "- 不要对临时信息（如今天天气、一次性任务）保存记忆。\n"
-    "- 每轮对话最多保存 3 条记忆，避免过度记录。"
+    "- 每轮对话最多操作 3 次记忆文件，避免过度记录。"
 )
 
 _DEFAULT_PERSONA = "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。"
@@ -216,7 +218,7 @@ async def _build_system_prompt(user_id: str, skill: Any | None, client_system_pr
     else:
         base = _DEFAULT_PERSONA + "\n\n" + _TOOL_RULES
 
-    # Inject memory
+    # Inject memory from Markdown files (Mode A: server-side)
     memory_context = await _load_memory(user_id)
     if memory_context:
         base += f"\n\n## 关于用户的记忆\n{memory_context}"
@@ -224,6 +226,40 @@ async def _build_system_prompt(user_id: str, skill: Any | None, client_system_pr
 
 
 async def _load_memory(user_id: str) -> str:
+    """Load memory from Markdown files for Mode A (server-side).
+    Falls back to DB-based memory if no files exist."""
+    import os
+    from app.core.config import settings
+    from datetime import date, timedelta
+    user_dir = os.path.join(settings.MEMORY_FILES_DIR, user_id)
+
+    parts = []
+
+    # Read MEMORY.md (long-term memory)
+    memory_md = os.path.join(user_dir, 'MEMORY.md')
+    if os.path.isfile(memory_md):
+        with open(memory_md, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+        if content:
+            # Truncate to 4000 chars
+            if len(content) > 4000:
+                content = content[:4000] + '\n...(已截断)'
+            parts.append(content)
+
+    # Read today + yesterday daily notes
+    today = date.today()
+    for d in [today, today - timedelta(days=1)]:
+        daily_path = os.path.join(user_dir, f'{d.isoformat()}.md')
+        if os.path.isfile(daily_path):
+            with open(daily_path, 'r', encoding='utf-8') as f:
+                text = f.read().strip()
+            if text:
+                parts.append(f"### {d.isoformat()} 笔记\n{text}")
+
+    if parts:
+        return '\n\n'.join(parts)
+
+    # Fallback: DB-based memory (legacy)
     from app.models.memory import Memory
     from sqlalchemy import func as sqlfunc
     async with AsyncSessionLocal() as db:
@@ -234,7 +270,6 @@ async def _load_memory(user_id: str) -> str:
             .limit(50)
         )
         entries = result.scalars().all()
-        # Update last_used_at for fetched memories
         now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
         for e in entries:
             e.last_used_at = now
@@ -402,9 +437,9 @@ async def _memory_refresh(
         {
             "role": "system",
             "content": (
-                "你是记忆整理助手。请检查以下对话，找出值得长期保存的用户信息（偏好、事实、指令等）。"
-                "使用 save_memory 工具保存，使用 update_memory 工具更新已过时的记忆。"
-                "临时信息和一次性任务不需要保存。每次最多保存 5 条。"
+                "你是记忆整理助手。请检查以下对话，找出值得长期保存的用户信息（偏好、事实、指令等）。\n"
+                "使用 memory_read 读取 MEMORY.md，追加新条目后用 memory_write 写回。\n"
+                "临时信息和一次性任务不需要保存。每次最多操作 5 次工具调用。"
                 + existing_block
             ),
         },
@@ -412,26 +447,35 @@ async def _memory_refresh(
     ]
 
     from app.services.tools.definitions import get_openai_tools
-    refresh_tools = get_openai_tools(["save_memory", "update_memory"])
+    refresh_tools = get_openai_tools(["memory_read", "memory_write", "memory_search"])
 
     try:
         from openai import AsyncOpenAI
         from app.core.security import decrypt_api_key
         api_key = decrypt_api_key(llm_config.api_key_encrypted)
         client = AsyncOpenAI(api_key=api_key, base_url=llm_config.base_url)
-        resp = await client.chat.completions.create(
-            model=llm_config.model,
-            messages=refresh_messages,
-            tools=refresh_tools if refresh_tools else None,
-            stream=False,
-        )
-        tool_calls = resp.choices[0].message.tool_calls or []
-        for tc in tool_calls:
-            try:
-                args = json.loads(tc.function.arguments)
-            except Exception:
-                continue
-            await execute_server_tool(tc.function.name, args, user_id)
+
+        messages = refresh_messages
+        for _ in range(3):  # max 3 rounds of tool calls
+            resp = await client.chat.completions.create(
+                model=llm_config.model,
+                messages=messages,
+                tools=refresh_tools if refresh_tools else None,
+                stream=False,
+            )
+            choice = resp.choices[0]
+            tool_calls = choice.message.tool_calls or []
+            if not tool_calls:
+                break
+            # Append assistant message with tool calls
+            messages.append(choice.message.model_dump())
+            for tc in tool_calls:
+                try:
+                    args = json.loads(tc.function.arguments)
+                except Exception:
+                    continue
+                result = await execute_server_tool(tc.function.name, args, user_id)
+                messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
     except Exception:
         pass  # memory refresh is best-effort, never crash the main pipeline
 

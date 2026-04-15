@@ -36,55 +36,56 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "save_memory",
+        "name": "memory_write",
         "executor": "server",
         "description": (
-            "Save a new long-term memory about the user. "
-            "Use this when the user reveals something important: preferences, facts, instructions, or personal context. "
-            "Do NOT use this for transient information. category must be one of: preference, fact, instruction, history, other."
+            "写入或更新一个 Markdown 记忆文件。"
+            "长期记忆写入 MEMORY.md，当日笔记写入 YYYY-MM-DD.md。"
+            "写入时请提供文件的完整内容（会覆盖原文件）。"
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "category": {
+                "path": {
                     "type": "string",
-                    "enum": ["preference", "fact", "instruction", "history", "other"],
-                    "description": "Memory category",
+                    "description": "文件路径，如 MEMORY.md 或 2025-01-01.md",
                 },
                 "content": {
                     "type": "string",
-                    "description": "Memory content (max 1000 characters)",
+                    "description": "Markdown 格式的文件内容",
                 },
             },
-            "required": ["category", "content"],
+            "required": ["path", "content"],
         },
     },
     {
-        "name": "update_memory",
+        "name": "memory_read",
         "executor": "server",
-        "description": (
-            "Update or correct an existing memory. "
-            "Use this when the user corrects previous information, or when a preference/fact has changed. "
-            "You must provide the exact old content to identify the memory."
-        ),
+        "description": "读取一个记忆文件的内容。",
         "parameters": {
             "type": "object",
             "properties": {
-                "old_content": {
+                "path": {
                     "type": "string",
-                    "description": "Exact content of the memory to update",
-                },
-                "new_content": {
-                    "type": "string",
-                    "description": "New content to replace the old memory (max 1000 characters)",
-                },
-                "category": {
-                    "type": "string",
-                    "enum": ["preference", "fact", "instruction", "history", "other"],
-                    "description": "New category (can be same as old)",
+                    "description": "文件路径，如 MEMORY.md",
                 },
             },
-            "required": ["old_content", "new_content", "category"],
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "memory_search",
+        "executor": "server",
+        "description": "根据关键词搜索所有记忆文件，返回匹配的片段。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "搜索关键词",
+                },
+            },
+            "required": ["query"],
         },
     },
     # ── Client-side tools ─────────────────────────────────────────────
