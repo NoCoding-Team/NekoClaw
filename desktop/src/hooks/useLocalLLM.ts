@@ -697,7 +697,7 @@ export function useLocalLLM(sessionId: string | null) {
             }
           }
           // 两段式标题：仅在第一轮对话（只有1条 user + 1条 assistant）时触发
-          const isFirstRound = msgs.filter((m) => m.role === 'assistant').length === 1
+          const isFirstRound = msgs.filter((m) => m.role === 'user').length === 1
           if (isFirstRound) {
             const { serverUrl: sv, token: tk } = useAppStore.getState()
             autoUpdateTitle(sid, content, finalMsg.content, localLLMConfig, sv, tk ?? '')

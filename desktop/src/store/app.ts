@@ -150,6 +150,8 @@ export interface ChatMessage {
   content: string
   toolCalls?: ToolCall[]
   streaming?: boolean
+  /** 工具调用前的前言文本，用于展示合并后的混合轮次气泡 */
+  preamble?: string
 }
 
 export interface ToolCall {

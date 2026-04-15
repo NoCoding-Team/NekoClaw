@@ -8,21 +8,47 @@ import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
 
-/** 将连续的 tool 消息合并成一条，让所有工具卡片显示在同一个气泡里 */
+/** 将连续的 tool 消息合并，并将 [assistant(前言), tool+, assistant(回复)?] 合并成同一轮次气泡 */
 function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
-  const result: ChatMsg[] = []
+  // Step 1: 合并连续的 tool 消息
+  const step1: ChatMsg[] = []
   for (const msg of msgs) {
     if (msg.role === 'tool') {
-      const last = result[result.length - 1]
+      const last = step1[step1.length - 1]
       if (last?.role === 'tool') {
-        result[result.length - 1] = {
+        step1[step1.length - 1] = {
           ...last,
           toolCalls: [...(last.toolCalls ?? []), ...(msg.toolCalls ?? [])],
         }
         continue
       }
     }
+    step1.push(msg)
+  }
+
+  // Step 2: 将 [assistant(前言), tool, assistant(回复)?] 合并为一个混合轮次
+  const result: ChatMsg[] = []
+  let i = 0
+  while (i < step1.length) {
+    const msg = step1[i]
+    const nextMsg = step1[i + 1]
+    // 当前是 assistant（无工具），且下一个是 tool：开始合并
+    if (msg.role === 'assistant' && !msg.toolCalls?.length && nextMsg?.role === 'tool') {
+      const followup = step1[i + 2]?.role === 'assistant' ? step1[i + 2] : null
+      const merged: ChatMsg = {
+        id: msg.id,
+        role: 'assistant',
+        preamble: msg.content || undefined,
+        toolCalls: nextMsg.toolCalls,
+        content: followup?.content ?? '',
+        streaming: followup?.streaming,
+      }
+      result.push(merged)
+      i += followup ? 3 : 2
+      continue
+    }
     result.push(msg)
+    i++
   }
   return result
 }

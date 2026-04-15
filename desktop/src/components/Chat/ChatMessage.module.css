@@ -78,6 +78,15 @@
   font-size: 0.88em;
 }
 
+/* 混合轮次容器：前言气泡 + 工具卡片 + 回复气泡垂直排列 */
+.aiTurnStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 520px;
+  width: 100%;
+}
+
 /* Tool call card */
 .toolCardList {
   display: flex;

@@ -38,6 +38,33 @@ export function ChatMessage({ message }: Props) {
     )
   }
 
+  // 混合轮次：assistant + 工具卡片 + 回复（preamble 或 toolCalls 存在）
+  if (message.role === 'assistant' && message.toolCalls?.length) {
+    return (
+      <div className={styles.row}>
+        <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+        <div className={styles.aiTurnStack}>
+          {message.preamble && (
+            <div className={styles.aiBubble + ' selectable'}>
+              <AiMarkdown content={message.preamble} />
+            </div>
+          )}
+          <div className={styles.toolCardList}>
+            {message.toolCalls.map((tc) => (
+              <ToolCallCard key={tc.callId} tc={tc} />
+            ))}
+          </div>
+          {(message.content || message.streaming) && (
+            <div className={styles.aiBubble + ' selectable'}>
+              <AiMarkdown content={message.content || (message.streaming ? '▋' : '')} />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 独立 tool 消息（合并后一般不会出现，兼容敏管）
   if (message.role === 'tool' && message.toolCalls?.length) {
     return (
       <div className={styles.row}>
@@ -51,37 +78,43 @@ export function ChatMessage({ message }: Props) {
     )
   }
 
-  // Assistant — skip empty non-streaming messages (e.g. tool-call wrappers)
+  // Assistant 纯文本——跳过空内容非流式消息
   if (!message.content && !message.streaming) return null
 
   return (
     <div className={styles.row}>
       <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
       <div className={styles.aiBubble + ' selectable'}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            code({ className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '')
-              if (match) {
-                return (
-                  <SyntaxHighlighter
-                    style={oneDark}
-                    language={match[1]}
-                    PreTag="div"
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                )
-              }
-              return <code className={styles.inlineCode} {...props}>{children}</code>
-            },
-          }}
-        >
-          {message.content || (message.streaming ? '▋' : '')}
-        </ReactMarkdown>
+        <AiMarkdown content={message.content || (message.streaming ? '▋' : '')} />
       </div>
     </div>
+  )
+}
+
+function AiMarkdown({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || '')
+          if (match) {
+            return (
+              <SyntaxHighlighter
+                style={oneDark}
+                language={match[1]}
+                PreTag="div"
+              >
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            )
+          }
+          return <code className={styles.inlineCode} {...props}>{children}</code>
+        },
+      }}
+    >
+      {content}
+    </ReactMarkdown>
   )
 }
 

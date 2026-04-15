@@ -155,7 +155,7 @@ export function useWebSocket(sessionId: string | null) {
           }
           // 两段式标题：仅在第一轮对话时触发
           const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
-          const isFirstRound = allMsgs.filter((m) => m.role === 'assistant').length === 1
+          const isFirstRound = allMsgs.filter((m) => m.role === 'user').length === 1
           if (isFirstRound) {
             const firstUser = allMsgs.find((m) => m.role === 'user')
             const { serverUrl: sv, token: tk, updateSessionTitle } = useAppStore.getState()
