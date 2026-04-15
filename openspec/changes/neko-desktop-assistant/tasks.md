@@ -23,7 +23,7 @@
 - [x] 3.2 实现管理员 LLM 配置 CRUD API（`GET/POST/DELETE /api/admin/llm-configs`）
 - [x] 3.3 实现 `GET /api/llm-configs` 获取可用模型列表（不返回 API Key）
 - [x] 3.4 实现模式 A 托管调用：服务端 LLM 调用 + 流式 WebSocket 推送
-- [ ] 3.5 实现模式 B 自定义 Key：服务端注入记忆/沙盒 Prompt 后返回增强 messages[]
+- [x] 3.5 实现模式 B 自定义 Key：服务端注入记忆/沙盒 Prompt 后返回增强 messages[]
 - [x] 3.6 实现工具路由机制：根据工具定义的 `executor` 字段决定本地/服务端执行
 - [x] 3.7 实现 PC 端工具执行超时处理（60s 无响应返回超时错误）
 - [x] 3.8 集成网络搜索工具（Tavily API，`executor: "server"`）
@@ -49,7 +49,7 @@
 - [x] 6.1 创建 Memory 数据模型（id、user_id、category、content、storage_type、timestamp、source）
 - [x] 6.2 实现记忆 CRUD API（`GET/POST/DELETE /api/memory`，支持按 category 过滤）
 - [x] 6.3 实现记忆注入：会话开始时将相关记忆拼入系统提示
-- [ ] 6.4 实现乐观锁防并发冲突（version 字段，写入时校验）
+- [x] 6.4 实现乐观锁防并发冲突（version 字段，写入时校验）
 - [x] 6.5 实现记忆导出 API（`GET /api/memory/export`，返回 Markdown 文件）
 
 ## 7. PC 端 Electron 项目搭建
@@ -67,9 +67,9 @@
 - [x] 8.1 实现消息列表组件（用户气泡、AI 气泡、工具调用卡片）
 - [x] 8.2 实现 LLM 流式 token 渲染（打字机效果，llm_token 事件追加）
 - [x] 8.3 实现工具调用卡片（展示工具名、参数摘要、执行状态；可展开查看完整输出）
-- [ ] 8.4 实现 Skill 选择器组件（下拉列表，显示 Skill 名称和图标）
-- [ ] 8.5 实现 LLM 模式切换（模式 A/B 切换入口，模式 B 下自定义 API Key 输入）
-- [ ] 8.6 实现 API Key 安全存储（Electron `safeStorage.encryptString()`）
+- [x] 8.4 实现 Skill 选择器组件（下拉列表，显示 Skill 名称和图标）
+- [x] 8.5 实现 LLM 模式切换（模式 A/B 切换入口，模式 B 下自定义 API Key 输入）
+- [x] 8.6 实现 API Key 安全存储（Electron `safeStorage.encryptString()`）
 - [x] 8.7 实现消息输入框（多行支持、发送快捷键 Ctrl+Enter）
 
 ## 9. PC 端本地工具层
@@ -78,26 +78,26 @@
 - [x] 9.2 集成 node-pty，实现 TerminalHandler（shell_exec，伪终端流式输出，5 分钟超时）
 - [x] 9.3 实现 BrowserHandler（Playwright Worker 懒加载，browser_navigate / browser_screenshot / browser_click / browser_type）
 - [x] 9.4 实现浏览器 Worker 自动关闭（5 分钟无调用 terminate）
-- [ ] 9.5 实现本地操作日志（命令执行记录写入本地文件）
+- [x] 9.5 实现本地操作日志（命令执行记录写入本地文件）
 
 ## 10. PC 端沙盒确认 UI
 
 - [x] 10.1 实现 HIGH 级别确认对话框（显示工具名、完整参数、风险原因，确认/拒绝按鈕）
 - [x] 10.2 实现 MEDIUM 级别工具卡片黄色警告标记和一键确认
-- [ ] 10.3 实现沙盒级别设置界面（阈值调整、关闭沙盒需二次确认）
+- [x] 10.3 实现沙盒级别设置界面（阈值调整、关闭沙盒需二次确认）
 
 ## 11. PC 端记忆库界面
 
 - [x] 11.1 实现记忆库列表组件（按分类 tab 展示，显示内容摘要/时间/存储位置标签）
 - [x] 11.2 实现记忆条目删除（确认对话框）
-- [ ] 11.3 实现本地记忆存储（本地文件读写，显示「仅本机」提示）
+- [x] 11.3 实现本地记忆存储（本地文件读写，显示「仅本机」提示）
 - [x] 11.4 实现记忆导出（ZIP 打包下载）和导入（MD 文件解析，去重追加）
 
 ## 12. PC 端技能库界面
 
 - [x] 12.1 实现技能库列表页（内置 Skill + 用户自定义 Skill，卡片布局）
 - [x] 12.2 实现 Skill 创建/编辑表单（名称、图标、系统提示、工具选择、沙盒级别）
-- [ ] 12.3 实现本地 Skill 存储（JSON 文件读写）
+- [x] 12.3 实现本地 Skill 存储（JSON 文件读写）
 
 ## 13. 定时任务
 
