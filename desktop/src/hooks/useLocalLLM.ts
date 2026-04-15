@@ -483,7 +483,9 @@ export function useLocalLLM(sessionId: string | null) {
       const history = [
         ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
         ...allMsgs
-          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          // 跳过 tool 消息和空 assistant 占位（agentic loop 每轮插入的空 streaming 占位）
+          // 避免重建出连续 assistant 消息，违反 OpenAI API 格式导致请求静默失败
+          .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim() !== '')
           .map((m) => ({ role: m.role, content: m.content })),
       ]
 
