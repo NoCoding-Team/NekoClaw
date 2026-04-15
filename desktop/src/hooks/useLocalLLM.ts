@@ -612,7 +612,11 @@ export function useLocalLLM(sessionId: string | null) {
                 status: 'error',
                 result: limitMsg,
               }
-              appendMessage(sid, { id: uuidv4(), role: 'tool', content: limitMsg, toolCalls: [toolCard] })
+              const toolMsgId = uuidv4()
+              appendMessage(sid, { id: toolMsgId, role: 'tool', content: limitMsg, toolCalls: [toolCard] })
+              if (sid.startsWith('local-')) {
+                window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: limitMsg, toolCalls: JSON.stringify([toolCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
+              }
               llmMessages.push({ role: 'tool', content: limitMsg, tool_call_id: callId })
               loopAborted = true
               continue
@@ -629,7 +633,11 @@ export function useLocalLLM(sessionId: string | null) {
                 status: 'error',
                 result: loopMsg,
               }
-              appendMessage(sid, { id: uuidv4(), role: 'tool', content: loopMsg, toolCalls: [toolCard] })
+              const toolMsgId = uuidv4()
+              appendMessage(sid, { id: toolMsgId, role: 'tool', content: loopMsg, toolCalls: [toolCard] })
+              if (sid.startsWith('local-')) {
+                window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: loopMsg, toolCalls: JSON.stringify([toolCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
+              }
               llmMessages.push({ role: 'tool', content: loopMsg, tool_call_id: callId })
               loopAborted = true
               continue
@@ -651,10 +659,12 @@ export function useLocalLLM(sessionId: string | null) {
               riskLevel: 'LOW',
               status: 'executing',
             }
-            appendMessage(sid, { id: uuidv4(), role: 'tool', content: '', toolCalls: [toolCard] })
+            const toolMsgId = uuidv4()
+            appendMessage(sid, { id: toolMsgId, role: 'tool', content: '', toolCalls: [toolCard] })
 
             // Execute
-            let toolResult: string
+            let toolResult = ''
+            let toolFinalStatus: 'done' | 'error' = 'done'
             try {
               const raw = await executeLocalTool(tc.name, parsedArgs)
               toolResult = typeof raw === 'string' ? raw : JSON.stringify(raw)
@@ -664,10 +674,17 @@ export function useLocalLLM(sessionId: string | null) {
               })
             } catch (err: unknown) {
               toolResult = `Error: ${err instanceof Error ? err.message : String(err)}`
+              toolFinalStatus = 'error'
               useAppStore.getState().updateToolCallStatus(sid, callId, {
                 status: 'error',
                 result: toolResult,
               })
+            }
+
+            // Persist tool message to SQLite (local sessions only)
+            if (sid.startsWith('local-')) {
+              const finalCard: ToolCall = { ...toolCard, status: toolFinalStatus, result: toolResult.slice(0, 2000) }
+              window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: toolResult.slice(0, 2000), toolCalls: JSON.stringify([finalCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
             }
 
             // Track for loop detection

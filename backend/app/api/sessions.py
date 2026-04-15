@@ -128,6 +128,7 @@ async def create_message(
         session_id=session_id,
         role=body.role,
         content=body.content,
+        tool_calls=body.tool_calls,
     )
     db.add(msg)
     await db.commit()
@@ -157,6 +158,7 @@ async def batch_create_messages(
             session_id=session_id,
             role=item.role,
             content=item.content,
+            tool_calls=item.tool_calls,
         )
         db.add(msg)
     await db.commit()

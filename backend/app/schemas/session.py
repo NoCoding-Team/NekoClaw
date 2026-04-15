@@ -28,8 +28,9 @@ class MessageResponse(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    role: str   # 'user' | 'assistant'
-    content: str
+    role: str   # 'user' | 'assistant' | 'tool'
+    content: str = ''
+    tool_calls: list | None = None
 
 
 class SessionUpdate(BaseModel):

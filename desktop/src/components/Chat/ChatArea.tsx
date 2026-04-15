@@ -112,9 +112,9 @@ export function ChatArea() {
       const db = window.nekoBridge?.db
       if (!db) throw new Error('DB不可用')
 
-      // 1. 获取所有本地消息
+      // 1. 获取所有本地消息（包含 tool 消息，保留工具调用卡片）
       const localMsgs = await db.getMessages(activeSessionId)
-      const msgs = localMsgs.filter((m: any) => m.role === 'user' || m.role === 'assistant')
+      const msgs = localMsgs
 
       // 2. 在服务器创建会话
       const sessionTitle = useAppStore.getState().sessions.find(s => s.id === activeSessionId)?.title ?? '新对话'
@@ -131,7 +131,13 @@ export function ChatArea() {
         const batchRes = await fetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(msgs.map((m: any) => ({ role: m.role, content: m.content }))),
+          body: JSON.stringify(msgs.map((m: any) => {
+            let tool_calls = null
+            if (m.toolCalls) {
+              try { tool_calls = typeof m.toolCalls === 'string' ? JSON.parse(m.toolCalls) : m.toolCalls } catch { /* ignore */ }
+            }
+            return { role: m.role, content: m.content, tool_calls }
+          })),
         })
         if (!batchRes.ok) throw new Error(`上传消息失败 ${batchRes.status}`)
       }
@@ -170,9 +176,13 @@ export function ChatArea() {
           const localMsgs = await db.getMessages(activeSessionId)
           setMessages(
             activeSessionId,
-            localMsgs
-              .filter((m) => m.role === 'user' || m.role === 'assistant')
-              .map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })),
+            localMsgs.map((m) => {
+              let toolCalls
+              if (m.toolCalls) {
+                try { toolCalls = JSON.parse(m.toolCalls) } catch { /* malformed, skip */ }
+              }
+              return { id: m.id, role: m.role as 'user' | 'assistant' | 'tool', content: m.content, toolCalls }
+            }),
           )
         } catch {}
       })()
@@ -187,13 +197,14 @@ export function ChatArea() {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (!res.ok) return
-        const data: Array<{ id: string; role: string; content: string | null; tool_calls: null }> = await res.json()
+        const data: Array<{ id: string; role: string; content: string | null; tool_calls: ToolCall[] | null }> = await res.json()
         setMessages(
           activeSessionId,
           data.map((m) => ({
             id: m.id,
             role: m.role as 'user' | 'assistant' | 'tool',
             content: m.content ?? '',
+            toolCalls: m.tool_calls ?? undefined,
           })),
         )
       } catch {
