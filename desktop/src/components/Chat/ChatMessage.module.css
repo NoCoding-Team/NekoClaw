@@ -79,54 +79,117 @@
 }
 
 /* Tool call card */
+.toolCardList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 520px;
+  width: 100%;
+}
+
 .toolCard {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  max-width: 600px;
-  width: 100%;
-  font-size: 13px;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  transition: border-color 0.15s;
+}
+
+.toolCardDone {
+  border-color: transparent;
+  background: rgba(255,255,255,0.03);
 }
 
 .toolHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
 }
 
-.toolIcon { font-size: 14px; }
-.toolName { font-weight: 600; flex: 1; }
-.riskBadge { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
-.toolStatus { font-size: 11px; color: var(--text-muted); }
+.toolIconWrap {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(124, 106, 244, 0.15);
+  color: var(--accent, #7c6af4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.toolName {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+}
+
+.riskBadge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  opacity: 0.85;
+}
+
+.toolArgsToggle {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  padding: 0;
+  transition: background 0.1s;
+}
+.toolArgsToggle:hover { background: rgba(255,255,255,0.07); }
+
+.toolResultChip {
+  font-size: 11px;
+  color: var(--success, #5cb85c);
+  margin-left: auto;
+}
+.toolResultChipErr { color: var(--danger, #e05555); }
+
+.toolStatus {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.toolStatusDim { color: var(--text-muted); opacity: 0.6; }
 
 .toolArgs {
   background: rgba(0,0,0,0.25);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   padding: 8px;
-  font-family: monospace;
-  font-size: 12px;
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 11px;
   color: var(--text-secondary);
   overflow: auto;
   max-height: 160px;
-  margin: 0;
+  margin: 6px 0 0;
 }
 
 .toolReason {
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: 5px;
+  font-size: 11px;
   color: var(--warn);
 }
 
 .toolActions {
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .confirmBtn, .denyBtn {
-  padding: 5px 14px;
+  padding: 4px 12px;
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 600;
@@ -136,15 +199,3 @@
 .confirmBtn:hover { background: var(--accent-dim); }
 .denyBtn { background: rgba(255,255,255,0.07); color: var(--text-secondary); }
 .denyBtn:hover { background: rgba(255,255,255,0.12); }
-
-.toolResult {
-  margin-top: 8px;
-  background: rgba(0,0,0,0.2);
-  border-radius: var(--radius-sm);
-  padding: 8px;
-  font-family: monospace;
-  font-size: 11px;
-  color: var(--text-muted);
-  overflow: auto;
-  max-height: 120px;
-}
