@@ -29,6 +29,7 @@ export const nekoBridge = {
   memory: {
     read: (path: string) => ipcRenderer.invoke('memory:read', path),
     write: (path: string, content: string) => ipcRenderer.invoke('memory:write', path, content),
+    delete: (path: string) => ipcRenderer.invoke('memory:delete', path),
     list: () => ipcRenderer.invoke('memory:list'),
     search: (query: string) => ipcRenderer.invoke('memory:search', query),
     setEmbeddingConfig: (config: { enabled: boolean; baseUrl: string; model: string; apiKey: string }) =>
@@ -56,6 +57,9 @@ export const nekoBridge = {
 
     markSynced: (sessionId: string): Promise<{ success?: boolean; error?: string }> =>
       ipcRenderer.invoke('db:markSynced', sessionId),
+
+    deleteSession: (sessionId: string): Promise<{ success?: boolean; error?: string }> =>
+      ipcRenderer.invoke('db:deleteSession', sessionId),
 
     readLegacyLocalMemories: (): Promise<{
       entries: Array<{ id: string; category: string; content: string; created_at: string }>

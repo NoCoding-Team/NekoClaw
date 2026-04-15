@@ -21,10 +21,16 @@ export function Sidebar() {
     if (deletingId) return
     setDeletingId(id)
     try {
-      await fetch(`${serverUrl}/api/sessions/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      if (id.startsWith('local-')) {
+        // 本地会话：硬删除 SQLite 记录
+        await window.nekoBridge?.db?.deleteSession(id)
+      } else {
+        // 服务端会话：软删除
+        await fetch(`${serverUrl}/api/sessions/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      }
       removeSession(id)
     } finally {
       setDeletingId(null)

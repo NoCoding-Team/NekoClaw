@@ -9,6 +9,13 @@ interface MemoryFile {
   modifiedAt: number
 }
 
+interface DbMemory {
+  id: string
+  category: string
+  content: string
+  created_at: string
+}
+
 export default function MemoryPanel() {
   const [files, setFiles] = useState<MemoryFile[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -16,6 +23,8 @@ export default function MemoryPanel() {
   const [editing, setEditing] = useState(false)
   const [editBuffer, setEditBuffer] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dbMemories, setDbMemories] = useState<DbMemory[]>([])
+  const [selectedDbMemory, setSelectedDbMemory] = useState<DbMemory | null>(null)
   const { toast, showToast, dismissToast } = useToast()
   const { token, serverUrl, serverConnected } = useAppStore()
 
@@ -46,6 +55,25 @@ export default function MemoryPanel() {
 
   useEffect(() => { loadFiles() }, [loadFiles])
 
+  // ── Load server DB memories ──────────────────────────────────────
+  const loadDbMemories = useCallback(async () => {
+    if (!token || !serverUrl) return
+    try {
+      const resp = await fetch(`${serverUrl}/api/memory`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!resp.ok) return
+      setDbMemories(await resp.json())
+    } catch {
+      setDbMemories([])
+    }
+  }, [token, serverUrl])
+
+  useEffect(() => {
+    if (serverConnected && token) loadDbMemories()
+    else setDbMemories([])
+  }, [loadDbMemories, serverConnected, token])
+
   // ── Read file content ─────────────────────────────────────────────────
   const readFile = useCallback(async (name: string) => {
     const mem = window.nekoBridge?.memory
@@ -61,8 +89,46 @@ export default function MemoryPanel() {
   const handleSelectFile = useCallback((name: string) => {
     setEditing(false)
     setSelectedFile(name)
+    setSelectedDbMemory(null)
     readFile(name)
   }, [readFile])
+
+  // ── Delete MD file ───────────────────────────────────────────
+  const deleteFile = useCallback(async (e: React.MouseEvent, name: string) => {
+    e.stopPropagation()
+    const mem = window.nekoBridge?.memory
+    if (!mem) return
+    try {
+      await mem.delete(name)
+      showToast(`${name} 已删除`)
+      if (selectedFile === name) {
+        setSelectedFile(null)
+        setFileContent('')
+        setEditing(false)
+      }
+      loadFiles()
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : '删除失败')
+    }
+  }, [selectedFile, loadFiles, showToast])
+
+  // ── Delete server DB memory ───────────────────────────────────
+  const deleteDbMemory = useCallback(async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!token || !serverUrl) return
+    try {
+      const resp = await fetch(`${serverUrl}/api/memory/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      setDbMemories(prev => prev.filter(m => m.id !== id))
+      if (selectedDbMemory?.id === id) setSelectedDbMemory(null)
+      showToast('已删除')
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : '删除失败')
+    }
+  }, [token, serverUrl, selectedDbMemory, showToast])
 
   // ── Edit ──────────────────────────────────────────────────────────────
   const startEditing = () => {
@@ -269,9 +335,16 @@ export default function MemoryPanel() {
                   className={`${styles.fileItem} ${selectedFile === f.name ? styles.fileItemActive : ''}`}
                   onClick={() => handleSelectFile(f.name)}
                 >
-                  <div className={styles.fileName}>
-                    {f.name === 'MEMORY.md' ? '📌 ' : '📝 '}
-                    {f.name}
+                  <div className={styles.fileItemRow}>
+                    <div className={styles.fileName}>
+                      {f.name === 'MEMORY.md' ? '📌 ' : '📝 '}
+                      {f.name}
+                    </div>
+                    <button
+                      className={styles.fileDeleteBtn}
+                      onClick={(e) => deleteFile(e, f.name)}
+                      title="删除文件"
+                    >×</button>
                   </div>
                   {f.modifiedAt > 0 && (
                     <div className={styles.fileMeta}>
@@ -282,12 +355,49 @@ export default function MemoryPanel() {
               ))}
             </ul>
           )}
+          {/* 服务端 DB 记忆条目 */}
+          {serverConnected && token && dbMemories.length > 0 && (
+            <>
+              <div className={styles.dbSectionLabel}>🧠 云端记忆条目</div>
+              <ul className={styles.list}>
+                {dbMemories.map(m => (
+                  <li
+                    key={m.id}
+                    className={`${styles.fileItem} ${selectedDbMemory?.id === m.id ? styles.fileItemActive : ''}`}
+                    onClick={() => { setSelectedDbMemory(m); setSelectedFile(null); setEditing(false) }}
+                  >
+                    <div className={styles.fileItemRow}>
+                      <div className={styles.fileName}>{m.category}</div>
+                      <button
+                        className={styles.fileDeleteBtn}
+                        onClick={(e) => deleteDbMemory(e, m.id)}
+                        title="删除记忆"
+                      >×</button>
+                    </div>
+                    <div className={styles.fileMeta}>
+                      {m.content.length > 36 ? m.content.slice(0, 36) + '…' : m.content}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
 
         {/* ── Right: Content view / editor ───────────────────────────── */}
         <div className={styles.contentArea}>
-          {!selectedFile ? (
+          {!selectedFile && !selectedDbMemory ? (
             <div className={styles.placeholder}>← 选择一个文件查看</div>
+          ) : selectedDbMemory ? (
+            <>
+              <div className={styles.editorToolbar}>
+                <span className={styles.editorLabel}>🧠 {selectedDbMemory.category}</span>
+                <span className={styles.fileMeta}>{new Date(selectedDbMemory.created_at).toLocaleString('zh-CN')}</span>
+              </div>
+              <div className={styles.rendered}>
+                <p>{selectedDbMemory.content}</p>
+              </div>
+            </>
           ) : editing ? (
             <>
               <div className={styles.editorToolbar}>

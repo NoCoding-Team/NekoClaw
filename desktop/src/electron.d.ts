@@ -53,6 +53,7 @@ interface NekoBridgeDb {
   getMessages(sessionId: string): Promise<LocalDBMessage[]>
   insertMessage(msg: Omit<LocalDBMessage, 'synced'>): Promise<{ success?: boolean; error?: string }>
   markSynced(sessionId: string): Promise<{ success?: boolean; error?: string }>
+  deleteSession(sessionId: string): Promise<{ success?: boolean; error?: string }>
   readLegacyLocalMemories(): Promise<{ entries: Array<{ id: string; category: string; content: string; created_at: string }> }>
   deleteLegacyLocalMemories(): Promise<{ success: boolean }>
 }
@@ -60,6 +61,7 @@ interface NekoBridgeDb {
 interface NekoBridgeMemory {
   read(path: string): Promise<{ content?: string; error?: string }>
   write(path: string, content: string): Promise<{ success?: boolean; error?: string }>
+  delete(path: string): Promise<{ success?: boolean; error?: string }>
   list(): Promise<{ files?: Array<{ name: string; path: string; mtime: number }>; error?: string }>
   search(query: string): Promise<{ results?: Array<{ path: string; snippet: string }>; error?: string }>
   setEmbeddingConfig(config: { enabled: boolean; baseUrl: string; model: string; apiKey: string }): Promise<{ success?: boolean }>

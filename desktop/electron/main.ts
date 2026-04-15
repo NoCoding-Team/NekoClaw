@@ -70,6 +70,12 @@ function dbMarkSynced(sessionId: string): void {
   db.prepare('UPDATE local_messages SET synced = 1 WHERE session_id = ?').run(sessionId)
 }
 
+function dbDeleteSession(sessionId: string): void {
+  const db = getDb()
+  db.prepare('DELETE FROM local_messages WHERE session_id = ?').run(sessionId)
+  db.prepare('DELETE FROM local_sessions WHERE id = ?').run(sessionId)
+}
+
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 // Set app name and identity so Windows taskbar shows "NekoClaw" instead of "Electron"
@@ -289,6 +295,11 @@ ipcMain.handle('db:markSynced', (_e, sessionId: string) => {
   catch (err) { return { error: String(err) } }
 })
 
+ipcMain.handle('db:deleteSession', (_e, sessionId: string) => {
+  try { dbDeleteSession(sessionId); return { success: true } }
+  catch (err) { return { error: String(err) } }
+})
+
 // ── MemoryService — Markdown memory file I/O ──────────────────────────────
 const MEMORY_DIR = path.join(app.getPath('userData'), 'memory')
 
@@ -322,6 +333,16 @@ const MemoryService = {
     await fs.mkdir(path.dirname(fullPath), { recursive: true })
     await fs.writeFile(fullPath, sanitized, 'utf-8')
     appendOpLog({ type: 'memory_write', path: relPath })
+  },
+
+  async delete(relPath: string): Promise<void> {
+    const fullPath = validateMemoryPath(relPath)
+    await fs.unlink(fullPath)
+    try {
+      const db = getDb()
+      db.prepare('DELETE FROM memory_embeddings WHERE file_path = ?').run(relPath)
+    } catch { /* embedding table may not exist yet */ }
+    appendOpLog({ type: 'memory_delete', path: relPath })
   },
 
   async list(): Promise<Array<{ name: string; path: string; mtime: number }>> {
@@ -510,6 +531,11 @@ ipcMain.handle('memory:write', async (_e, relPath: string, content: string) => {
     indexFileEmbeddings(relPath)
     return { success: true }
   } catch (err) { return { error: String(err) } }
+})
+
+ipcMain.handle('memory:delete', async (_e, relPath: string) => {
+  try { await MemoryService.delete(relPath); return { success: true } }
+  catch (err) { return { error: String(err) } }
 })
 
 ipcMain.handle('memory:list', async () => {

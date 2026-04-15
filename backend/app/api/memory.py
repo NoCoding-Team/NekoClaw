@@ -177,3 +177,14 @@ async def write_memory_file(
     with open(fpath, 'w', encoding='utf-8') as f:
         f.write(sanitized)
     return {"name": name, "success": True}
+
+
+@router.delete("/files/{filename}")
+async def delete_memory_file(filename: str, current_user: User = Depends(get_current_user)):
+    """Hard-delete a memory file for the current user."""
+    name = _validate_memory_filename(filename)
+    fpath = os.path.join(_user_memory_dir(current_user.id), name)
+    if not os.path.isfile(fpath):
+        raise NotFoundError("File not found")
+    os.remove(fpath)
+    return {"name": name, "success": True}

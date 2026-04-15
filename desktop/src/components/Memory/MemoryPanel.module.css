@@ -69,6 +69,47 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.fileItemRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fileDeleteBtn {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  padding: 0;
+  line-height: 1;
+}
+
+.fileItem:hover .fileDeleteBtn { opacity: 1; }
+.fileDeleteBtn:hover { background: rgba(220, 60, 60, 0.15); color: #e05555; }
+
+.dbSectionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 10px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
 }
 
 .fileMeta {
