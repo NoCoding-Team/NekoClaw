@@ -580,13 +580,20 @@ async def _memory_refresh(
     existing = await _load_memory(user_id)
     existing_block = f"\n\n已有记忆:\n{existing}" if existing else ""
 
+    today = __import__("datetime").date.today().isoformat()
     refresh_messages = [
         {
             "role": "system",
             "content": (
-                "你是记忆整理助手。请检查以下对话，找出值得长期保存的用户信息（偏好、事实、指令等）。\n"
-                "使用 memory_read 读取 MEMORY.md，追加新条目后用 memory_write 写回。\n"
-                "临时信息和一次性任务不需要保存。每次最多操作 5 次工具调用。"
+                "你是记忆整理助手。请检查以下对话，将值得保存的信息写入记忆文件。\n\n"
+                "## 操作步骤\n"
+                "1. 先 memory_read(\"MEMORY.md\") 读取长期记忆\n"
+                f"2. 先 memory_read(\"{today}.md\") 读取今日笔记\n"
+                "3. 从对话中提取以下信息：\n"
+                "   - 用户偏好、关键事实、重要决策、个人信息 → 追加到 MEMORY.md\n"
+                f"   - 今日对话要点、讨论话题、结论 → 追加到 {today}.md\n"
+                "4. 用 memory_write 写回更新后的完整内容（追加而非覆写）\n\n"
+                "不需要保存：临时中间步骤、大段代码原文。"
                 + existing_block
             ),
         },
