@@ -90,7 +90,6 @@ export function ChatArea() {
     localLLMConfig,
     serverUrl,
     token,
-    serverConnected,
     setMessages,
     replaceSession,
   } = useAppStore()
@@ -316,7 +315,7 @@ export function ChatArea() {
         <div className={styles.topBar}>
           <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
           <span className={styles.topBarSpacer} />
-          {isLocalSession && serverConnected && token && (
+          {isLocalSession && !!serverUrl && !!token && (
             <button
               className={`${styles.syncBtn} ${isSyncing ? styles.syncBtnBusy : ''}`}
               onClick={syncToServer}
@@ -368,7 +367,7 @@ export function ChatArea() {
       <div className={styles.topBar}>
         <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
         <span className={styles.topBarSpacer} />
-        {isLocalSession && serverConnected && token && (
+        {isLocalSession && !!serverUrl && !!token && (
           <button
             className={`${styles.syncBtn} ${isSyncing ? styles.syncBtnBusy : ''}`}
             onClick={syncToServer}
