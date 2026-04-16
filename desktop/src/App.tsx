@@ -91,7 +91,7 @@ export default function App() {
             setSessions(localOnlySessions)
             const lastId = localStorage.getItem('neko_active_session')
             const restored = lastId && localOnlySessions.find((s) => s.id === lastId)
-            setActiveSession(restored ? lastId! : localOnlySessions[0].id)
+            if (restored) setActiveSession(lastId!)
           }
           return
         }
@@ -101,29 +101,19 @@ export default function App() {
         const allSessions = [...localOnlySessions, ...serverSessions]
         if (allSessions.length > 0) {
           setSessions(allSessions)
-          // 优先恢复上次打开的对话，否则用最新一条
+          // 只恢复上次打开的对话，不强制选第一条（让用户自己选）
           const lastId = localStorage.getItem('neko_active_session')
           const restored = lastId && allSessions.find((s) => s.id === lastId)
-          setActiveSession(restored ? lastId! : allSessions[0].id)
-        } else {
-          const newRes = await apiFetch(`${serverUrl}/api/sessions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: '新对话' }),
-          })
-          if (newRes.ok) {
-            const s: { id: string; title: string; skill_id: string | null } = await newRes.json()
-            setSessions([{ id: s.id, title: s.title, skillId: s.skill_id ?? undefined }])
-            setActiveSession(s.id)
-          }
+          if (restored) setActiveSession(lastId!)
         }
+        // 无会话时不自动创建，展示欢迎界面让用户新建
       } catch {
         // 网络异常时展示本地会话
         if (localOnlySessions.length > 0) {
           setSessions(localOnlySessions)
           const lastId = localStorage.getItem('neko_active_session')
           const restored = lastId && localOnlySessions.find((s) => s.id === lastId)
-          setActiveSession(restored ? lastId! : localOnlySessions[0].id)
+          if (restored) setActiveSession(lastId!)
         }
       }
     })()
