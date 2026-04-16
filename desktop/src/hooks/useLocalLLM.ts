@@ -489,10 +489,36 @@ export function useLocalLLM(sessionId: string | null) {
       const history = [
         ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
         ...allMsgs
-          // 跳过 tool 消息和空 assistant 占位（agentic loop 每轮插入的空 streaming 占位）
-          // 避免重建出连续 assistant 消息，违反 OpenAI API 格式导致请求静默失败
-          .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim() !== '')
-          .map((m) => ({ role: m.role, content: m.content })),
+          // 保留 user / assistant / tool 三种 role；
+          // 仅过滤：content 为空且没有 tool_calls 的 assistant 消息（agentic loop 空 streaming 占位）
+          .filter((m) => {
+            if (m.role === 'user' || m.role === 'tool') return true
+            if (m.role === 'assistant') {
+              // 有 tool_calls 的 assistant 消息即使 content 为空也保留
+              if (m.toolCalls && (Array.isArray(m.toolCalls) ? m.toolCalls.length > 0 : true)) return true
+              return (m.content ?? '').trim() !== ''
+            }
+            return false
+          })
+          .map((m) => {
+            const entry: { role: string; content: string; tool_calls?: unknown; tool_call_id?: string } = {
+              role: m.role,
+              content: m.content ?? '',
+            }
+            // Restore tool_calls on assistant messages
+            if (m.role === 'assistant' && m.toolCalls && Array.isArray(m.toolCalls)) {
+              entry.tool_calls = m.toolCalls.map((tc: Record<string, unknown>) => ({
+                id: tc.callId ?? tc.id ?? '',
+                type: 'function',
+                function: { name: tc.tool ?? tc.name ?? '', arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args ?? {}) },
+              }))
+            }
+            // Restore tool_call_id on tool messages
+            if (m.role === 'tool' && m.toolCalls && Array.isArray(m.toolCalls) && m.toolCalls.length > 0) {
+              entry.tool_call_id = (m.toolCalls[0] as Record<string, unknown>).callId as string ?? ''
+            }
+            return entry
+          }),
       ]
 
       // Decrypt API key
