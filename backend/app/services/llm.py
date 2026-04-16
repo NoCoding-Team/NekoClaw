@@ -154,6 +154,15 @@ async def run_llm_pipeline(
 
     # Context compression check (fires memory refresh first)
     context_limit = llm_config.context_limit if llm_config else 128000
+
+    # Count user turns for periodic refresh
+    user_turn_count = sum(1 for m in history if m.role == "user") if history else sum(1 for m in (local_history or []) if m.get("role") == "user")
+
+    # Periodic memory refresh (every 15 user turns)
+    if user_turn_count > 0 and user_turn_count % _REFRESH_INTERVAL == 0:
+        if _can_refresh(session_id, user_turn_count):
+            await _memory_refresh(session_id, user_id, history, llm_config)
+
     if total_tokens > context_limit * COMPRESS_RATIO and len(history) > 10:
         await _memory_refresh(session_id, user_id, history, llm_config)
         history = await _compress_history(session_id, history, context_limit, llm_config, ws)
@@ -552,15 +561,16 @@ async def _memory_refresh(
 ) -> None:
     """
     Pre-compaction memory refresh: ask the LLM (silently) to save important memories
-    before history is compressed away. Fires at most once per session.
+    before history is compressed away. Uses turn-based interval protection.
     """
     if not llm_config:
         return
 
-    # One-time-per-session guard stored in module-level set
-    if session_id in _memory_refresh_done:
+    # Count user turns from history for interval protection
+    user_turn_count = sum(1 for m in history if hasattr(m, 'role') and m.role == 'user') if history else 0
+    if not _can_refresh(session_id, user_turn_count):
         return
-    _memory_refresh_done.add(session_id)
+    _mark_refresh_done(session_id, user_turn_count)
 
     # Build a condensed view of recent conversation for the refresh prompt
     recent = history[-20:]
@@ -617,5 +627,18 @@ async def _memory_refresh(
         pass  # memory refresh is best-effort, never crash the main pipeline
 
 
-# Per-session set to ensure memory refresh fires at most once
-_memory_refresh_done: set[str] = set()
+# Per-session turn-based refresh interval protection
+_REFRESH_INTERVAL = 15   # trigger every N user turns
+_REFRESH_MIN_GAP = 5     # minimum turns between refreshes
+_last_refresh_turn: dict[str, int] = {}
+
+
+def _can_refresh(session_id: str, current_turn: int) -> bool:
+    """Check if refresh is allowed (minimum gap protection)."""
+    last_turn = _last_refresh_turn.get(session_id, -_REFRESH_MIN_GAP)
+    return (current_turn - last_turn) >= _REFRESH_MIN_GAP
+
+
+def _mark_refresh_done(session_id: str, current_turn: int) -> None:
+    """Mark that a refresh was performed at the given turn."""
+    _last_refresh_turn[session_id] = current_turn
