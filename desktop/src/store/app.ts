@@ -301,7 +301,7 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveSession: (id) => {
     if (id) localStorage.setItem(STORAGE_ACTIVE_SESSION, id)
     else localStorage.removeItem(STORAGE_ACTIVE_SESSION)
-    set({ activeSessionId: id })
+    set({ activeSessionId: id, catState: 'idle' })
   },
   addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
   updateSessionTitle: (id, title) =>
