@@ -75,7 +75,7 @@ async def run_llm_pipeline(
         msgs_result = await db.execute(
             select(Message)
             .where(Message.session_id == session_id, Message.deleted_at.is_(None))
-            .order_by(Message.created_at.asc())
+            .order_by(Message.seq.asc(), Message.created_at.asc())
         )
         history = msgs_result.scalars().all()
 
@@ -102,9 +102,16 @@ async def run_llm_pipeline(
         history = await _compress_history(session_id, history, context_limit, llm_config, ws)
 
     for m in history:
-        entry: dict[str, Any] = {"role": m.role, "content": m.content or ""}
-        if m.tool_calls:
-            entry["tool_calls"] = m.tool_calls
+        if m.role == "tool":
+            # Reconstruct OpenAI-compatible tool result message
+            tcid = m.tool_call_id
+            if not tcid and m.tool_calls and len(m.tool_calls) > 0:
+                tcid = m.tool_calls[0].get("callId", "")
+            entry: dict[str, Any] = {"role": "tool", "tool_call_id": tcid or "", "content": m.content or ""}
+        else:
+            entry = {"role": m.role, "content": m.content or ""}
+            if m.tool_calls:
+                entry["tool_calls"] = m.tool_calls
         messages.append(entry)
 
     # 工具列表优先级：技能 > 客户端配置 > 全量
@@ -212,7 +219,7 @@ async def run_llm_pipeline(
                 "result": result_content[:2000],
             }]
             messages.append({"role": "tool", "tool_call_id": call_id, "content": result_content})
-            await _persist_message(session_id, "tool", result_content, tool_call_card)
+            await _persist_message(session_id, "tool", result_content, tool_call_card, tool_call_id=call_id)
 
 
 _TOOL_RULES = (
@@ -374,14 +381,28 @@ async def _call_llm(
     return full_text, tool_calls
 
 
-async def _persist_message(session_id: str, role: str, content: str | None, tool_calls: list | None):
+async def _next_seq(db, session_id: str) -> int:
+    """Atomically get the next sequence number for a session."""
+    result = await db.execute(
+        select(func.coalesce(func.max(Message.seq), 0)).where(Message.session_id == session_id)
+    )
+    return (result.scalar() or 0) + 1
+
+
+async def _persist_message(
+    session_id: str, role: str, content: str | None, tool_calls: list | None,
+    tool_call_id: str | None = None,
+):
     async with AsyncSessionLocal() as db:
+        seq = await _next_seq(db, session_id)
         msg = Message(
             id=str(uuid.uuid4()),
             session_id=session_id,
             role=role,
             content=content,
             tool_calls=tool_calls,
+            tool_call_id=tool_call_id,
+            seq=seq,
         )
         db.add(msg)
         await db.commit()

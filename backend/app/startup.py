@@ -75,6 +75,46 @@ async def create_tables():
                 "ALTER TABLE memories ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 0"
             )
         )
+        # Message ordering: add seq column for deterministic ordering within session
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS seq INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+        # Message tool_call_id: store OpenAI tool_call_id for role='tool' messages
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_call_id VARCHAR(64) NULL"
+            )
+        )
+        # Backfill seq for existing messages (based on created_at order within each session)
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                """
+                WITH ranked AS (
+                    SELECT id,
+                           ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at, id) AS rn
+                    FROM messages
+                    WHERE seq = 0
+                )
+                UPDATE messages SET seq = ranked.rn
+                FROM ranked WHERE messages.id = ranked.id AND messages.seq = 0
+                """
+            )
+        )
+        # Backfill tool_call_id from tool_calls JSON for role='tool' messages
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                """
+                UPDATE messages
+                SET tool_call_id = (tool_calls->0->>'callId')
+                WHERE role = 'tool'
+                  AND tool_call_id IS NULL
+                  AND tool_calls IS NOT NULL
+                  AND json_array_length(tool_calls) > 0
+                """
+            )
+        )
 
 
 async def _seed_builtin_skills():

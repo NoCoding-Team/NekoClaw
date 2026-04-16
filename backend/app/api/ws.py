@@ -140,11 +140,17 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
 
     # Persist user message
     async with AsyncSessionLocal() as db:
+        from sqlalchemy import select as sel, func as fn
+        result = await db.execute(
+            sel(fn.coalesce(fn.max(Message.seq), 0)).where(Message.session_id == session_id)
+        )
+        next_seq = (result.scalar() or 0) + 1
         msg = Message(
             id=str(uuid.uuid4()),
             session_id=session_id,
             role="user",
             content=content,
+            seq=next_seq,
         )
         db.add(msg)
         await db.commit()

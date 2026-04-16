@@ -22,6 +22,8 @@ class MessageResponse(BaseModel):
     role: str
     content: str | None
     tool_calls: list | None
+    tool_call_id: str | None = None
+    seq: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}

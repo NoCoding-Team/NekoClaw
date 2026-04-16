@@ -207,8 +207,7 @@ export function ChatArea() {
         const res = await apiFetch(`${serverUrl}/api/sessions/${activeSessionId}/messages`)
         if (!res.ok) return
         const data: Array<{ id: string; role: string; content: string | null; tool_calls: ToolCall[] | null; created_at: string }> = await res.json()
-        // 按 created_at 排序（防止服务端时间戳精度不足导致乱序）
-        data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        // 服务端已按 seq, created_at 排序，无需客户端重排
         setMessages(
           activeSessionId,
           data.map((m) => ({

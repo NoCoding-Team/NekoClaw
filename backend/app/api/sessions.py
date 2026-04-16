@@ -104,7 +104,7 @@ async def list_messages(
     msgs = await db.execute(
         select(Message)
         .where(Message.session_id == session_id, Message.deleted_at.is_(None))
-        .order_by(Message.created_at.asc(), Message.id.asc())
+        .order_by(Message.seq.asc(), Message.created_at.asc())
     )
     return msgs.scalars().all()
 
@@ -125,12 +125,22 @@ async def create_message(
     if session.user_id != current_user.id:
         raise ForbiddenError()
 
-    msg = Message(
-        session_id=session_id,
-        role=body.role,
-        content=body.content,
-        tool_calls=body.tool_calls,
+    from sqlalchemy import func as fn
+    seq_result = await db.execute(
+        select(fn.coalesce(fn.max(Message.seq), 0)).where(Message.session_id == session_id)
     )
+    next_seq = (seq_result.scalar() or 0) + 1
+
+    kwargs: dict = {
+        "session_id": session_id,
+        "role": body.role,
+        "content": body.content,
+        "tool_calls": body.tool_calls,
+        "seq": next_seq,
+    }
+    if body.created_at is not None:
+        kwargs["created_at"] = body.created_at
+    msg = Message(**kwargs)
     db.add(msg)
     await db.commit()
     await db.refresh(msg)
@@ -154,6 +164,13 @@ async def batch_create_messages(
     if session.user_id != current_user.id:
         raise ForbiddenError()
 
+    # Get current max seq for this session
+    from sqlalchemy import func as fn
+    seq_result = await db.execute(
+        select(fn.coalesce(fn.max(Message.seq), 0)).where(Message.session_id == session_id)
+    )
+    current_seq = seq_result.scalar() or 0
+
     seen_timestamps: dict = {}
     for item in body:
         ts = item.created_at
@@ -169,11 +186,13 @@ async def batch_create_messages(
                 ts = ts + timedelta(microseconds=count)
             seen_timestamps[key] = count + 1
 
+        current_seq += 1
         kwargs: dict = {
             "session_id": session_id,
             "role": item.role,
             "content": item.content,
             "tool_calls": item.tool_calls,
+            "seq": current_seq,
         }
         # Pass created_at directly in the constructor so SQLAlchemy includes it in
         # the INSERT statement. Setting it after construction with server_default
