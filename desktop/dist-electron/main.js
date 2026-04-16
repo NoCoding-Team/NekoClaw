@@ -561,4 +561,95 @@ electron.ipcMain.handle("db:deleteLegacyLocalMemories", async () => {
     return { success: true };
   }
 });
+let _pw = null;
+let _browserContext = null;
+let _browserPage = null;
+function findSystemBrowser() {
+  const candidates = [
+    // Chrome Windows
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    path.join(os.homedir(), "AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"),
+    // Edge Windows
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    path.join(os.homedir(), "AppData\\Local\\Microsoft\\Edge\\Application\\msedge.exe"),
+    // Chrome macOS
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    // Chrome Linux
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium"
+  ];
+  const fsSync = require("fs");
+  for (const p of candidates) {
+    try {
+      if (fsSync.existsSync(p)) return p;
+    } catch {
+    }
+  }
+  return void 0;
+}
+async function ensureBrowserPage() {
+  if (_browserPage && !_browserPage.isClosed()) return _browserPage;
+  if (!_pw) {
+    _pw = require("playwright-core");
+  }
+  const executablePath = findSystemBrowser();
+  if (!executablePath) {
+    throw new Error("未找到 Chrome 或 Edge 浏览器，请安装后再试。");
+  }
+  const browser = await _pw.chromium.launch({ headless: false, executablePath });
+  _browserContext = await browser.newContext();
+  _browserPage = await _browserContext.newPage();
+  return _browserPage;
+}
+electron.ipcMain.handle("browser:navigate", async (_e, url) => {
+  try {
+    const page = await ensureBrowserPage();
+    await page.goto(url, { timeout: 3e4, waitUntil: "domcontentloaded" });
+    appendOpLog({ type: "browser_navigate", url });
+    return { url: page.url(), title: await page.title() };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("browser:screenshot", async () => {
+  try {
+    const page = await ensureBrowserPage();
+    const buf = await page.screenshot({ type: "png" });
+    return { base64: buf.toString("base64") };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("browser:click", async (_e, opts) => {
+  try {
+    const page = await ensureBrowserPage();
+    if (opts.selector) {
+      await page.click(opts.selector, { timeout: 1e4 });
+    } else if (opts.x !== void 0 && opts.y !== void 0) {
+      await page.mouse.click(opts.x, opts.y);
+    } else {
+      return { error: "需要提供 selector 或 x/y 坐标" };
+    }
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("browser:type", async (_e, selector, text) => {
+  try {
+    const page = await ensureBrowserPage();
+    await page.fill(selector, text, { timeout: 1e4 });
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.app.on("before-quit", () => {
+  var _a;
+  (_a = _browserContext == null ? void 0 : _browserContext.browser()) == null ? void 0 : _a.close().catch(() => {
+  });
+});
 //# sourceMappingURL=main.js.map

@@ -37,12 +37,12 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['playwright'],
+      external: ['playwright-core'],
     },
   },
   worker: {
     rollupOptions: {
-      external: ['playwright'],
+      external: ['playwright-core'],
     },
   },
 })

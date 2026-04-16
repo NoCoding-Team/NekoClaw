@@ -27,6 +27,12 @@ const nekoBridge = {
   log: {
     getPath: () => electron.ipcRenderer.invoke("log:getPath")
   },
+  browser: {
+    navigate: (url) => electron.ipcRenderer.invoke("browser:navigate", url),
+    screenshot: () => electron.ipcRenderer.invoke("browser:screenshot"),
+    click: (opts) => electron.ipcRenderer.invoke("browser:click", opts),
+    type: (selector, text) => electron.ipcRenderer.invoke("browser:type", selector, text)
+  },
   memory: {
     read: (path) => electron.ipcRenderer.invoke("memory:read", path),
     write: (path, content) => electron.ipcRenderer.invoke("memory:write", path, content),
