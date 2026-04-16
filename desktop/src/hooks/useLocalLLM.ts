@@ -371,10 +371,11 @@ export function useLocalLLM(sessionId: string | null) {
       if (sendingRef.current) return  // drop concurrent calls
       sendingRef.current = true
 
+      let sid = sessionId
+      try {
       setCatState('thinking')
 
       // ── Materialize local session on first message ──────────────────────
-      let sid = sessionId
       if (sessionId.startsWith('local-')) {
         const { serverUrl: sv, token: tk, syncEnabled } = useAppStore.getState()
         if (tk && syncEnabled) {
@@ -867,7 +868,6 @@ export function useLocalLLM(sessionId: string | null) {
           }
         }
         setCatState('idle')
-        sendingRef.current = false
       } catch (e: unknown) {
         const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const last = msgs[msgs.length - 1]
@@ -883,8 +883,10 @@ export function useLocalLLM(sessionId: string | null) {
           ])
         }
         setCatState('error')
-        sendingRef.current = false
       }
+    } finally {  // 外层 finally：无论怎么退出（return / throw）都保证锁释放
+      sendingRef.current = false
+    }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sessionId, localLLMConfig]
