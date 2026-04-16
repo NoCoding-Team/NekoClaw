@@ -11,6 +11,7 @@ Handles:
 """
 import asyncio
 import json
+import math
 import uuid
 from typing import Any
 
@@ -31,6 +32,21 @@ from app.api.ws import send_event, get_pending_tool_future
 # Compression threshold: compress when > 70% of context limit is used
 COMPRESS_RATIO = 0.70
 CLIENT_TOOL_TIMEOUT = 60  # seconds
+
+# 工具输出截断阈值
+MAX_TOOL_RESULT_CHARS = 8000
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count from text length (Chinese/English mixed heuristic)."""
+    return math.ceil(len(text) * 0.6)
+
+
+def _truncate_tool_result(result: str) -> str:
+    """Truncate a tool result for LLM context (keeps head + tail)."""
+    if len(result) <= MAX_TOOL_RESULT_CHARS:
+        return result
+    return result[:6000] + "\n...[输出过长已截断]...\n" + result[-1500:]
 
 
 async def run_llm_pipeline(
@@ -218,7 +234,7 @@ async def run_llm_pipeline(
                 "status": status,
                 "result": result_content[:2000],
             }]
-            messages.append({"role": "tool", "tool_call_id": call_id, "content": result_content})
+            messages.append({"role": "tool", "tool_call_id": call_id, "content": _truncate_tool_result(result_content)})
             await _persist_message(session_id, "tool", result_content, tool_call_card, tool_call_id=call_id)
 
 
@@ -403,6 +419,7 @@ async def _persist_message(
             tool_calls=tool_calls,
             tool_call_id=tool_call_id,
             seq=seq,
+            token_count=estimate_tokens(content or ''),
         )
         db.add(msg)
         await db.commit()

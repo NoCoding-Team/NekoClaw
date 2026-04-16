@@ -13,6 +13,7 @@ import { useAppStore } from '../store/app'
 import type { ToolCall } from '../store/app'
 import { executeLocalTool } from './localTools'
 import { getLocalToolDefinitions } from './toolDefinitions'
+import { truncateToolResult, estimateMessagesTokens, pruneToolResults } from './contextUtils'
 import { apiFetch } from '../api/apiFetch'
 
 async function decryptKey(b64: string): Promise<string> {
@@ -719,8 +720,8 @@ export function useLocalLLM(sessionId: string | null) {
             _recentTools[sid] = [...(_recentTools[sid] ?? []), tc.name].slice(-10)
             useAppStore.getState().incrementToolCallCount(tc.name)
 
-            // Append tool result to LLM context
-            llmMessages.push({ role: 'tool', content: toolResult, tool_call_id: callId })
+            // Append tool result to LLM context (truncated for context budget)
+            llmMessages.push({ role: 'tool', content: truncateToolResult(toolResult), tool_call_id: callId })
           }
 
           // Create new streaming placeholder for next round (skip if loop was aborted)
