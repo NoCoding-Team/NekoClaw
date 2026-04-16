@@ -141,6 +141,92 @@ const CLIENT_TOOLS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_navigate',
+      description: '控制本地浏览器导航到指定 URL。',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '要访问的 URL' },
+        },
+        required: ['url'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_screenshot',
+      description: '截取当前浏览器页面的截图，返回 base64 图片。',
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_click',
+      description: '点击浏览器页面中的指定元素（CSS 选择器或坐标）。',
+      parameters: {
+        type: 'object',
+        properties: {
+          selector: { type: 'string', description: 'CSS 选择器' },
+          x: { type: 'number', description: '点击 X 坐标（与 selector 二选一）' },
+          y: { type: 'number', description: '点击 Y 坐标（与 selector 二选一）' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_type',
+      description: '在浏览器页面指定元素中输入文字。',
+      parameters: {
+        type: 'object',
+        properties: {
+          selector: { type: 'string', description: 'CSS 选择器' },
+          text: { type: 'string', description: '要输入的文字' },
+        },
+        required: ['selector', 'text'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: '通过 Tavily 搜索引擎搜索互联网实时信息，支持新闻、文档、技术内容等。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '搜索关键词' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'http_request',
+      description: '向任意外部接口发送 GET、POST 等 HTTP 请求，可用于调用 API、获取数据。',
+      parameters: {
+        type: 'object',
+        properties: {
+          method: { type: 'string', description: 'HTTP 方法，如 GET、POST', enum: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] },
+          url: { type: 'string', description: '请求 URL' },
+          headers: { type: 'object', description: '请求头（可选）' },
+          body: { type: 'string', description: '请求体（可选，JSON 字符串）' },
+        },
+        required: ['method', 'url'],
+      },
+    },
+  },
 ]
 
 /**
