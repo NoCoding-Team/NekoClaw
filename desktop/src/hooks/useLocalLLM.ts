@@ -7,7 +7,7 @@
  *  - Anthropic native API    (POST /v1/messages, SSE delta format)
  *  - Custom / Ollama          (OpenAI-compatible)
  */
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore } from '../store/app'
 import type { ToolCall } from '../store/app'
@@ -364,6 +364,12 @@ export function useLocalLLM(sessionId: string | null) {
 
   /** Prevent concurrent sendMessage executions — second call is dropped. */
   const sendingRef = useRef(false)
+
+  // 切换 session 时强制重置锁和 catState，防止上一个会话的请求阻塞新对话
+  useEffect(() => {
+    sendingRef.current = false
+    setCatState('idle')
+  }, [sessionId])
 
   const sendMessage = useCallback(
     async (content: string) => {
