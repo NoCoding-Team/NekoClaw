@@ -595,3 +595,71 @@ ipcMain.handle('db:deleteLegacyLocalMemories', async () => {
     return { success: true } // already gone, treat as success
   }
 })
+
+// ── IPC: Browser automation (Playwright, lazy-loaded) ─────────────────────
+let _pw: typeof import('playwright') | null = null
+let _browserContext: import('playwright').BrowserContext | null = null
+let _browserPage: import('playwright').Page | null = null
+
+async function ensureBrowserPage(): Promise<import('playwright').Page> {
+  if (_browserPage && !_browserPage.isClosed()) return _browserPage
+  if (!_pw) {
+    _pw = require('playwright') as typeof import('playwright')
+  }
+  const browser = await _pw.chromium.launch({ headless: false })
+  _browserContext = browser.contexts()[0] ?? await browser.newContext()
+  _browserPage = _browserContext.pages()[0] ?? await _browserContext.newPage()
+  return _browserPage
+}
+
+ipcMain.handle('browser:navigate', async (_e, url: string) => {
+  try {
+    const page = await ensureBrowserPage()
+    await page.goto(url, { timeout: 30_000, waitUntil: 'domcontentloaded' })
+    appendOpLog({ type: 'browser_navigate', url })
+    return { url: page.url(), title: await page.title() }
+  } catch (err) {
+    return { error: String(err) }
+  }
+})
+
+ipcMain.handle('browser:screenshot', async () => {
+  try {
+    const page = await ensureBrowserPage()
+    const buf = await page.screenshot({ type: 'png' })
+    return { base64: buf.toString('base64') }
+  } catch (err) {
+    return { error: String(err) }
+  }
+})
+
+ipcMain.handle('browser:click', async (_e, opts: { selector?: string; x?: number; y?: number }) => {
+  try {
+    const page = await ensureBrowserPage()
+    if (opts.selector) {
+      await page.click(opts.selector, { timeout: 10_000 })
+    } else if (opts.x !== undefined && opts.y !== undefined) {
+      await page.mouse.click(opts.x, opts.y)
+    } else {
+      return { error: '需要提供 selector 或 x/y 坐标' }
+    }
+    return { success: true }
+  } catch (err) {
+    return { error: String(err) }
+  }
+})
+
+ipcMain.handle('browser:type', async (_e, selector: string, text: string) => {
+  try {
+    const page = await ensureBrowserPage()
+    await page.fill(selector, text, { timeout: 10_000 })
+    return { success: true }
+  } catch (err) {
+    return { error: String(err) }
+  }
+})
+
+// Cleanup browser on app quit
+app.on('before-quit', () => {
+  _browserContext?.browser()?.close().catch(() => {})
+})

@@ -67,6 +67,13 @@ interface NekoBridgeMemory {
   setEmbeddingConfig(config: { enabled: boolean; baseUrl: string; model: string; apiKey: string }): Promise<{ success?: boolean }>
 }
 
+interface NekoBridgeBrowser {
+  navigate(url: string): Promise<{ url?: string; title?: string; error?: string }>
+  screenshot(): Promise<{ base64?: string; error?: string }>
+  click(opts: { selector?: string; x?: number; y?: number }): Promise<{ success?: boolean; error?: string }>
+  type(selector: string, text: string): Promise<{ success?: boolean; error?: string }>
+}
+
 interface NekoBridge {
   file: NekoBridgeFile
   shell: NekoBridgeShell
@@ -74,6 +81,7 @@ interface NekoBridge {
   window: NekoBridgeWindow
   app: NekoBridgeApp
   log: NekoBridgeLog
+  browser: NekoBridgeBrowser
   memory: NekoBridgeMemory
   db?: NekoBridgeDb
 }

@@ -26,6 +26,12 @@ export const nekoBridge = {
   log: {
     getPath: (): Promise<string> => ipcRenderer.invoke('log:getPath'),
   },
+  browser: {
+    navigate: (url: string) => ipcRenderer.invoke('browser:navigate', url),
+    screenshot: () => ipcRenderer.invoke('browser:screenshot'),
+    click: (opts: { selector?: string; x?: number; y?: number }) => ipcRenderer.invoke('browser:click', opts),
+    type: (selector: string, text: string) => ipcRenderer.invoke('browser:type', selector, text),
+  },
   memory: {
     read: (path: string) => ipcRenderer.invoke('memory:read', path),
     write: (path: string, content: string) => ipcRenderer.invoke('memory:write', path, content),

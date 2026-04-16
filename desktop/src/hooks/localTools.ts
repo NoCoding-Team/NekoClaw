@@ -35,11 +35,16 @@ export async function executeLocalTool(
       return bridge.shell.exec(args.command as string)
 
     case 'browser_navigate':
+      return bridge.browser.navigate(args.url as string)
+
     case 'browser_screenshot':
+      return bridge.browser.screenshot()
+
     case 'browser_click':
+      return bridge.browser.click({ selector: args.selector as string | undefined, x: args.x as number | undefined, y: args.y as number | undefined })
+
     case 'browser_type':
-      // Browser automation requires Playwright in the Electron main process — not yet implemented
-      return Promise.resolve({ error: '浏览器自动化功能尚未实现，请稍后使用。' })
+      return bridge.browser.type(args.selector as string, args.text as string)
 
     default:
       return { error: `Unknown client tool: ${toolName}` }
