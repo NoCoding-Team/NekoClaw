@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react'
 import styles from './Sidebar.module.css'
 import { useAppStore } from '../../store/app'
+import { apiFetch } from '../../api/apiFetch'
 
 type Tab = 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings' | 'abilities'
 
@@ -13,7 +14,7 @@ const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
 ]
 
 export function Sidebar() {
-  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession, removeSession, setSettingsOpen, serverUrl, token } = useAppStore()
+  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession, removeSession, setSettingsOpen, serverUrl } = useAppStore()
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const deleteSession = async (e: React.MouseEvent, id: string) => {
@@ -26,9 +27,8 @@ export function Sidebar() {
         await window.nekoBridge?.db?.deleteSession(id)
       } else {
         // 服务端会话：软删除
-        await fetch(`${serverUrl}/api/sessions/${id}`, {
+        await apiFetch(`${serverUrl}/api/sessions/${id}`, {
           method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
         })
       }
       removeSession(id)

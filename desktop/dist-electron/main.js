@@ -77,6 +77,11 @@ function dbMarkSynced(sessionId) {
   db.prepare("UPDATE local_sessions SET synced = 1 WHERE id = ?").run(sessionId);
   db.prepare("UPDATE local_messages SET synced = 1 WHERE session_id = ?").run(sessionId);
 }
+function dbDeleteSession(sessionId) {
+  const db = getDb();
+  db.prepare("DELETE FROM local_messages WHERE session_id = ?").run(sessionId);
+  db.prepare("DELETE FROM local_sessions WHERE id = ?").run(sessionId);
+}
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 electron.app.setName("NekoClaw");
 if (process.platform === "win32") {
@@ -282,6 +287,14 @@ electron.ipcMain.handle("db:markSynced", (_e, sessionId) => {
     return { error: String(err) };
   }
 });
+electron.ipcMain.handle("db:deleteSession", (_e, sessionId) => {
+  try {
+    dbDeleteSession(sessionId);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
 const MEMORY_DIR = path.join(electron.app.getPath("userData"), "memory");
 function validateMemoryPath(relPath) {
   if (path.isAbsolute(relPath)) throw new Error("Absolute paths not allowed");
@@ -309,6 +322,16 @@ const MemoryService = {
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
     await fs.writeFile(fullPath, sanitized, "utf-8");
     appendOpLog({ type: "memory_write", path: relPath });
+  },
+  async delete(relPath) {
+    const fullPath = validateMemoryPath(relPath);
+    await fs.unlink(fullPath);
+    try {
+      const db = getDb();
+      db.prepare("DELETE FROM memory_embeddings WHERE file_path = ?").run(relPath);
+    } catch {
+    }
+    appendOpLog({ type: "memory_delete", path: relPath });
   },
   async list() {
     const results = [];
@@ -464,6 +487,14 @@ electron.ipcMain.handle("memory:write", async (_e, relPath, content) => {
   try {
     await MemoryService.write(relPath, content);
     indexFileEmbeddings(relPath);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("memory:delete", async (_e, relPath) => {
+  try {
+    await MemoryService.delete(relPath);
     return { success: true };
   } catch (err) {
     return { error: String(err) };

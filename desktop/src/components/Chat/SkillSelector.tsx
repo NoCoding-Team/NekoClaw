@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useAppStore } from '../../store/app'
 import styles from './SkillSelector.module.css'
+import { apiFetch } from '../../api/apiFetch'
 
 interface SkillOption {
   id: string
@@ -16,7 +17,7 @@ export function SkillSelector() {
 
   useEffect(() => {
     if (!token) return
-    fetch(`${serverUrl}/api/skills`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`${serverUrl}/api/skills`)
       .then(r => r.ok ? r.json() : [])
       .then((data: SkillOption[]) => setSkills(data))
       .catch(() => {})

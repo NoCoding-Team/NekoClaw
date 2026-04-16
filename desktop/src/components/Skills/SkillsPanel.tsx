@@ -3,6 +3,7 @@ import styles from './SkillsPanel.module.css'
 import { useAppStore } from '../../store/app'
 import { useToast, throwIfError } from '../../hooks/useToast'
 import Toast from '../Toast/Toast'
+import { apiFetch } from '../../api/apiFetch'
 
 interface Skill {
   id: string
@@ -89,7 +90,7 @@ export default function SkillsPanel() {
     if (!token) return
     setLoading(true)
     try {
-      const res = await fetch(`${serverUrl}/api/skills`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await apiFetch(`${serverUrl}/api/skills`)
       await throwIfError(res)
       setSkills(await res.json())
     } catch (e: any) {
@@ -172,9 +173,9 @@ export default function SkillsPanel() {
           ? `${serverUrl}/api/skills/${editingId}`
           : `${serverUrl}/api/skills`
         const method = editingId ? 'PUT' : 'POST'
-        const res = await fetch(url, {
+        const res = await apiFetch(url, {
           method,
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),
         })
         await throwIfError(res)
@@ -190,9 +191,8 @@ export default function SkillsPanel() {
 
   async function handleDelete(id: string) {
     try {
-      const res = await fetch(`${serverUrl}/api/skills/${id}`, {
+      const res = await apiFetch(`${serverUrl}/api/skills/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
       await throwIfError(res)
       setSkills(prev => prev.filter(s => s.id !== id))

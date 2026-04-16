@@ -3,6 +3,7 @@ import styles from './MemoryPanel.module.css'
 import { useToast } from '../../hooks/useToast'
 import { useAppStore } from '../../store/app'
 import Toast from '../Toast/Toast'
+import { apiFetch } from '../../api/apiFetch'
 
 
 interface MemoryFile {
@@ -64,9 +65,7 @@ export default function MemoryPanel() {
   const loadDbMemories = useCallback(async () => {
     if (!token || !serverUrl) return
     try {
-      const resp = await fetch(`${serverUrl}/api/memory`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const resp = await apiFetch(`${serverUrl}/api/memory`)
       if (!resp.ok) return
       setDbMemories(await resp.json())
     } catch {
@@ -130,18 +129,18 @@ export default function MemoryPanel() {
       const localMsgs = await db.getMessages(session.id)
       const msgs = localMsgs.filter(m => m.role === 'user' || m.role === 'assistant')
 
-      const createRes = await fetch(`${serverUrl}/api/sessions`, {
+      const createRes = await apiFetch(`${serverUrl}/api/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: session.title || '新对话' }),
       })
       if (!createRes.ok) throw new Error(`创建会话失败 ${createRes.status}`)
       const serverSession: { id: string; title: string; skill_id?: string | null } = await createRes.json()
 
       if (msgs.length > 0) {
-        const batchRes = await fetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
+        const batchRes = await apiFetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(msgs.map(m => ({ role: m.role, content: m.content }))),
         })
         if (!batchRes.ok) throw new Error(`上传消息失败 ${batchRes.status}`)
@@ -210,9 +209,8 @@ export default function MemoryPanel() {
     e.stopPropagation()
     if (!token || !serverUrl) return
     try {
-      const resp = await fetch(`${serverUrl}/api/memory/${id}`, {
+      const resp = await apiFetch(`${serverUrl}/api/memory/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       setDbMemories(prev => prev.filter(m => m.id !== id))
@@ -283,9 +281,9 @@ export default function MemoryPanel() {
     try {
       const result = await mem.read(selectedFile)
       const content = (result as { content?: string }).content ?? ''
-      const resp = await fetch(`${serverUrl}/api/memory/files/${encodeURIComponent(selectedFile)}`, {
+      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(selectedFile)}`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
+        headers: { 'Content-Type': 'text/plain' },
         body: content,
       })
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
@@ -301,9 +299,7 @@ export default function MemoryPanel() {
       return
     }
     try {
-      const resp = await fetch(`${serverUrl}/api/memory/files`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const resp = await apiFetch(`${serverUrl}/api/memory/files`)
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const cloudFiles = await resp.json() as Array<{ name: string }>
       if (cloudFiles.length === 0) {
@@ -314,9 +310,7 @@ export default function MemoryPanel() {
       if (!mem) return
       let count = 0
       for (const cf of cloudFiles) {
-        const fileResp = await fetch(`${serverUrl}/api/memory/files/${encodeURIComponent(cf.name)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const fileResp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(cf.name)}`)
         if (!fileResp.ok) continue
         const data = await fileResp.json() as { content: string }
         await mem.write(cf.name, data.content)

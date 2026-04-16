@@ -3,6 +3,7 @@ import styles from './ScheduledTasksPanel.module.css'
 import { useAppStore } from '../../store/app'
 import { useToast, throwIfError } from '../../hooks/useToast'
 import Toast from '../Toast/Toast'
+import { apiFetch } from '../../api/apiFetch'
 
 interface ScheduledTask {
   id: number
@@ -43,9 +44,7 @@ export default function ScheduledTasksPanel() {
     if (!token) return
     setLoading(true)
     try {
-      const res = await fetch(`${serverUrl}/api/scheduled-tasks`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await apiFetch(`${serverUrl}/api/scheduled-tasks`)
       await throwIfError(res)
       setTasks(await res.json())
     } catch (e: any) {
@@ -117,9 +116,9 @@ export default function ScheduledTasksPanel() {
       const url = editingId
         ? `${serverUrl}/api/scheduled-tasks/${editingId}`
         : `${serverUrl}/api/scheduled-tasks`
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: editingId ? 'PUT' : 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       await throwIfError(res)
@@ -134,9 +133,8 @@ export default function ScheduledTasksPanel() {
 
   async function handleDelete(id: number) {
     try {
-      const res = await fetch(`${serverUrl}/api/scheduled-tasks/${id}`, {
+      const res = await apiFetch(`${serverUrl}/api/scheduled-tasks/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
       await throwIfError(res)
       setTasks(prev => prev.filter(t => t.id !== id))
@@ -148,9 +146,8 @@ export default function ScheduledTasksPanel() {
 
   async function handleTrigger(id: number) {
     try {
-      const res = await fetch(`${serverUrl}/api/scheduled-tasks/${id}/trigger`, {
+      const res = await apiFetch(`${serverUrl}/api/scheduled-tasks/${id}/trigger`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
       })
       await throwIfError(res)
       fetchTasks()
@@ -161,9 +158,9 @@ export default function ScheduledTasksPanel() {
 
   async function handleToggle(task: ScheduledTask) {
     try {
-      const res = await fetch(`${serverUrl}/api/scheduled-tasks/${task.id}`, {
+      const res = await apiFetch(`${serverUrl}/api/scheduled-tasks/${task.id}`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_enabled: !task.is_enabled }),
       })
       await throwIfError(res)

@@ -6,6 +6,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore, ToolCall } from '../store/app'
 import { executeLocalTool } from './localTools'
+import { apiFetch } from '../api/apiFetch'
 
 const MAX_BACKOFF = 30_000
 
@@ -141,9 +142,9 @@ export function useWebSocket(sessionId: string | null) {
                   .filter((m) => m.synced === 0 && (m.role === 'user' || m.role === 'assistant'))
                   .map((m) => ({ role: m.role, content: m.content }))
                 if (batch.length > 0) {
-                  await fetch(`${svSync}/api/sessions/${sessionId}/messages/batch`, {
+                  await apiFetch(`${svSync}/api/sessions/${sessionId}/messages/batch`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tkSync}` },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(batch),
                   })
                   await dbBridge.markSynced(sessionId)
@@ -162,9 +163,9 @@ export function useWebSocket(sessionId: string | null) {
             if (tk && firstUser) {
               // Stage 1: 立即截取前15字
               const shortTitle = firstUser.content.slice(0, 15) + (firstUser.content.length > 15 ? '…' : '')
-              fetch(`${sv}/api/sessions/${sessionId}`, {
+              apiFetch(`${sv}/api/sessions/${sessionId}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: shortTitle }),
               }).catch(() => {})
               updateSessionTitle(sessionId, shortTitle)
@@ -324,9 +325,9 @@ export function useWebSocket(sessionId: string | null) {
             localHistory = filtered.map((m) => ({ role: m.role, content: m.content }))
           }
         }
-        const res = await fetch(`${sv}/api/sessions`, {
+        const res = await apiFetch(`${sv}/api/sessions`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: '新对话' }),
         })
         if (!res.ok) return

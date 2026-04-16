@@ -13,6 +13,7 @@ import { useAppStore } from '../store/app'
 import type { ToolCall } from '../store/app'
 import { executeLocalTool } from './localTools'
 import { getLocalToolDefinitions } from './toolDefinitions'
+import { apiFetch } from '../api/apiFetch'
 
 async function decryptKey(b64: string): Promise<string> {
   if (window.nekoBridge?.storage) {
@@ -270,15 +271,15 @@ async function streamAnthropic(
 // ── Hook ───────────────────────────────────────────────────────────────────
 async function persistMessage(
   serverUrl: string,
-  token: string,
+  _token: string,
   sessionId: string,
   role: 'user' | 'assistant',
   content: string,
 ) {
   try {
-    await fetch(`${serverUrl}/api/sessions/${sessionId}/messages`, {
+    await apiFetch(`${serverUrl}/api/sessions/${sessionId}/messages`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role, content }),
     })
   } catch {
@@ -335,11 +336,11 @@ async function autoUpdateTitle(
   }
 }
 
-async function patchSessionTitle(serverUrl: string, token: string, sessionId: string, title: string) {
+async function patchSessionTitle(serverUrl: string, _token: string, sessionId: string, title: string) {
   try {
-    await fetch(`${serverUrl}/api/sessions/${sessionId}`, {
+    await apiFetch(`${serverUrl}/api/sessions/${sessionId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
     })
   } catch {
@@ -368,9 +369,9 @@ export function useLocalLLM(sessionId: string | null) {
         const { serverUrl: sv, token: tk, syncEnabled } = useAppStore.getState()
         if (tk && syncEnabled) {
           try {
-            const res = await fetch(`${sv}/api/sessions`, {
+            const res = await apiFetch(`${sv}/api/sessions`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ title: '新对话' }),
             })
             if (res.ok) {
@@ -510,9 +511,9 @@ export function useLocalLLM(sessionId: string | null) {
       try {
         const { serverUrl: sv, token: tk, syncEnabled: se } = useAppStore.getState()
         if (tk && se) {
-          const res = await fetch(`${sv}/api/llm/enhance`, {
+          const res = await apiFetch(`${sv}/api/llm/enhance`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               messages: history,
               client_system_prompt: useAppStore.getState().personalizationConfig?.systemPrompt || null,

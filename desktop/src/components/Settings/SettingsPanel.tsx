@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { useAppStore, SecurityConfig } from '../../store/app'
 import styles from './SettingsPanel.module.css'
 import { encryptKey } from '../../hooks/useLocalLLM'
+import { apiFetch } from '../../api/apiFetch'
 
 type Tab = 'account' | 'general' | 'models' | 'mcp' | 'im-bot' | 'security' | 'feedback' | 'about'
 
@@ -879,9 +880,9 @@ function AccountTab({ userId, username, nickname, avatarData, serverUrl, token, 
     if (!token) return
     setSaving(true); setSaveMsg('')
     try {
-      const res = await fetch(`${serverUrl}/api/auth/me`, {
+      const res = await apiFetch(`${serverUrl}/api/auth/me`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       })
       if (!res.ok) throw new Error('保存失败')

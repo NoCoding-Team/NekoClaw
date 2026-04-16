@@ -30,6 +30,7 @@ const nekoBridge = {
   memory: {
     read: (path) => electron.ipcRenderer.invoke("memory:read", path),
     write: (path, content) => electron.ipcRenderer.invoke("memory:write", path, content),
+    delete: (path) => electron.ipcRenderer.invoke("memory:delete", path),
     list: () => electron.ipcRenderer.invoke("memory:list"),
     search: (query) => electron.ipcRenderer.invoke("memory:search", query),
     setEmbeddingConfig: (config) => electron.ipcRenderer.invoke("memory:setEmbeddingConfig", config)
@@ -40,6 +41,7 @@ const nekoBridge = {
     getMessages: (sessionId) => electron.ipcRenderer.invoke("db:getMessages", sessionId).then((r) => r.messages ?? []),
     insertMessage: (msg) => electron.ipcRenderer.invoke("db:insertMessage", msg),
     markSynced: (sessionId) => electron.ipcRenderer.invoke("db:markSynced", sessionId),
+    deleteSession: (sessionId) => electron.ipcRenderer.invoke("db:deleteSession", sessionId),
     readLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:readLegacyLocalMemories"),
     deleteLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:deleteLegacyLocalMemories")
   }

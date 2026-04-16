@@ -9,6 +9,7 @@ import MemoryPanel from './components/Memory/MemoryPanel'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { PersonalizationPanel } from './components/Settings/PersonalizationPanel'
 import AbilitiesPanel from './components/Abilities/AbilitiesPanel'
+import { apiFetch } from './api/apiFetch'
 
 export default function App() {
   const { token, serverConnected, serverUrl, setSessions, setActiveSession, setProfile } = useAppStore()
@@ -20,7 +21,7 @@ export default function App() {
   // 登录状态恢复时拉取用户信息
   useEffect(() => {
     if (!token) return
-    fetch(`${serverUrl}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch(`${serverUrl}/api/auth/me`)
       .then(r => r.ok ? r.json() : null)
       .then(me => { if (me) setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null) })
       .catch(() => {})
@@ -47,9 +48,9 @@ export default function App() {
     try {
       await Promise.allSettled(
         migrateEntries.map((e) =>
-          fetch(`${serverUrl}/api/memory`, {
+          apiFetch(`${serverUrl}/api/memory`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: e.content, category: e.category ?? 'other' }),
           }),
         ),
@@ -83,9 +84,7 @@ export default function App() {
 
       // 2. 从服务器拉取会话
       try {
-        const res = await fetch(`${serverUrl}/api/sessions`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await apiFetch(`${serverUrl}/api/sessions`)
         if (!res.ok) {
           // 服务器异常时仅展示本地会话
           if (localOnlySessions.length > 0) {
@@ -107,9 +106,9 @@ export default function App() {
           const restored = lastId && allSessions.find((s) => s.id === lastId)
           setActiveSession(restored ? lastId! : allSessions[0].id)
         } else {
-          const newRes = await fetch(`${serverUrl}/api/sessions`, {
+          const newRes = await apiFetch(`${serverUrl}/api/sessions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: '新对话' }),
           })
           if (newRes.ok) {
@@ -331,7 +330,7 @@ function LoginForm() {
         })
         if (!res.ok) throw new Error((await res.json()).detail || '登录失败')
         const data = await res.json()
-        setAuth(data.access_token, '', username)
+        setAuth(data.access_token, '', username, data.refresh_token)
         // 获取完整用户信息
         const meRes = await fetch(`${serverUrl}/api/auth/me`, {
           headers: { Authorization: `Bearer ${data.access_token}` },
@@ -353,7 +352,7 @@ function LoginForm() {
           body: JSON.stringify({ username, password }),
         })
         const loginData = await loginRes.json()
-        setAuth(loginData.access_token, '', username)
+        setAuth(loginData.access_token, '', username, loginData.refresh_token)
         // 上传头像（如有）并获取完整用户信息
         let token = loginData.access_token
         if (avatarPreview) {

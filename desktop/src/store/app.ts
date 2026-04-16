@@ -126,19 +126,20 @@ function loadPersonalizationConfig(): PersonalizationConfig | null {
   }
 }
 
-function loadAuth(): { token: string | null; userId: string | null; username: string | null; nickname: string | null; avatarData: string | null } {
+function loadAuth(): { token: string | null; refreshToken: string | null; userId: string | null; username: string | null; nickname: string | null; avatarData: string | null } {
   try {
     const raw = localStorage.getItem(STORAGE_AUTH)
     const parsed = raw ? JSON.parse(raw) : {}
     return {
       token: parsed.token ?? null,
+      refreshToken: parsed.refreshToken ?? null,
       userId: parsed.userId ?? null,
       username: parsed.username ?? null,
       nickname: parsed.nickname ?? null,
       avatarData: parsed.avatarData ?? null,
     }
   } catch {
-    return { token: null, userId: null, username: null, nickname: null, avatarData: null }
+    return { token: null, refreshToken: null, userId: null, username: null, nickname: null, avatarData: null }
   }
 }
 
@@ -173,11 +174,12 @@ export interface Session {
 export interface AppState {
   // Auth
   token: string | null
+  refreshToken: string | null
   userId: string | null
   username: string | null
   nickname: string | null
   avatarData: string | null
-  setAuth: (token: string, userId: string, username?: string) => void
+  setAuth: (token: string, userId: string, username?: string, refreshToken?: string) => void
   setProfile: (userId: string, username: string, nickname: string | null, avatarData: string | null) => void
   clearAuth: () => void
 
@@ -253,22 +255,22 @@ export interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   ...loadAuth(),
-  setAuth: (token, userId, username) => {
+  setAuth: (token, userId, username, refreshToken) => {
     const prev = loadAuth()
-    const auth = { token, userId, username: username ?? null, nickname: prev.nickname, avatarData: prev.avatarData }
+    const auth = { token, userId, username: username ?? null, nickname: prev.nickname, avatarData: prev.avatarData, refreshToken: refreshToken ?? prev.refreshToken }
     localStorage.setItem(STORAGE_AUTH, JSON.stringify(auth))
     set(auth)
   },
   setProfile: (userId, username, nickname, avatarData) => {
     set((s) => {
       const next = { ...s, userId, username, nickname, avatarData }
-      localStorage.setItem(STORAGE_AUTH, JSON.stringify({ token: s.token, userId, username, nickname, avatarData }))
+      localStorage.setItem(STORAGE_AUTH, JSON.stringify({ token: s.token, refreshToken: s.refreshToken, userId, username, nickname, avatarData }))
       return next
     })
   },
   clearAuth: () => {
     localStorage.removeItem(STORAGE_AUTH)
-    set({ token: null, userId: null, username: null, nickname: null, avatarData: null })
+    set({ token: null, refreshToken: null, userId: null, username: null, nickname: null, avatarData: null })
   },
 
   serverUrl: loadServerUrl(),

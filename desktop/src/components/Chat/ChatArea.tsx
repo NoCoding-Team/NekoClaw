@@ -7,6 +7,7 @@ import { useLocalLLM } from '../../hooks/useLocalLLM'
 import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
+import { apiFetch } from '../../api/apiFetch'
 
 /**
  * 将同一 agent 轮次（两条 user 消息之间）的所有工具调用合并为单一气泡。
@@ -118,9 +119,9 @@ export function ChatArea() {
 
       // 2. 在服务器创建会话
       const sessionTitle = useAppStore.getState().sessions.find(s => s.id === activeSessionId)?.title ?? '新对话'
-      const createRes = await fetch(`${serverUrl}/api/sessions`, {
+      const createRes = await apiFetch(`${serverUrl}/api/sessions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: sessionTitle }),
       })
       if (!createRes.ok) throw new Error(`创建会话失败 ${createRes.status}`)
@@ -128,9 +129,9 @@ export function ChatArea() {
 
       // 3. 批量上传消息
       if (msgs.length > 0) {
-        const batchRes = await fetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
+        const batchRes = await apiFetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(msgs.map((m: any) => {
             let tool_calls = null
             if (m.toolCalls) {
@@ -195,9 +196,7 @@ export function ChatArea() {
     setIsLoadingHistory(true)
     ;(async () => {
       try {
-        const res = await fetch(`${serverUrl}/api/sessions/${activeSessionId}/messages`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await apiFetch(`${serverUrl}/api/sessions/${activeSessionId}/messages`)
         if (!res.ok) return
         const data: Array<{ id: string; role: string; content: string | null; tool_calls: ToolCall[] | null }> = await res.json()
         setMessages(
