@@ -188,9 +188,31 @@ async def run_llm_pipeline(
             tool_results.append({"tool_call_id": call_id, "content": result_content})
 
         # Append tool results to messages for next iteration
-        for tr in tool_results:
-            messages.append({"role": "tool", "tool_call_id": tr["tool_call_id"], "content": tr["content"]})
-            await _persist_message(session_id, "tool", tr["content"], None)
+        for tc, tr in zip(tool_calls_raw, tool_results):
+            call_id = tc["id"]
+            tool_name = tc["function"]["name"]
+            try:
+                parsed_args = json.loads(tc["function"]["arguments"] or "{}")
+            except Exception:
+                parsed_args = {}
+            risk_level, _ = analyze_risk(tool_name, parsed_args)
+            result_content = tr["content"]
+            try:
+                _parsed = json.loads(result_content)
+                status = "error" if (isinstance(_parsed, dict) and _parsed.get("error")) else "done"
+            except Exception:
+                status = "done"
+            # Build frontend-compatible ToolCall card so it survives server reload
+            tool_call_card = [{
+                "callId": call_id,
+                "tool": tool_name,
+                "args": parsed_args,
+                "riskLevel": risk_level,
+                "status": status,
+                "result": result_content[:2000],
+            }]
+            messages.append({"role": "tool", "tool_call_id": call_id, "content": result_content})
+            await _persist_message(session_id, "tool", result_content, tool_call_card)
 
 
 _TOOL_RULES = (

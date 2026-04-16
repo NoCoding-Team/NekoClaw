@@ -93,7 +93,6 @@ export function ChatArea() {
     serverConnected,
     setMessages,
     replaceSession,
-    setActiveSession,
   } = useAppStore()
 
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? []) : []
@@ -145,13 +144,9 @@ export function ChatArea() {
         if (!batchRes.ok) throw new Error(`上传消息失败 ${batchRes.status}`)
       }
 
-      // 4. 转移内存中的消息到新 ID
-      const currentMsgs = messagesBySession[activeSessionId] ?? []
-      setMessages(serverSession.id, currentMsgs)
-
-      // 5. 替换 store 中的会话，切换活跃会话
+      // 4. 替换 store 中的会话并迁移消息（replaceSession 内部会搬移 messagesBySession）
+      // 注意：不要在 replaceSession 之前单独 setMessages，避免两次 set 竞争触发 useEffect 重载
       replaceSession(activeSessionId, { id: serverSession.id, title: serverSession.title, skillId: serverSession.skill_id ?? undefined })
-      setActiveSession(serverSession.id)
 
       // 6. 硬删除本地 SQLite 记录
       await db.deleteSession(activeSessionId)
