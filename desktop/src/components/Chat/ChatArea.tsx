@@ -204,6 +204,9 @@ export function ChatArea() {
         }
         try {
           const localMsgs = await db.getMessages(activeSessionId)
+          // 防止竞态：若 SQLite 加载期间 store 已有消息（如第一条消息刚写入），不覆盖
+          const currentMsgs = useAppStore.getState().messagesBySession[activeSessionId]
+          if (currentMsgs?.length) return
           setMessages(
             activeSessionId,
             localMsgs.map((m) => {
