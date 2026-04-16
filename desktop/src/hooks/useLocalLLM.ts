@@ -399,8 +399,8 @@ export function useLocalLLM(sessionId: string | null) {
       appendMessage(sid, { id: userMsgId, role: 'user', content })
 
       // Persist user message to backend or local SQLite
-      const { serverUrl, token, syncEnabled } = useAppStore.getState()
-      if (token && syncEnabled && !sid.startsWith('local-')) {
+      const { serverUrl, token } = useAppStore.getState()
+      if (token && !sid.startsWith('local-')) {
         persistMessage(serverUrl, token, sid, 'user', content)
       } else if (sid.startsWith('local-')) {
         const dbBridge = window.nekoBridge?.db
@@ -594,8 +594,8 @@ export function useLocalLLM(sessionId: string | null) {
             function: { name: tc.name, arguments: tc.arguments },
           }))
           if (!sid.startsWith('local-')) {
-            const { serverUrl: svA, token: tkA, syncEnabled: seA } = useAppStore.getState()
-            if (tkA && seA) {
+            const { serverUrl: svA, token: tkA } = useAppStore.getState()
+            if (tkA) {
               persistMessage(svA, tkA, sid, 'assistant', result.content || '', openaiToolCalls)
             }
           }
@@ -634,8 +634,8 @@ export function useLocalLLM(sessionId: string | null) {
               if (sid.startsWith('local-')) {
                 window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: limitMsg, toolCalls: JSON.stringify([toolCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
               } else {
-                const { serverUrl: svLim, token: tkLim, syncEnabled: seLim } = useAppStore.getState()
-                if (tkLim && seLim) persistMessage(svLim, tkLim, sid, 'tool', limitMsg, [toolCard])
+                const { serverUrl: svLim, token: tkLim } = useAppStore.getState()
+                if (tkLim) persistMessage(svLim, tkLim, sid, 'tool', limitMsg, [toolCard])
               }
               llmMessages.push({ role: 'tool', content: limitMsg, tool_call_id: callId })
               loopAborted = true
@@ -658,8 +658,8 @@ export function useLocalLLM(sessionId: string | null) {
               if (sid.startsWith('local-')) {
                 window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: loopMsg, toolCalls: JSON.stringify([toolCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
               } else {
-                const { serverUrl: svLoop, token: tkLoop, syncEnabled: seLoop } = useAppStore.getState()
-                if (tkLoop && seLoop) persistMessage(svLoop, tkLoop, sid, 'tool', loopMsg, [toolCard])
+                const { serverUrl: svLoop, token: tkLoop } = useAppStore.getState()
+                if (tkLoop) persistMessage(svLoop, tkLoop, sid, 'tool', loopMsg, [toolCard])
               }
               llmMessages.push({ role: 'tool', content: loopMsg, tool_call_id: callId })
               loopAborted = true
@@ -709,8 +709,8 @@ export function useLocalLLM(sessionId: string | null) {
             if (sid.startsWith('local-')) {
               window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: toolResult.slice(0, 2000), toolCalls: JSON.stringify([finalCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
             } else {
-              const { serverUrl: svTool, token: tkTool, syncEnabled: seTool } = useAppStore.getState()
-              if (tkTool && seTool) {
+              const { serverUrl: svTool, token: tkTool } = useAppStore.getState()
+              if (tkTool) {
                 persistMessage(svTool, tkTool, sid, 'tool', toolResult.slice(0, 2000), [finalCard])
               }
             }
@@ -738,8 +738,8 @@ export function useLocalLLM(sessionId: string | null) {
           const finalMsg = { ...last, streaming: false }
           setMessages(sid, [...msgs.slice(0, -1), finalMsg])
           // Persist assistant message to backend or local SQLite
-          const { serverUrl, token, syncEnabled: seAssist } = useAppStore.getState()
-          if (token && seAssist && !sid.startsWith('local-')) {
+          const { serverUrl, token } = useAppStore.getState()
+          if (token && !sid.startsWith('local-')) {
             persistMessage(serverUrl, token, sid, 'assistant', finalMsg.content)
           } else if (sid.startsWith('local-')) {
             const dbBridge = window.nekoBridge?.db
