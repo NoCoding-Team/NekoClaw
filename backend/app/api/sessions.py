@@ -1,4 +1,5 @@
 import uuid
+from datetime import timezone, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,7 +104,7 @@ async def list_messages(
     msgs = await db.execute(
         select(Message)
         .where(Message.session_id == session_id, Message.deleted_at.is_(None))
-        .order_by(Message.created_at.asc())
+        .order_by(Message.created_at.asc(), Message.id.asc())
     )
     return msgs.scalars().all()
 
@@ -153,15 +154,34 @@ async def batch_create_messages(
     if session.user_id != current_user.id:
         raise ForbiddenError()
 
+    seen_timestamps: dict = {}
     for item in body:
-        msg = Message(
-            session_id=session_id,
-            role=item.role,
-            content=item.content,
-            tool_calls=item.tool_calls,
-        )
-        if item.created_at is not None:
-            msg.created_at = item.created_at
+        ts = item.created_at
+        if ts is not None:
+            # Normalise to UTC-aware datetime for dedup tracking
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            key = ts
+            count = seen_timestamps.get(key, 0)
+            if count:
+                # Nudge by count microseconds so that messages with identical
+                # millisecond timestamps still get a deterministic strict order.
+                ts = ts + timedelta(microseconds=count)
+            seen_timestamps[key] = count + 1
+
+        kwargs: dict = {
+            "session_id": session_id,
+            "role": item.role,
+            "content": item.content,
+            "tool_calls": item.tool_calls,
+        }
+        # Pass created_at directly in the constructor so SQLAlchemy includes it in
+        # the INSERT statement. Setting it after construction with server_default
+        # may cause the column to be omitted, making all messages share the same
+        # DB-generated timestamp and rendering ORDER BY created_at unreliable.
+        if ts is not None:
+            kwargs["created_at"] = ts
+        msg = Message(**kwargs)
         db.add(msg)
     await db.commit()
     return {"ok": True, "count": len(body)}
