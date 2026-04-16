@@ -597,18 +597,47 @@ ipcMain.handle('db:deleteLegacyLocalMemories', async () => {
 })
 
 // ── IPC: Browser automation (Playwright, lazy-loaded) ─────────────────────
-let _pw: typeof import('playwright') | null = null
-let _browserContext: import('playwright').BrowserContext | null = null
-let _browserPage: import('playwright').Page | null = null
+let _pw: typeof import('playwright-core') | null = null
+let _browserContext: import('playwright-core').BrowserContext | null = null
+let _browserPage: import('playwright-core').Page | null = null
 
-async function ensureBrowserPage(): Promise<import('playwright').Page> {
+/** Find an installed Chromium-based browser on the system */
+function findSystemBrowser(): string | undefined {
+  const candidates = [
+    // Chrome Windows
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    path.join(os.homedir(), 'AppData\\Local\\Google\\Chrome\\Application\\chrome.exe'),
+    // Edge Windows
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    path.join(os.homedir(), 'AppData\\Local\\Microsoft\\Edge\\Application\\msedge.exe'),
+    // Chrome macOS
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    // Chrome Linux
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+  ]
+  const fsSync = require('fs') as typeof import('fs')
+  for (const p of candidates) {
+    try { if (fsSync.existsSync(p)) return p } catch { /* skip */ }
+  }
+  return undefined
+}
+
+async function ensureBrowserPage(): Promise<import('playwright-core').Page> {
   if (_browserPage && !_browserPage.isClosed()) return _browserPage
   if (!_pw) {
-    _pw = require('playwright') as typeof import('playwright')
+    _pw = require('playwright-core') as typeof import('playwright-core')
   }
-  const browser = await _pw.chromium.launch({ headless: false })
-  _browserContext = browser.contexts()[0] ?? await browser.newContext()
-  _browserPage = _browserContext.pages()[0] ?? await _browserContext.newPage()
+  const executablePath = findSystemBrowser()
+  if (!executablePath) {
+    throw new Error('未找到 Chrome 或 Edge 浏览器，请安装后再试。')
+  }
+  const browser = await _pw.chromium.launch({ headless: false, executablePath })
+  _browserContext = await browser.newContext()
+  _browserPage = await _browserContext.newPage()
   return _browserPage
 }
 
