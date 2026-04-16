@@ -146,10 +146,11 @@ const CLIENT_TOOLS: ToolDefinition[] = [
 /**
  * Get tool definitions for Mode B LLM calls.
  * Memory tools are always included; other client tools are filtered by allowedTools.
+ * Pass `[]` to disable all client tools; pass `null`/`undefined` to include all.
  */
 export function getLocalToolDefinitions(allowedTools?: string[] | null): ToolDefinition[] {
   const tools = [...MEMORY_TOOLS]
-  if (allowedTools) {
+  if (Array.isArray(allowedTools)) {
     tools.push(...CLIENT_TOOLS.filter((t) => allowedTools.includes(t.function.name)))
   } else {
     tools.push(...CLIENT_TOOLS)

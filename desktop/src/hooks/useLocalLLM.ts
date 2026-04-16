@@ -628,9 +628,7 @@ export function useLocalLLM(sessionId: string | null) {
 
         // Build tool definitions
         const { securityConfig } = useAppStore.getState()
-        const toolDefs = getLocalToolDefinitions(
-          securityConfig.toolWhitelist?.length ? securityConfig.toolWhitelist : null,
-        )
+        const toolDefs = getLocalToolDefinitions(securityConfig.toolWhitelist)
 
         // ── Agentic Loop ───────────────────────────────────────────────────
         // Messages array for the LLM (mutable, accumulates tool results)
