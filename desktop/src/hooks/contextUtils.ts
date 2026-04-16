@@ -124,12 +124,44 @@ function softTrim(content: string): string {
 
 // ── Memory Refresh ─────────────────────────────────────────────────────────
 
-/** Per-session guard: memory refresh fires at most once per session. */
-const _memoryRefreshDone = new Set<string>()
+/** Per-session turn counter for user messages. */
+const _userTurnCount = new Map<string, number>()
+/** Per-session last refresh turn number. */
+const _lastRefreshTurn = new Map<string, number>()
+
+const REFRESH_INTERVAL = 15   // trigger every N user turns
+const REFRESH_MIN_GAP = 5     // minimum turns between refreshes
+
+/** Increment user turn counter for a session, returns the new count. */
+export function incrementUserTurn(sessionId: string): number {
+  const count = (_userTurnCount.get(sessionId) ?? 0) + 1
+  _userTurnCount.set(sessionId, count)
+  return count
+}
+
+/** Check if a periodic memory refresh should trigger based on turn count. */
+export function shouldTriggerPeriodicRefresh(sessionId: string): boolean {
+  const turn = _userTurnCount.get(sessionId) ?? 0
+  if (turn === 0 || turn % REFRESH_INTERVAL !== 0) return false
+  return canRefresh(sessionId)
+}
+
+/** Check if refresh is allowed (minimum gap protection). */
+function canRefresh(sessionId: string): boolean {
+  const turn = _userTurnCount.get(sessionId) ?? 0
+  const lastTurn = _lastRefreshTurn.get(sessionId) ?? -REFRESH_MIN_GAP
+  return (turn - lastTurn) >= REFRESH_MIN_GAP
+}
+
+/** Mark that a refresh was performed at the current turn. */
+function markRefreshDone(sessionId: string): void {
+  const turn = _userTurnCount.get(sessionId) ?? 0
+  _lastRefreshTurn.set(sessionId, turn)
+}
 
 /**
  * Pre-compaction memory refresh: silently ask the LLM to save important memories
- * before history is compressed away. Fires at most once per session.
+ * before history is compressed away. Uses turn-based interval protection.
  */
 export async function memoryRefresh(
   sessionId: string,
@@ -137,8 +169,8 @@ export async function memoryRefresh(
   config: LLMConfig,
   streamFn: StreamFn,
 ): Promise<void> {
-  if (_memoryRefreshDone.has(sessionId)) return
-  _memoryRefreshDone.add(sessionId)
+  if (!canRefresh(sessionId)) return
+  markRefreshDone(sessionId)
 
   // Build a condensed view of recent conversation
   const recent = messages.slice(-20)

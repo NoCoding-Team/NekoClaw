@@ -13,7 +13,7 @@ import { useAppStore } from '../store/app'
 import type { ToolCall } from '../store/app'
 import { executeLocalTool } from './localTools'
 import { getLocalToolDefinitions } from './toolDefinitions'
-import { truncateToolResult, estimateMessagesTokens, pruneToolResults, memoryRefresh, compactHistory } from './contextUtils'
+import { truncateToolResult, estimateMessagesTokens, pruneToolResults, memoryRefresh, compactHistory, incrementUserTurn, shouldTriggerPeriodicRefresh } from './contextUtils'
 import type { LLMConfig as ContextLLMConfig, StreamFn } from './contextUtils'
 import { apiFetch } from '../api/apiFetch'
 
@@ -400,6 +400,9 @@ export function useLocalLLM(sessionId: string | null) {
       const userMsgId = uuidv4()
       appendMessage(sid, { id: userMsgId, role: 'user', content })
 
+      // Increment user turn counter for periodic memory refresh
+      incrementUserTurn(sid)
+
       // Persist user message to backend or local SQLite
       const { serverUrl, token } = useAppStore.getState()
       if (token && !sid.startsWith('local-')) {
@@ -573,8 +576,20 @@ export function useLocalLLM(sessionId: string | null) {
 
         const streamFn = isAnthropic ? streamAnthropic : streamOpenAI
 
-        // ── Pre-send Compaction check ──────────────────────────────────────
+        // ── Periodic Memory Refresh (turn-based) ─────────────────────────────
         const contextLimit = localLLMConfig.contextLimit ?? localLLMConfig.maxTokens * 4
+        if (shouldTriggerPeriodicRefresh(sid)) {
+          const ctxConfig: ContextLLMConfig = {
+            baseUrl: localLLMConfig.baseUrl,
+            apiKey,
+            model: localLLMConfig.model,
+            maxTokens: localLLMConfig.maxTokens,
+            temperature: localLLMConfig.temperature,
+          }
+          await memoryRefresh(sid, enhancedHistory, ctxConfig, streamFn as StreamFn)
+        }
+
+        // ── Pre-send Compaction check ──────────────────────────────────────
         const totalTokens = estimateMessagesTokens(enhancedHistory)
         if (totalTokens > contextLimit * 0.70 && enhancedHistory.length > 10) {
           const ctxConfig: ContextLLMConfig = {
@@ -584,7 +599,7 @@ export function useLocalLLM(sessionId: string | null) {
             maxTokens: localLLMConfig.maxTokens,
             temperature: localLLMConfig.temperature,
           }
-          // Step 1: Memory Refresh (best-effort, once per session)
+          // Step 1: Memory Refresh (best-effort, interval-protected)
           await memoryRefresh(sid, enhancedHistory, ctxConfig, streamFn as StreamFn)
           // Step 2: Compact history (LLM summary)
           const compacted = await compactHistory(enhancedHistory, ctxConfig, streamFn as StreamFn)
