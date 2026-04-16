@@ -103,6 +103,9 @@ export function ChatArea() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
 
+  // 同步完成后阻止 useEffect 从服务器重新加载消息（防止覆盖内存中的正确数据）
+  const justSyncedIdRef = useRef<string | null>(null)
+
   // 同步本地会话到服务器
   const syncToServer = async () => {
     if (!activeSessionId?.startsWith('local-') || !token || !serverUrl) return
@@ -126,27 +129,31 @@ export function ChatArea() {
       if (!createRes.ok) throw new Error(`创建会话失败 ${createRes.status}`)
       const serverSession: { id: string; title: string; skill_id: string | null } = await createRes.json()
 
-      // 3. 批量上传消息
-      if (msgs.length > 0) {
-        const batchRes = await apiFetch(`${serverUrl}/api/sessions/${serverSession.id}/messages/batch`, {
+      // 3. 逐条上传消息（保证服务端 created_at 严格递增，避免批量上传时时间戳相同导致乱序）
+      for (const m of msgs) {
+        let tool_calls = null
+        if ((m as any).toolCalls) {
+          try { tool_calls = typeof (m as any).toolCalls === 'string' ? JSON.parse((m as any).toolCalls) : (m as any).toolCalls } catch { /* ignore */ }
+        }
+        const created_at = (m as any).createdAt ? new Date((m as any).createdAt).toISOString() : undefined
+        const singleRes = await apiFetch(`${serverUrl}/api/sessions/${serverSession.id}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(msgs.map((m: any) => {
-            let tool_calls = null
-            if (m.toolCalls) {
-              try { tool_calls = typeof m.toolCalls === 'string' ? JSON.parse(m.toolCalls) : m.toolCalls } catch { /* ignore */ }
-            }
-            // 携带原始时间戳（SQLite ms → ISO 字符串），保证服务端 created_at 有序
-            const created_at = m.createdAt ? new Date(m.createdAt).toISOString() : undefined
-            return { role: m.role, content: m.content, tool_calls, created_at }
-          })),
+          body: JSON.stringify({ role: (m as any).role, content: (m as any).content, tool_calls, created_at }),
         })
-        if (!batchRes.ok) throw new Error(`上传消息失败 ${batchRes.status}`)
+        if (!singleRes.ok) throw new Error(`上传消息失败 ${singleRes.status}`)
       }
 
-      // 4. 替换 store 中的会话并迁移消息（replaceSession 内部会搬移 messagesBySession）
-      // 注意：不要在 replaceSession 之前单独 setMessages，避免两次 set 竞争触发 useEffect 重载
+      // 4. 迁移消息到新会话 ID
+      // 先读取内存中的完整消息（含 toolCalls 对象），再原子迁移
+      const currentMsgs = useAppStore.getState().messagesBySession[activeSessionId] ?? []
+      // 设置 ref 阻止 useEffect 在 activeSessionId 切换时从服务器重新加载
+      justSyncedIdRef.current = serverSession.id
       replaceSession(activeSessionId, { id: serverSession.id, title: serverSession.title, skillId: serverSession.skill_id ?? undefined })
+      // 兜底：确保消息一定在 store 里（防止 replaceSession 内部取到空数组）
+      if (currentMsgs.length > 0) {
+        setMessages(serverSession.id, currentMsgs)
+      }
 
       // 6. 硬删除本地 SQLite 记录
       await db.deleteSession(activeSessionId)
@@ -163,6 +170,12 @@ export function ChatArea() {
   // Load history messages when switching to a session
   useEffect(() => {
     if (!activeSessionId) return
+
+    // 同步刚完成，内存中已经有正确的消息，跳过从服务器/SQLite 重新加载
+    if (justSyncedIdRef.current === activeSessionId) {
+      justSyncedIdRef.current = null
+      return
+    }
 
     // For local- sessions, load from SQLite
     if (activeSessionId.startsWith('local-')) {
@@ -193,7 +206,9 @@ export function ChatArea() {
       try {
         const res = await apiFetch(`${serverUrl}/api/sessions/${activeSessionId}/messages`)
         if (!res.ok) return
-        const data: Array<{ id: string; role: string; content: string | null; tool_calls: ToolCall[] | null }> = await res.json()
+        const data: Array<{ id: string; role: string; content: string | null; tool_calls: ToolCall[] | null; created_at: string }> = await res.json()
+        // 按 created_at 排序（防止服务端时间戳精度不足导致乱序）
+        data.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         setMessages(
           activeSessionId,
           data.map((m) => ({
