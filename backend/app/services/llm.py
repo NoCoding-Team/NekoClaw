@@ -49,6 +49,47 @@ def _truncate_tool_result(result: str) -> str:
     return result[:6000] + "\n...[输出过长已截断]...\n" + result[-1500:]
 
 
+def _soft_trim(content: str) -> str:
+    if len(content) <= 500:
+        return content
+    return content[:300] + "\n...[已裁剪]...\n" + content[-200:]
+
+
+def _prune_tool_results(messages: list[dict]) -> list[dict]:
+    """Prune tool results by distance from current round (3-tier strategy).
+
+    Recent 3 rounds: keep (soft-trim if > 4000 chars)
+    4-8 rounds: soft trim
+    >8 rounds: hard clear
+    """
+    max_tool_result_tokens = 4000
+    # Assign round distances (walk backwards, each assistant msg starts new round)
+    round_index = [0] * len(messages)
+    current_round = 0
+    for i in range(len(messages) - 1, -1, -1):
+        round_index[i] = current_round
+        if messages[i].get("role") == "assistant":
+            current_round += 1
+
+    result = []
+    for i, m in enumerate(messages):
+        if m.get("role") != "tool":
+            result.append(m)
+            continue
+        distance = round_index[i]
+        content = m.get("content", "")
+        if distance < 3:
+            if len(content) > max_tool_result_tokens:
+                result.append({**m, "content": _soft_trim(content)})
+            else:
+                result.append(m)
+        elif distance < 8:
+            result.append({**m, "content": _soft_trim(content)})
+        else:
+            result.append({**m, "content": "[工具输出已省略]"})
+    return result
+
+
 async def run_llm_pipeline(
     session_id: str,
     user_id: str,
@@ -134,6 +175,9 @@ async def run_llm_pipeline(
     # allowed_tools_override=None 表示客户端未配置（用全量），=[] 表示用户未开启任何能力（无工具）
     allowed_tools = skill.allowed_tools if skill else allowed_tools_override
     tools = get_openai_tools(allowed_tools)
+
+    # Session Pruning: trim old tool results to save context budget
+    messages = _prune_tool_results(messages)
 
     # Agentic loop
     while True:

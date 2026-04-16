@@ -549,8 +549,11 @@ export function useLocalLLM(sessionId: string | null) {
 
         // ── Agentic Loop ───────────────────────────────────────────────────
         // Messages array for the LLM (mutable, accumulates tool results)
-        const llmMessages: { role: string; content: string; tool_calls?: unknown; tool_call_id?: string }[] =
+        let llmMessages: { role: string; content: string; tool_calls?: unknown; tool_call_id?: string }[] =
           enhancedHistory.map((m) => ({ ...m }))
+
+        // Pre-send Session Pruning: trim old tool results to save context budget
+        llmMessages = pruneToolResults(llmMessages)
 
         let rounds = 0
         let roundToolCount = 0
