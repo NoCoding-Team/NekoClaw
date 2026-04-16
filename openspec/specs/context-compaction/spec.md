@@ -34,7 +34,7 @@
 
 #### Scenario: 上下文超过阈值触发 Compaction
 - **WHEN** 估算总 token 数 > contextLimit × 0.70 且消息数 > 10
-- **THEN** 系统 SHALL 先执行 Memory Refresh（若本会话尚未执行过），再执行 LLM 摘要压缩
+- **THEN** 系统 SHALL 先执行 Memory Refresh（受最小轮次间隔保护约束，而非每会话仅一次限制），再执行 LLM 摘要压缩
 
 #### Scenario: Compaction 摘要生成
 - **WHEN** Compaction 触发
@@ -50,7 +50,7 @@
 
 ### 后端 Compaction 修复
 
-后端 `_persist_message()` SHALL 正确设置 Message.token_count 字段，使已有的 Compaction 触发条件能正常工作。
+后端 `_persist_message()` SHALL 正确设置 Message.token_count 字段，使已有的 Compaction 触发条件能正常工作。`_compress_history` 前的 Memory Refresh 调用 SHALL 使用轮次间隔保护替代 `_memory_refresh_done` set 的一次性限制。
 
 #### Scenario: 消息持久化时设置 token_count
 - **WHEN** 后端 `_persist_message()` 创建新的 Message 记录
@@ -58,7 +58,11 @@
 
 #### Scenario: 后端 Compaction 正常触发
 - **WHEN** 会话消息的 `sum(token_count)` 超过 `context_limit * 0.70` 且消息数 > 10
-- **THEN** 后端 SHALL 先执行 `_memory_refresh()`，再执行 `_compress_history()`
+- **THEN** 后端 SHALL 先执行 `_memory_refresh()`（受最小轮次间隔保护约束），再执行 `_compress_history()`
+
+#### Scenario: 后端多次 refresh
+- **WHEN** 后端同一会话中多次达到 compaction 条件（例如 compaction 后继续长对话再次接近阈值）
+- **THEN** 后端 SHALL 允许再次执行 `_memory_refresh()`，不因 `_memory_refresh_done` 而跳过
 
 ### Mid-loop 上下文安全检查
 
