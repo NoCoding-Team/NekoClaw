@@ -139,7 +139,7 @@ async def run_llm_pipeline(
     # Build messages list
     system_prompt = await _build_system_prompt(user_id, skill)
     messages = [{"role": "system", "content": system_prompt}]
-    total_tokens = sum(m.token_count for m in history)
+    total_tokens = sum(m.token_count or estimate_tokens(m.content or '') for m in history)
 
     # If no server history, fall back to local_history provided by client
     if not history and local_history:
@@ -280,6 +280,18 @@ async def run_llm_pipeline(
             }]
             messages.append({"role": "tool", "tool_call_id": call_id, "content": _truncate_tool_result(result_content)})
             await _persist_message(session_id, "tool", result_content, tool_call_card, tool_call_id=call_id)
+
+        # Mid-loop context safety check
+        mid_tokens = sum(estimate_tokens(m.get("content", "") or "") for m in messages)
+        if mid_tokens > context_limit * 0.85:
+            messages = _prune_tool_results(messages)
+            after_prune = sum(estimate_tokens(m.get("content", "") or "") for m in messages)
+            if after_prune > context_limit * 0.90:
+                # Emergency: keep system + last 20 messages
+                system_msgs = [m for m in messages if m.get("role") == "system"]
+                non_system = [m for m in messages if m.get("role") != "system"]
+                if len(non_system) > 20:
+                    messages = system_msgs + non_system[-20:]
 
 
 _TOOL_RULES = (

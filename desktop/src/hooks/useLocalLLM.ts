@@ -761,6 +761,31 @@ export function useLocalLLM(sessionId: string | null) {
             llmMessages.push({ role: 'tool', content: truncateToolResult(toolResult), tool_call_id: callId })
           }
 
+          // ── Mid-loop context safety check ────────────────────────────────
+          if (!loopAborted) {
+            const midTokens = estimateMessagesTokens(llmMessages)
+            if (midTokens > contextLimit * 0.85) {
+              // 85% threshold: prune tool results
+              llmMessages = pruneToolResults(llmMessages)
+              // Re-check after pruning
+              const afterPrune = estimateMessagesTokens(llmMessages)
+              if (afterPrune > contextLimit * 0.90) {
+                // 90% threshold: emergency compact (no memory refresh)
+                const ctxConfig: ContextLLMConfig = {
+                  baseUrl: localLLMConfig.baseUrl,
+                  apiKey,
+                  model: localLLMConfig.model,
+                  maxTokens: localLLMConfig.maxTokens,
+                  temperature: localLLMConfig.temperature,
+                }
+                const compacted = await compactHistory(llmMessages, ctxConfig, streamFn as StreamFn)
+                if (compacted.summary) {
+                  llmMessages = compacted.messages
+                }
+              }
+            }
+          }
+
           // Create new streaming placeholder for next round (skip if loop was aborted)
           if (loopAborted) break
           const nextMsgId = uuidv4()
