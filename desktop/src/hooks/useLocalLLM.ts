@@ -273,14 +273,17 @@ async function persistMessage(
   serverUrl: string,
   _token: string,
   sessionId: string,
-  role: 'user' | 'assistant',
+  role: 'user' | 'assistant' | 'tool',
   content: string,
+  toolCalls?: unknown[] | null,
 ) {
   try {
+    const body: Record<string, unknown> = { role, content }
+    if (toolCalls && toolCalls.length > 0) body.tool_calls = toolCalls
     await apiFetch(`${serverUrl}/api/sessions/${sessionId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, content }),
+      body: JSON.stringify(body),
     })
   } catch {
     // best-effort — don't block UI if server is unreachable
@@ -584,6 +587,19 @@ export function useLocalLLM(sessionId: string | null) {
             setMessages(sid, [...msgs0.slice(0, -1), { ...lastAsst, streaming: false }])
           }
 
+          // Persist intermediate assistant message (with tool_calls) to server
+          const openaiToolCalls = result.toolCalls.map((tc) => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: { name: tc.name, arguments: tc.arguments },
+          }))
+          if (!sid.startsWith('local-')) {
+            const { serverUrl: svA, token: tkA, syncEnabled: seA } = useAppStore.getState()
+            if (tkA && seA) {
+              persistMessage(svA, tkA, sid, 'assistant', result.content || '', openaiToolCalls)
+            }
+          }
+
           // Append assistant message with tool_calls to LLM context
           // (OpenAI format: assistant message contains tool_calls array)
           llmMessages.push({
@@ -617,6 +633,9 @@ export function useLocalLLM(sessionId: string | null) {
               appendMessage(sid, { id: toolMsgId, role: 'tool', content: limitMsg, toolCalls: [toolCard] })
               if (sid.startsWith('local-')) {
                 window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: limitMsg, toolCalls: JSON.stringify([toolCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
+              } else {
+                const { serverUrl: svLim, token: tkLim, syncEnabled: seLim } = useAppStore.getState()
+                if (tkLim && seLim) persistMessage(svLim, tkLim, sid, 'tool', limitMsg, [toolCard])
               }
               llmMessages.push({ role: 'tool', content: limitMsg, tool_call_id: callId })
               loopAborted = true
@@ -638,6 +657,9 @@ export function useLocalLLM(sessionId: string | null) {
               appendMessage(sid, { id: toolMsgId, role: 'tool', content: loopMsg, toolCalls: [toolCard] })
               if (sid.startsWith('local-')) {
                 window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: loopMsg, toolCalls: JSON.stringify([toolCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
+              } else {
+                const { serverUrl: svLoop, token: tkLoop, syncEnabled: seLoop } = useAppStore.getState()
+                if (tkLoop && seLoop) persistMessage(svLoop, tkLoop, sid, 'tool', loopMsg, [toolCard])
               }
               llmMessages.push({ role: 'tool', content: loopMsg, tool_call_id: callId })
               loopAborted = true
@@ -682,10 +704,15 @@ export function useLocalLLM(sessionId: string | null) {
               })
             }
 
-            // Persist tool message to SQLite (local sessions only)
+            // Persist tool message
+            const finalCard: ToolCall = { ...toolCard, status: toolFinalStatus, result: toolResult.slice(0, 2000) }
             if (sid.startsWith('local-')) {
-              const finalCard: ToolCall = { ...toolCard, status: toolFinalStatus, result: toolResult.slice(0, 2000) }
               window.nekoBridge?.db?.insertMessage({ id: toolMsgId, sessionId: sid, role: 'tool', content: toolResult.slice(0, 2000), toolCalls: JSON.stringify([finalCard]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
+            } else {
+              const { serverUrl: svTool, token: tkTool, syncEnabled: seTool } = useAppStore.getState()
+              if (tkTool && seTool) {
+                persistMessage(svTool, tkTool, sid, 'tool', toolResult.slice(0, 2000), [finalCard])
+              }
             }
 
             // Track for loop detection
