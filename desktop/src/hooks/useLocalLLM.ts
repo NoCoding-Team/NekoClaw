@@ -464,22 +464,27 @@ export function useLocalLLM(sessionId: string | null) {
 2. **调用工具后必须用自然语言向用户反馈结果**，例如"好的，我已经记住了～"、"文件已写入"等。严禁工具执行后保持沉默。
 3. 多步任务时连续调用多个工具，全部完成后再一起总结。
 
-## 记忆使用规则
-你可以通过工具管理你的记忆文件：
-- memory_write: 写入记忆文件。MEMORY.md 存储长期事实和偏好，YYYY-MM-DD.md 存储每日笔记。
-- memory_read: 读取记忆文件内容。
-- memory_search: 搜索所有记忆文件。
+## 记忆管理规则
+你拥有持久记忆系统，通过 memory_write / memory_read / memory_search 工具管理：
+- **MEMORY.md**：长期记忆——用户偏好、关键事实、重要决策、个人信息。
+- **YYYY-MM-DD.md**（如 2026-04-16.md）：每日笔记——当天对话要点、讨论话题、结论。
 
-何时主动写入记忆：
-- 用户明确要求"记住..."、"下次..."
-- 用户透露持久性偏好（语言、格式、工具选择等）
-- 用户提到关于自己的重要长期事实（职业、项目、习惯等）
-- 用户纠正之前的错误时，更新 MEMORY.md 对应内容
+### 何时写入记忆（发现以下情况时立即执行）
+- 用户透露偏好（语言、格式、工具选择、沟通风格等）→ 写入 MEMORY.md
+- 用户提到关于自己的重要事实（职业、项目、技术栈、习惯等）→ 写入 MEMORY.md
+- 用户做出重要决策或给出关键指令 → 写入 MEMORY.md
+- 用户纠正之前的错误信息 → 读取并更新 MEMORY.md 对应内容
+- 对话产生有价值的结论、方案、要点 → 写入当日 YYYY-MM-DD.md
+- 用户明确要求"记住..."、"下次..." → 写入 MEMORY.md
 
-不要写入记忆的内容：
-- 当前任务的临时细节
-- 本次对话专属的上下文
-- 大段代码或文件内容`
+### 写入流程
+1. 先 memory_read 读取目标文件已有内容
+2. 在已有内容基础上追加新条目（不要覆写已有内容）
+3. 用 memory_write 写回完整内容
+
+### 不需要写入的内容
+- 当前任务的临时中间步骤
+- 大段代码或文件内容原文`
 
       // Prepend system prompt from personalization config
       const baseSystemPrompt = useAppStore.getState().personalizationConfig?.systemPrompt ?? ''
