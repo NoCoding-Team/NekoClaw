@@ -35,6 +35,7 @@ export interface LocalLLMConfig {
   apiKeyB64: string  // base64 or safeStorage-encrypted bytes encoded as base64
   maxTokens: number
   temperature: number
+  contextLimit?: number  // max context window tokens (default: maxTokens * 4)
   embeddingModel?: AuxModelConfig
   rerankModel?: AuxModelConfig
 }

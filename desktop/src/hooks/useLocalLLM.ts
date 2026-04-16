@@ -13,7 +13,8 @@ import { useAppStore } from '../store/app'
 import type { ToolCall } from '../store/app'
 import { executeLocalTool } from './localTools'
 import { getLocalToolDefinitions } from './toolDefinitions'
-import { truncateToolResult, estimateMessagesTokens, pruneToolResults } from './contextUtils'
+import { truncateToolResult, estimateMessagesTokens, pruneToolResults, memoryRefresh, compactHistory } from './contextUtils'
+import type { LLMConfig as ContextLLMConfig, StreamFn } from './contextUtils'
 import { apiFetch } from '../api/apiFetch'
 
 async function decryptKey(b64: string): Promise<string> {
@@ -540,6 +541,39 @@ export function useLocalLLM(sessionId: string | null) {
           localLLMConfig.baseUrl.includes('anthropic.com')
 
         const streamFn = isAnthropic ? streamAnthropic : streamOpenAI
+
+        // ── Pre-send Compaction check ──────────────────────────────────────
+        const contextLimit = localLLMConfig.contextLimit ?? localLLMConfig.maxTokens * 4
+        const totalTokens = estimateMessagesTokens(enhancedHistory)
+        if (totalTokens > contextLimit * 0.70 && enhancedHistory.length > 10) {
+          const ctxConfig: ContextLLMConfig = {
+            baseUrl: localLLMConfig.baseUrl,
+            apiKey,
+            model: localLLMConfig.model,
+            maxTokens: localLLMConfig.maxTokens,
+            temperature: localLLMConfig.temperature,
+          }
+          // Step 1: Memory Refresh (best-effort, once per session)
+          await memoryRefresh(sid, enhancedHistory, ctxConfig, streamFn as StreamFn)
+          // Step 2: Compact history (LLM summary)
+          const compacted = await compactHistory(enhancedHistory, ctxConfig, streamFn as StreamFn)
+          if (compacted.summary) {
+            enhancedHistory = compacted.messages
+            // Persist summary to SQLite
+            const dbBridge = window.nekoBridge?.db
+            if (dbBridge && sid.startsWith('local-')) {
+              dbBridge.insertMessage({
+                id: uuidv4(),
+                sessionId: sid,
+                role: 'system',
+                content: `[对话历史摘要]\n${compacted.summary}`,
+                toolCalls: null,
+                tokenCount: compacted.summary.length,
+                createdAt: Date.now(),
+              }).catch(() => {})
+            }
+          }
+        }
 
         // Build tool definitions
         const { securityConfig } = useAppStore.getState()
