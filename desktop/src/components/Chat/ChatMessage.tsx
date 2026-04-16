@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ChatMessage as ChatMsg, ToolCall, useAppStore } from '../../store/app'
+import { ChatMessage as ChatMsg, ToolCall, TurnSegment, useAppStore } from '../../store/app'
 import { confirmTool, denyTool } from '../../hooks/useWebSocket'
 import styles from './ChatMessage.module.css'
 
@@ -38,8 +38,27 @@ export function ChatMessage({ message }: Props) {
     )
   }
 
-  // 混合轮次：工具卡片嵌入单一 aiBubble，前言不展示
-if (message.role === 'assistant' && message.toolCalls?.length) {
+  // 混合轮次：按 segments 顺序渲染文本和工具卡片
+  if (message.role === 'assistant' && message.segments?.length) {
+    return (
+      <div className={styles.row}>
+        <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+        <div className={styles.aiBubble + ' selectable'}>
+          {message.segments.map((seg, idx) => (
+            <SegmentBlock key={idx} segment={seg} isLast={idx === message.segments!.length - 1} />
+          ))}
+          {message.streaming && !message.content?.trim() && (
+            <div className={styles.toolResponse}>
+              <AiMarkdown content="▋" />
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // 有 toolCalls 但没有 segments（兼容旧数据/服务端加载）
+  if (message.role === 'assistant' && message.toolCalls?.length) {
     return (
       <div className={styles.row}>
         <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
@@ -82,6 +101,23 @@ if (message.role === 'assistant' && message.toolCalls?.length) {
       <div className={styles.aiBubble + ' selectable'}>
         <AiMarkdown content={message.content || (message.streaming ? '▋' : '')} />
       </div>
+    </div>
+  )
+}
+
+function SegmentBlock({ segment, isLast }: { segment: TurnSegment; isLast: boolean }) {
+  if (segment.type === 'text') {
+    return (
+      <div className={isLast ? undefined : styles.segmentText}>
+        <AiMarkdown content={segment.content} />
+      </div>
+    )
+  }
+  return (
+    <div className={styles.toolCardListInline}>
+      {segment.toolCalls.map((tc) => (
+        <ToolCallCard key={tc.callId} tc={tc} />
+      ))}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useRef, useEffect, KeyboardEvent, useState } from 'react'
-import { useAppStore, ChatMessage as ChatMsg, ToolCall } from '../../store/app'
+import { useAppStore, ChatMessage as ChatMsg, ToolCall, TurnSegment } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -10,12 +10,8 @@ import { AssetsPanel } from './AssetsPanel'
 import { apiFetch } from '../../api/apiFetch'
 
 /**
- * 将同一 agent 轮次（两条 user 消息之间）的所有工具调用合并为单一气泡。
- *
- * 根因：多轮工具调用时，每轮 LLM 迭代都会在 store 里插入一条新的空 assistant
- * 占位消息，把连续 tool 消息链打断，简单的"连续合并"无法覆盖此场景。
- * 正确做法：以 user 消息为分割点划分 agent turn，将 turn 内全部 toolCalls
- * 收集到一条 assistant 消息里，取最后一条 assistant 的 content/streaming 作为回复。
+ * 将同一 agent 轮次（两条 user 消息之间）的消息合并为单一气泡，
+ * 按时间顺序保留所有文本和工具段落：文本 → 工具 → 文本 → 工具 → …
  */
 function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
   const result: ChatMsg[] = []
@@ -49,23 +45,32 @@ function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
       continue
     }
 
-    // 取最后一条 assistant 消息作为最终回复
-    let finalContent = ''
-    let isStreaming: boolean | undefined
-    for (let k = turnMsgs.length - 1; k >= 0; k--) {
-      if (turnMsgs[k].role === 'assistant') {
-        finalContent = turnMsgs[k].content
-        isStreaming = turnMsgs[k].streaming
-        break
+    // 构建 segments：按消息原始顺序，相邻同类型段合并
+    const segments: TurnSegment[] = []
+    for (const m of turnMsgs) {
+      if (m.role === 'assistant' && m.content.trim()) {
+        segments.push({ type: 'text', content: m.content })
+      } else if (m.role === 'tool' && m.toolCalls?.length) {
+        const last = segments[segments.length - 1]
+        if (last?.type === 'tools') {
+          last.toolCalls.push(...m.toolCalls)
+        } else {
+          segments.push({ type: 'tools', toolCalls: [...m.toolCalls] })
+        }
       }
     }
+
+    // 最后一条 assistant 可能正在 streaming（content 还是空的）
+    const lastAssistant = [...turnMsgs].reverse().find(m => m.role === 'assistant')
+    const isStreaming = lastAssistant?.streaming
 
     result.push({
       id: turnMsgs[0].id,
       role: 'assistant',
       toolCalls: allToolCalls,
-      content: finalContent,
+      content: lastAssistant?.content ?? '',
       streaming: isStreaming,
+      segments,
     })
   }
 

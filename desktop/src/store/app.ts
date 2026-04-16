@@ -145,14 +145,18 @@ function loadAuth(): { token: string | null; refreshToken: string | null; userId
 
 export type CatState = 'idle' | 'thinking' | 'working' | 'success' | 'error'
 
+export type TurnSegment =
+  | { type: 'text'; content: string }
+  | { type: 'tools'; toolCalls: ToolCall[] }
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'tool'
   content: string
   toolCalls?: ToolCall[]
   streaming?: boolean
-  /** 工具调用前的前言文本，用于展示合并后的混合轮次气泡 */
-  preamble?: string
+  /** 合并后的混合轮次段落，按时间顺序排列：文本 → 工具 → 文本 → … */
+  segments?: TurnSegment[]
 }
 
 export interface ToolCall {
