@@ -97,6 +97,8 @@ export function ChatArea() {
     token,
     setMessages,
     replaceSession,
+    addSession,
+    setActiveSession,
   } = useAppStore()
 
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? []) : []
@@ -256,14 +258,34 @@ export function ChatArea() {
   const [input, setInput] = useState('')
   const [showAssets, setShowAssets] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  // 延迟发送：新建对话时先创建 session，等 activeSessionId 更新后再发
+  const pendingMsgRef = useRef<string | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
+  // 当 activeSessionId 刚切换过来，且有待发消息时触发
+  useEffect(() => {
+    if (pendingMsgRef.current && activeSessionId) {
+      const text = pendingMsgRef.current
+      pendingMsgRef.current = null
+      sendMessage(text, activeSkillId)
+    }
+  }, [activeSessionId])
+
   const handleSend = () => {
     const text = input.trim()
-    if (!text || !activeSessionId || catState === 'thinking') return
+    if (!text || catState === 'thinking') return
+    if (!activeSessionId) {
+      // 第一条消息时才真正创建 session
+      const newId = `local-${Date.now()}`
+      addSession({ id: newId, title: '新对话' })
+      setActiveSession(newId)
+      pendingMsgRef.current = text
+      setInput('')
+      return
+    }
     sendMessage(text, activeSkillId)
     setInput('')
   }
@@ -275,20 +297,7 @@ export function ChatArea() {
     }
   }
 
-  // ── 无会话选中 ──────────────────────────────────────────────────────────────
-  if (!activeSessionId) {
-    return (
-      <div className={styles.emptyWrap}>
-        <div className={styles.topBar}>
-          <WindowControls />
-        </div>
-        <div className={styles.emptyState}>
-          <CatAvatar state="idle" size={120} />
-          <p className={styles.emptyText}>选择一个对话，或新建一个开始吧 ฅ^•ﻌ•^ฅ</p>
-        </div>
-      </div>
-    )
-  }
+  // ── 无会话选中（无 activeSessionId）→ 直接展示欢迎输入界面，命中下方 messages.length===0 分支 ──
 
   // ── 历史消息加载中 ────────────────────────────────────────────────────────────
   if (isLoadingHistory) {

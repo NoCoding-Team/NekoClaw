@@ -14,7 +14,7 @@ const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
 ]
 
 export function Sidebar() {
-  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, addSession, removeSession, setSettingsOpen, serverUrl } = useAppStore()
+  const { sidebarTab, setSidebarTab, sessions, activeSessionId, setActiveSession, removeSession, setSettingsOpen, serverUrl } = useAppStore()
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const deleteSession = async (e: React.MouseEvent, id: string) => {
@@ -38,9 +38,8 @@ export function Sidebar() {
   }
 
   const createNewSession = () => {
-    const id = `local-${Date.now()}`
-    addSession({ id, title: '新对话' })
-    setActiveSession(id)
+    // 不立即创建 session，等用户发第一条消息时再创建
+    setActiveSession(null)
     setSidebarTab('sessions')
   }
 
