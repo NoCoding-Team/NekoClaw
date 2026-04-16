@@ -263,7 +263,7 @@ export function ChatArea() {
 
   const handleSend = () => {
     const text = input.trim()
-    if (!text || !activeSessionId) return
+    if (!text || !activeSessionId || catState === 'thinking') return
     sendMessage(text, activeSkillId)
     setInput('')
   }
@@ -386,7 +386,7 @@ export function ChatArea() {
                 placeholder="有什么我可以帮你的？（Enter 发送）"
                 rows={2}
               />
-              <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim()}>➤</button>
+              <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim() || catState === 'thinking'}>➤</button>
             </div>
           </div>
         </div>
@@ -441,7 +441,7 @@ export function ChatArea() {
             placeholder="有什么我可以帮你的？（Enter 发送）"
             rows={3}
           />
-          <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim()}>➤</button>
+          <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim() || catState === 'thinking'}>➤</button>
         </div>
       </div>
     </div>

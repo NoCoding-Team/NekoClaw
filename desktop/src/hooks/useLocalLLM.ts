@@ -7,7 +7,7 @@
  *  - Anthropic native API    (POST /v1/messages, SSE delta format)
  *  - Custom / Ollama          (OpenAI-compatible)
  */
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore } from '../store/app'
 import type { ToolCall } from '../store/app'
@@ -362,9 +362,14 @@ export function useLocalLLM(sessionId: string | null) {
     setCatState,
   } = useAppStore()
 
+  /** Prevent concurrent sendMessage executions — second call is dropped. */
+  const sendingRef = useRef(false)
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!sessionId || !localLLMConfig) return
+      if (sendingRef.current) return  // drop concurrent calls
+      sendingRef.current = true
 
       setCatState('thinking')
 
@@ -515,15 +520,15 @@ export function useLocalLLM(sessionId: string | null) {
             }
             // Restore tool_calls on assistant messages
             if (m.role === 'assistant' && m.toolCalls && Array.isArray(m.toolCalls)) {
-              entry.tool_calls = m.toolCalls.map((tc: Record<string, unknown>) => ({
-                id: tc.callId ?? tc.id ?? '',
+              entry.tool_calls = m.toolCalls.map((tc) => ({
+                id: tc.callId ?? '',
                 type: 'function',
-                function: { name: tc.tool ?? tc.name ?? '', arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args ?? {}) },
+                function: { name: tc.tool ?? '', arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args ?? {}) },
               }))
             }
             // Restore tool_call_id on tool messages
             if (m.role === 'tool' && m.toolCalls && Array.isArray(m.toolCalls) && m.toolCalls.length > 0) {
-              entry.tool_call_id = (m.toolCalls[0] as Record<string, unknown>).callId as string ?? ''
+              entry.tool_call_id = m.toolCalls[0].callId ?? ''
             }
             return entry
           }),
@@ -864,6 +869,7 @@ export function useLocalLLM(sessionId: string | null) {
           }
         }
         setCatState('idle')
+        sendingRef.current = false
       } catch (e: unknown) {
         const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const last = msgs[msgs.length - 1]
@@ -879,6 +885,7 @@ export function useLocalLLM(sessionId: string | null) {
           ])
         }
         setCatState('error')
+        sendingRef.current = false
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
