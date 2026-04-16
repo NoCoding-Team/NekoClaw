@@ -99,6 +99,8 @@ export function ChatArea() {
   const { sendMessage: localSend } = useLocalLLM(activeSessionId)
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [syncSuccess, setSyncSuccess] = useState(false)
@@ -169,6 +171,11 @@ export function ChatArea() {
 
   const isLocalSession = activeSessionId?.startsWith('local-') ?? false
 
+  // 切换会话时重置加载状态
+  useEffect(() => {
+    setLoadFailed(false)
+  }, [activeSessionId])
+
   // Load history messages when switching to a session
   useEffect(() => {
     if (!activeSessionId) return
@@ -184,7 +191,10 @@ export function ChatArea() {
       if (messagesBySession[activeSessionId]?.length) return
       ;(async () => {
         const db = window.nekoBridge?.db
-        if (!db) return
+        if (!db) {
+          setLoadFailed(true)
+          return
+        }
         try {
           const localMsgs = await db.getMessages(activeSessionId)
           setMessages(
@@ -197,17 +207,23 @@ export function ChatArea() {
               return { id: m.id, role: m.role as 'user' | 'assistant' | 'tool', content: m.content, toolCalls }
             }),
           )
-        } catch {}
+        } catch {
+          setLoadFailed(true)
+        }
       })()
       return
     }
 
     if (messagesBySession[activeSessionId]?.length) return   // already loaded
     setIsLoadingHistory(true)
+    setLoadFailed(false)
     ;(async () => {
       try {
         const res = await apiFetch(`${serverUrl}/api/sessions/${activeSessionId}/messages`)
-        if (!res.ok) return
+        if (!res.ok) {
+          setLoadFailed(true)
+          return
+        }
         const data: Array<{ id: string; role: string; content: string | null; tool_calls: ToolCall[] | null; created_at: string }> = await res.json()
         // 服务端已按 seq, created_at 排序，无需客户端重排
         setMessages(
@@ -220,12 +236,12 @@ export function ChatArea() {
           })),
         )
       } catch {
-        // silently ignore — user can still chat
+        setLoadFailed(true)
       } finally {
         setIsLoadingHistory(false)
       }
     })()
-  }, [activeSessionId])
+  }, [activeSessionId, reloadKey])
 
   // Route to local LLM or backend WebSocket based on config
   const sendMessage = localLLMConfig
@@ -339,6 +355,18 @@ export function ChatArea() {
         </div>
         {showAssets && <AssetsPanel onClose={() => setShowAssets(false)} />
         }
+        {loadFailed ? (
+          <div className={styles.loadErrorWrap}>
+            <CatAvatar state="idle" size={80} />
+            <p className={styles.loadErrorText}>消息加载失败，可能是网络问题或会话已不存在</p>
+            <button
+              className={styles.retryBtn}
+              onClick={() => { setLoadFailed(false); setReloadKey(k => k + 1) }}
+            >
+              重新加载
+            </button>
+          </div>
+        ) : (
         <div className={styles.welcomeCenter}>
           <CatAvatar state={catState} size={100} />
           <h2 className={styles.welcomeGreeting}>嗯，有什么需要我帮忙的？</h2>
@@ -357,6 +385,7 @@ export function ChatArea() {
             </div>
           </div>
         </div>
+        )}
       </div>
     )
   }

@@ -365,6 +365,34 @@
   -webkit-app-region: no-drag;
 }
 
+.loadErrorWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.loadErrorText {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  max-width: 280px;
+}
+
+.retryBtn {
+  padding: 7px 22px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--accent);
+  background: rgba(124, 106, 244, 0.12);
+  border: 1px solid rgba(124, 106, 244, 0.35);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.retryBtn:hover { background: rgba(124, 106, 244, 0.22); }
+
 .assetsBtn {
   display: flex;
   align-items: center;
