@@ -32,6 +32,12 @@ export const nekoBridge = {
     click: (opts: { selector?: string; x?: number; y?: number }) => ipcRenderer.invoke('browser:click', opts),
     type: (selector: string, text: string) => ipcRenderer.invoke('browser:type', selector, text),
   },
+  net: {
+    webSearch: (query: string, maxResults: number, apiKey: string) =>
+      ipcRenderer.invoke('net:webSearch', query, maxResults, apiKey),
+    httpRequest: (opts: { method: string; url: string; headers?: Record<string, string>; body?: string }) =>
+      ipcRenderer.invoke('net:httpRequest', opts),
+  },
   memory: {
     read: (path: string) => ipcRenderer.invoke('memory:read', path),
     write: (path: string, content: string) => ipcRenderer.invoke('memory:write', path, content),

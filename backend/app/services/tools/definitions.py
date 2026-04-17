@@ -9,7 +9,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     # ── Server-side tools ──────────────────────────────────────────────
     {
         "name": "web_search",
-        "executor": "server",
+        "executor": "client",
         "description": "Search the web for up-to-date information.",
         "parameters": {
             "type": "object",
@@ -22,7 +22,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "http_request",
-        "executor": "server",
+        "executor": "client",
         "description": "Make an HTTP request to an external URL.",
         "parameters": {
             "type": "object",

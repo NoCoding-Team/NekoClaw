@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, ipcMain, nativeImage, safeStorage, shell } from 'electron'
+﻿import { app, BrowserWindow, ipcMain, nativeImage, net, safeStorage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
@@ -336,6 +336,66 @@ ipcMain.on('window:close', () => BrowserWindow.getFocusedWindow()?.close())
 ipcMain.handle('shell:openExternal', async (_e, url: string) => {
   if (url.startsWith('https://') || url.startsWith('http://')) {
     await shell.openExternal(url)
+  }
+})
+
+// ── IPC: Network tools (web search & HTTP request) ────────────────────────
+ipcMain.handle('net:webSearch', async (_e, query: string, maxResults: number, apiKey: string) => {
+  if (!apiKey) return { error: 'Tavily API Key 未配置，请在能力面板中设置' }
+  try {
+    const res = await net.fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: apiKey, query, max_results: maxResults || 5 }),
+    })
+    const data = await res.json()
+    if (!res.ok) return { error: (data as any).detail || `API error: ${res.status}` }
+    const results = ((data as any).results || []).map((r: any) => ({
+      title: r.title, url: r.url, content: r.content,
+    }))
+    return { results: JSON.stringify(results) }
+  } catch (e: any) {
+    return { error: e.message }
+  }
+})
+
+ipcMain.handle('net:httpRequest', async (_e, opts: { method: string; url: string; headers?: Record<string, string>; body?: string }) => {
+  // SSRF prevention: block private/loopback addresses
+  try {
+    const parsed = new URL(opts.url)
+    const hostname = parsed.hostname
+    if (['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(hostname)) {
+      return { error: 'SSRF: requests to localhost are blocked' }
+    }
+    const parts = hostname.split('.')
+    if (parts.length === 4 && parts.every(p => /^\d+$/.test(p))) {
+      const first = parseInt(parts[0])
+      if (first === 10
+        || (first === 172 && parseInt(parts[1]) >= 16 && parseInt(parts[1]) <= 31)
+        || (first === 192 && parts[1] === '168')) {
+        return { error: 'SSRF: requests to private addresses are blocked' }
+      }
+    }
+  } catch {
+    return { error: 'Invalid URL' }
+  }
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+    const isBodyMethod = !['GET', 'HEAD'].includes(opts.method.toUpperCase())
+    const res = await net.fetch(opts.url, {
+      method: opts.method,
+      headers: opts.headers,
+      body: isBodyMethod && opts.body ? opts.body : undefined,
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    const body = await res.text()
+    const headers: Record<string, string> = {}
+    res.headers.forEach((v, k) => { headers[k] = v })
+    return { status_code: res.status, headers, body: body.slice(0, 10000) }
+  } catch (e: any) {
+    return { error: e.message }
   }
 })
 

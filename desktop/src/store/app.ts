@@ -8,6 +8,7 @@ const STORAGE_PERSONAL = 'neko_personal'
 const STORAGE_SECURITY = 'neko_security'
 const STORAGE_SYNC_ENABLED = 'neko_sync_enabled'
 const STORAGE_CUSTOM_LLM = 'neko_custom_llm'
+const STORAGE_TOOLS_CONFIG = 'neko_tools_config'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -71,6 +72,21 @@ function loadCustomLLMConfig(): CustomLLMConfig {
     return raw ? { ...DEFAULT_CUSTOM_LLM_CONFIG, ...JSON.parse(raw) } : DEFAULT_CUSTOM_LLM_CONFIG
   } catch {
     return DEFAULT_CUSTOM_LLM_CONFIG
+  }
+}
+
+export interface ToolsConfig {
+  tavilyApiKey: string
+}
+
+export const DEFAULT_TOOLS_CONFIG: ToolsConfig = { tavilyApiKey: '' }
+
+function loadToolsConfig(): ToolsConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_TOOLS_CONFIG)
+    return raw ? { ...DEFAULT_TOOLS_CONFIG, ...JSON.parse(raw) } : DEFAULT_TOOLS_CONFIG
+  } catch {
+    return DEFAULT_TOOLS_CONFIG
   }
 }
 
@@ -263,6 +279,10 @@ export interface AppState {
   // Custom LLM config (stored locally, passed to backend per-message when enabled)
   customLLMConfig: CustomLLMConfig
   setCustomLLMConfig: (cfg: Partial<CustomLLMConfig>) => void
+
+  // Tools config (API keys for local tool execution)
+  toolsConfig: ToolsConfig
+  setToolsConfig: (cfg: Partial<ToolsConfig>) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -415,5 +435,13 @@ export const useAppStore = create<AppState>((set) => ({
       const next = { ...s.customLLMConfig, ...patch }
       localStorage.setItem(STORAGE_CUSTOM_LLM, JSON.stringify(next))
       return { customLLMConfig: next }
+    }),
+
+  toolsConfig: loadToolsConfig(),
+  setToolsConfig: (patch) =>
+    set((s) => {
+      const next = { ...s.toolsConfig, ...patch }
+      localStorage.setItem(STORAGE_TOOLS_CONFIG, JSON.stringify(next))
+      return { toolsConfig: next }
     }),
 }))

@@ -75,6 +75,11 @@ interface NekoBridgeBrowser {
   type(selector: string, text: string): Promise<{ success?: boolean; error?: string }>
 }
 
+interface NekoBridgeNet {
+  webSearch(query: string, maxResults: number, apiKey: string): Promise<{ results?: Array<{ title: string; url: string; content: string }>; error?: string }>
+  httpRequest(opts: { method: string; url: string; headers?: Record<string, string>; body?: string }): Promise<{ status_code?: number; headers?: Record<string, string>; body?: string; error?: string }>
+}
+
 interface NekoBridge {
   file: NekoBridgeFile
   shell: NekoBridgeShell
@@ -83,6 +88,7 @@ interface NekoBridge {
   app: NekoBridgeApp
   log: NekoBridgeLog
   browser: NekoBridgeBrowser
+  net: NekoBridgeNet
   memory: NekoBridgeMemory
   db?: NekoBridgeDb
 }

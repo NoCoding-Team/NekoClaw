@@ -1,5 +1,6 @@
 import { useAppStore } from '../../store/app'
 import styles from './AbilitiesPanel.module.css'
+import { useState } from 'react'
 
 interface Ability {
   id: string
@@ -35,8 +36,8 @@ const ABILITIES: Ability[] = [
     icon: '🌐',
     name: '网页搜索',
     desc: '通过 Tavily 搜索引擎获取互联网实时信息，支持新闻、文档、技术内容等',
-    executor: 'server',
-    executorLabel: '服务端执行',
+    executor: 'client',
+    executorLabel: '本机执行',
     tools: ['web_search'],
   },
   {
@@ -53,14 +54,15 @@ const ABILITIES: Ability[] = [
     icon: '🔌',
     name: 'HTTP 请求',
     desc: '向任意外部接口发送 GET、POST 等 HTTP 请求，可用于调用 API、获取数据',
-    executor: 'server',
-    executorLabel: '服务端执行',
+    executor: 'client',
+    executorLabel: '本机执行',
     tools: ['http_request'],
   },
 ]
 
 export default function AbilitiesPanel() {
-  const { securityConfig, setSecurityConfig } = useAppStore()
+  const { securityConfig, setSecurityConfig, toolsConfig, setToolsConfig } = useAppStore()
+  const [showKey, setShowKey] = useState(false)
 
   const isEnabled = (ability: Ability) =>
     ability.tools.every(t => securityConfig.toolWhitelist.includes(t))
@@ -130,6 +132,25 @@ export default function AbilitiesPanel() {
             </div>
           )
         })}
+      </div>
+
+      <div className={styles.configSection}>
+        <h3 className={styles.configTitle}>🔑 API 密钥</h3>
+        <div className={styles.configRow}>
+          <label className={styles.configLabel}>Tavily API Key（网页搜索）</label>
+          <div className={styles.configInputWrap}>
+            <input
+              type={showKey ? 'text' : 'password'}
+              className={styles.configInput}
+              placeholder="tvly-..."
+              value={toolsConfig.tavilyApiKey}
+              onChange={(e) => setToolsConfig({ tavilyApiKey: e.target.value })}
+            />
+            <button className={styles.configEye} onClick={() => setShowKey(!showKey)} title={showKey ? '隐藏' : '显示'}>
+              {showKey ? '🙈' : '👁️'}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className={styles.footer}>

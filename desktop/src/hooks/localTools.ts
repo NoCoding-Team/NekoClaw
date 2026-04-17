@@ -1,3 +1,5 @@
+import { useAppStore } from '../store/app'
+
 /**
  * Execute a client-side tool via Electron IPC bridge.
  */
@@ -45,6 +47,20 @@ export async function executeLocalTool(
 
     case 'browser_type':
       return bridge.browser.type(args.selector as string, args.text as string)
+
+    // ── Network tools ─────────────────────────────────────────────────
+    case 'web_search': {
+      const tavilyApiKey = useAppStore.getState().toolsConfig.tavilyApiKey
+      return bridge.net.webSearch(args.query as string, (args.max_results as number) ?? 5, tavilyApiKey)
+    }
+
+    case 'http_request':
+      return bridge.net.httpRequest({
+        method: args.method as string,
+        url: args.url as string,
+        headers: (args.headers as Record<string, string>) ?? {},
+        body: (args.body as string) ?? '',
+      })
 
     default:
       return { error: `Unknown client tool: ${toolName}` }
