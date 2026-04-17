@@ -45,8 +45,20 @@ function groupToolMessages(msgs: ChatMsg[], agentBusy = false): ChatMsg[] {
     }
 
     if (allToolCalls.length === 0) {
-      // 无工具调用：逐条推入，ChatMessage 内部会过滤空消息
-      result.push(...turnMsgs)
+      // 无工具调用：合并同一轮次的多条 assistant 消息为一条
+      const assistantMsgs = turnMsgs.filter(m => m.role === 'assistant')
+      if (assistantMsgs.length <= 1) {
+        result.push(...turnMsgs)
+      } else {
+        const merged = assistantMsgs.filter(m => m.content.trim()).map(m => m.content).join('\n\n')
+        const lastA = [...assistantMsgs].reverse().find(m => m.content.trim()) ?? assistantMsgs[assistantMsgs.length - 1]
+        result.push({
+          id: assistantMsgs[0].id,
+          role: 'assistant',
+          content: merged || lastA.content,
+          streaming: lastA.streaming,
+        })
+      }
       continue
     }
 
