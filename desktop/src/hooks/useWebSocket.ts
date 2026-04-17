@@ -426,17 +426,25 @@ export function useWebSocket(sessionId: string | null) {
           'LOW':    [],
         }
         const autoByThreshold = (THRESHOLD_AUTO[securityConfig.sandboxThreshold ?? 'MEDIUM'] ?? ['LOW']).includes(riskLevel)
-        let blockedByCommandWL = false
+        // 命令白名单作为"免检通行证"：在白名单中的命令无论 risk_level 都自动执行
+        let inCommandWhitelist = false
         if (toolName === 'shell_exec' && securityConfig.commandWhitelist.length > 0) {
           const cmd = String(args.command ?? '')
           const cmdBase = cmd.trim().split(/\s+/)[0]
-          blockedByCommandWL = !securityConfig.commandWhitelist.some(
+          inCommandWhitelist = securityConfig.commandWhitelist.some(
             (w) => cmdBase === w || cmd.trimStart().startsWith(w + ' ')
           )
         }
-        const autoRun = !blockedByCommandWL && (securityConfig.fullAccessMode || autoByThreshold)
+        const autoRun = securityConfig.fullAccessMode || inCommandWhitelist || autoByThreshold
 
-        console.log('[WS] tool_call received:', { callId, toolName, riskLevel, autoRun, autoByThreshold, blockedByCommandWL, sessionId })
+        console.log('[WS] tool_call received:', {
+          callId, toolName, riskLevel, autoRun,
+          autoByThreshold, inCommandWhitelist,
+          sandboxThreshold: securityConfig.sandboxThreshold,
+          fullAccessMode: securityConfig.fullAccessMode,
+          inToolWhitelist,
+          sessionId,
+        })
 
         // ── Create card with correct initial status ──────────────────
         const tc: ToolCall = {
