@@ -2,11 +2,206 @@ import React, { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { useAppStore, SecurityConfig } from '../../store/app'
 import styles from './SettingsPanel.module.css'
 import { apiFetch } from '../../api/apiFetch'
+import {
+  LLMConfig,
+  fetchLLMConfigs,
+  createLLMConfig,
+  updateLLMConfig,
+  deleteLLMConfig,
+} from '../../api/llmConfigs'
 
-type Tab = 'account' | 'general' | 'mcp' | 'im-bot' | 'security' | 'feedback' | 'about'
+type Tab = 'account' | 'general' | 'models' | 'mcp' | 'im-bot' | 'security' | 'feedback' | 'about'
 
 const APP_VERSION = '0.1.0'
 
+
+// ── ModelCenterTab ────────────────────────────────────────────────────────────
+const PROVIDERS = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'custom', label: '自定义' },
+]
+
+function ModelCenterTab() {
+  const [configs, setConfigs] = useState<LLMConfig[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [provider, setProvider] = useState('openai')
+  const [name, setName] = useState('')
+  const [model, setModel] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
+  const [contextLimit, setContextLimit] = useState(128000)
+  const [temperature, setTemperature] = useState(0.7)
+  const [showKey, setShowKey] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [errMsg, setErrMsg] = useState('')
+
+  const load = async () => {
+    try { setConfigs(await fetchLLMConfigs()) } catch {}
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  const resetForm = () => {
+    setProvider('openai'); setName(''); setModel(''); setApiKey('')
+    setBaseUrl(''); setContextLimit(128000); setTemperature(0.7)
+    setShowKey(false); setErrMsg('')
+  }
+
+  const handleCreate = async () => {
+    if (!name.trim() || !model.trim() || !apiKey.trim()) {
+      setErrMsg('名称、模型、API Key 为必填项')
+      return
+    }
+    setSaving(true); setErrMsg('')
+    try {
+      await createLLMConfig({
+        provider, name: name.trim(), model: model.trim(), api_key: apiKey.trim(),
+        base_url: baseUrl.trim() || undefined,
+        context_limit: contextLimit,
+        temperature,
+      })
+      setShowForm(false); resetForm(); await load()
+    } catch (e: any) { setErrMsg(e.message) }
+    setSaving(false)
+  }
+
+  const handleSetDefault = async (id: string) => {
+    try { await updateLLMConfig(id, { is_default: true }); await load() } catch {}
+  }
+
+  const handleDelete = async (id: string) => {
+    try { await deleteLLMConfig(id); await load() } catch {}
+  }
+
+  const providerLabel = (p: string) =>
+    PROVIDERS.find(x => x.value === p)?.label ?? p
+
+  return (
+    <div>
+      <h2 className={styles.sectionTitle}>模型中心</h2>
+
+      {/* 配置列表 */}
+      {loading ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>加载中…</p>
+      ) : configs.length === 0 && !showForm ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>暂无模型配置，请添加一个。</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {configs.map(cfg => (
+            <div key={cfg.id} className={styles.fieldCard}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>
+                    {cfg.name}
+                  </span>
+                  {cfg.is_default && (
+                    <span style={{
+                      fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                      background: 'var(--accent-glow)', color: 'var(--accent)'
+                    }}>默认</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  {providerLabel(cfg.provider)} · {cfg.model}
+                  {cfg.context_limit ? ` · ${(cfg.context_limit / 1000).toFixed(0)}k ctx` : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                {!cfg.is_default && (
+                  <button className={styles.primaryBtn}
+                    style={{ padding: '4px 10px', fontSize: 12 }}
+                    onClick={() => handleSetDefault(cfg.id)}>
+                    设为默认
+                  </button>
+                )}
+                <button className={styles.dangerBtn}
+                  style={{ padding: '4px 10px', fontSize: 12 }}
+                  onClick={() => handleDelete(cfg.id)}>
+                  删除
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 新增表单 */}
+      {showForm ? (
+        <div className={styles.customForm}>
+          {/* Provider 选择 */}
+          <div className={styles.formRow}>
+            <label className={styles.formLabel}>Provider</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {PROVIDERS.map(p => (
+                <button key={p.value}
+                  className={`${styles.quickBtn} ${provider === p.value ? styles.quickBtnActive : ''}`}
+                  onClick={() => setProvider(p.value)}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.formRowDouble}>
+            <div className={styles.formCol}>
+              <label className={styles.formLabel}>名称</label>
+              <input className={styles.formInput} placeholder="例：我的 GPT-4"
+                value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div className={styles.formCol}>
+              <label className={styles.formLabel}>模型 ID</label>
+              <input className={styles.formInput} placeholder="gpt-4o"
+                value={model} onChange={e => setModel(e.target.value)} />
+            </div>
+          </div>
+          <div className={styles.formRow}>
+            <label className={styles.formLabel}>API Key</label>
+            <div className={styles.apiKeyWrap}>
+              <input className={styles.formInput}
+                type={showKey ? 'text' : 'password'}
+                placeholder="sk-..."
+                value={apiKey} onChange={e => setApiKey(e.target.value)} />
+              <button className={styles.eyeBtn} onClick={() => setShowKey(!showKey)}>
+                {showKey ? '🙈' : '👁️'}
+              </button>
+            </div>
+          </div>
+          <div className={styles.formRow}>
+            <label className={styles.formLabel}>Base URL（可选，自定义/兼容接口）</label>
+            <input className={styles.formInput} placeholder="https://api.openai.com/v1"
+              value={baseUrl} onChange={e => setBaseUrl(e.target.value)} />
+          </div>
+          <div className={styles.formRowDouble}>
+            <div className={styles.formCol}>
+              <label className={styles.formLabel}>上下文长度</label>
+              <input className={styles.formInput} type="number" min={1024} step={1024}
+                value={contextLimit} onChange={e => setContextLimit(Number(e.target.value))} />
+            </div>
+            <div className={styles.formCol}>
+              <label className={styles.formLabel}>Temperature</label>
+              <input className={styles.formInput} type="number" min={0} max={2} step={0.1}
+                value={temperature} onChange={e => setTemperature(Number(e.target.value))} />
+            </div>
+          </div>
+          {errMsg && <p style={{ color: 'var(--danger, #e05252)', fontSize: 12, margin: '4px 0' }}>{errMsg}</p>}
+          <div className={styles.saveRow}>
+            <button className={styles.primaryBtn} onClick={handleCreate} disabled={saving}>
+              {saving ? '保存中…' : '保存'}
+            </button>
+            <button className={styles.dangerBtn} onClick={() => { setShowForm(false); resetForm() }}>
+              取消
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button className={styles.primaryBtn} onClick={() => setShowForm(true)}>+ 添加模型</button>
+      )}
+    </div>
+  )
+}
 
 // ── GeneralTab ─────────────────────────────────────────────────────────────────
 function GeneralTab() {
@@ -661,6 +856,9 @@ export function SettingsPanel() {
             <button className={nav('general')} onClick={() => setTab('general')}>
               <span className={styles.navIcon}>⚙️</span><span>通用</span>
             </button>
+            <button className={nav('models')} onClick={() => setTab('models')}>
+              <span className={styles.navIcon}>🤖</span><span>模型中心</span>
+            </button>
             <button className={nav('mcp')} onClick={() => setTab('mcp')}>
               <span className={styles.navIcon}>🔌</span><span>MCP</span>
             </button>
@@ -702,6 +900,8 @@ export function SettingsPanel() {
                 <GeneralTab />
               </div>
             )}
+
+            {tab === 'models' && <ModelCenterTab />}
 
             {tab === 'mcp' && (
               <div>
