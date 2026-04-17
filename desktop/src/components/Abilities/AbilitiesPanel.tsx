@@ -36,8 +36,8 @@ const ABILITIES: Ability[] = [
     icon: '🌐',
     name: '网页搜索',
     desc: '通过 Tavily 搜索引擎获取互联网实时信息，支持新闻、文档、技术内容等',
-    executor: 'client',
-    executorLabel: '本机执行',
+    executor: 'server',
+    executorLabel: '服务端执行',
     tools: ['web_search'],
   },
   {

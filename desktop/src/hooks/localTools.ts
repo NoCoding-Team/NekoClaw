@@ -1,5 +1,3 @@
-import { useAppStore } from '../store/app'
-
 /**
  * Execute a client-side tool via Electron IPC bridge.
  */
@@ -49,11 +47,6 @@ export async function executeLocalTool(
       return bridge.browser.type(args.selector as string, args.text as string)
 
     // ── Network tools ─────────────────────────────────────────────────
-    case 'web_search': {
-      const tavilyApiKey = useAppStore.getState().toolsConfig.tavilyApiKey
-      return bridge.net.webSearch(args.query as string, (args.max_results as number) ?? 5, tavilyApiKey)
-    }
-
     case 'http_request':
       return bridge.net.httpRequest({
         method: args.method as string,

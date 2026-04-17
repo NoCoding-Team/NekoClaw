@@ -9,7 +9,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     # ── Server-side tools ──────────────────────────────────────────────
     {
         "name": "web_search",
-        "executor": "client",
+        "executor": "server",
         "description": "Search the web for up-to-date information.",
         "parameters": {
             "type": "object",
