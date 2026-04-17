@@ -102,6 +102,8 @@ async def prepare(state: AgentState) -> dict:
     user_id = state["user_id"]
     input_skill_id = state.get("skill_id")
     custom_llm_cfg = state.get("custom_llm_config")
+    ephemeral = state.get("ephemeral", False)
+    local_history = state.get("local_history")  # [{role, content}, ...]
 
     async with AsyncSessionLocal() as db:
         # Session
@@ -151,31 +153,48 @@ async def prepare(state: AgentState) -> dict:
                 llm_config = result.scalar_one_or_none()
 
         # Message history
-        msgs_result = await db.execute(
-            select(Message)
-            .where(Message.session_id == session_id, Message.deleted_at.is_(None))
-            .order_by(Message.seq.asc(), Message.created_at.asc())
-        )
-        history = list(msgs_result.scalars().all())
+        if not ephemeral:
+            msgs_result = await db.execute(
+                select(Message)
+                .where(Message.session_id == session_id, Message.deleted_at.is_(None))
+                .order_by(Message.seq.asc(), Message.created_at.asc())
+            )
+            history = list(msgs_result.scalars().all())
+        else:
+            history = []
 
     context_limit = llm_config.context_limit if llm_config else 128000
-    user_turn_count = sum(1 for m in history if m.role == "user")
-
-    # Periodic memory refresh
-    if should_run_periodic_refresh(session_id, user_turn_count):
-        await memory_refresh(session_id, user_id, history, llm_config)
-
-    # Context compression (token threshold)
-    total_tokens = sum(estimate_tokens(m.content or "") for m in history)
-    if total_tokens > context_limit * COMPRESS_RATIO and len(history) > 10:
-        await memory_refresh(session_id, user_id, history, llm_config)
-        history = await compress_history(session_id, history, context_limit, llm_config)
 
     # Build messages for LangGraph state
     system_prompt = await build_system_prompt(user_id, skill)
     messages = [SystemMessage(content=system_prompt)]
-    for m in history:
-        messages.append(to_lc_message(m))
+
+    if ephemeral and local_history:
+        # Ephemeral mode: build context from client-supplied local_history
+        from langchain_core.messages import HumanMessage as _HM, AIMessage as _AIM
+        for h in local_history:
+            role = h.get("role", "")
+            content = h.get("content", "")
+            if role == "user":
+                messages.append(_HM(content=content))
+            elif role == "assistant":
+                messages.append(_AIM(content=content))
+        user_turn_count = sum(1 for h in local_history if h.get("role") == "user")
+    else:
+        user_turn_count = sum(1 for m in history if m.role == "user")
+
+        # Periodic memory refresh
+        if should_run_periodic_refresh(session_id, user_turn_count):
+            await memory_refresh(session_id, user_id, history, llm_config)
+
+        # Context compression (token threshold)
+        total_tokens = sum(estimate_tokens(m.content or "") for m in history)
+        if total_tokens > context_limit * COMPRESS_RATIO and len(history) > 10:
+            await memory_refresh(session_id, user_id, history, llm_config)
+            history = await compress_history(session_id, history, context_limit, llm_config)
+
+        for m in history:
+            messages.append(to_lc_message(m))
 
     # Initial tool-result pruning
     messages = prune_tool_results(messages)
@@ -252,14 +271,16 @@ async def tools_node(state: AgentState) -> dict:
     ws = state["ws"]
     user_id = state["user_id"]
     session_id = state["session_id"]
+    ephemeral = state.get("ephemeral", False)
 
     # Persist the assistant message (with tool calls) before executing tools
-    await _persist_message(
-        session_id=session_id,
-        role="assistant",
-        content=ai_message.content if isinstance(ai_message.content, str) else "",
-        tool_calls=_lc_tool_calls_to_openai(ai_message.tool_calls),
-    )
+    if not ephemeral:
+        await _persist_message(
+            session_id=session_id,
+            role="assistant",
+            content=ai_message.content if isinstance(ai_message.content, str) else "",
+            tool_calls=_lc_tool_calls_to_openai(ai_message.tool_calls),
+        )
 
     tool_messages: list[ToolMessage] = []
 
@@ -275,12 +296,13 @@ async def tools_node(state: AgentState) -> dict:
             await send_event(ws, "tool_denied", {"call_id": call_id, "reason": deny_msg})
             result_content = json.dumps({"error": deny_msg})
             tool_messages.append(ToolMessage(content=result_content, tool_call_id=call_id))
-            await _persist_message(
-                session_id, "tool", result_content,
-                [{"callId": call_id, "tool": tool_name, "args": args,
-                  "riskLevel": risk_level, "status": "error", "result": result_content[:2000]}],
-                tool_call_id=call_id,
-            )
+            if not ephemeral:
+                await _persist_message(
+                    session_id, "tool", result_content,
+                    [{"callId": call_id, "tool": tool_name, "args": args,
+                      "riskLevel": risk_level, "status": "error", "result": result_content[:2000]}],
+                    tool_call_id=call_id,
+                )
             continue
 
         tool_def = TOOL_MAP.get(tool_name)
@@ -347,9 +369,10 @@ async def tools_node(state: AgentState) -> dict:
             "status": status,
             "result": result_content[:2000],
         }]
-        await _persist_message(
-            session_id, "tool", result_content, tool_call_card, tool_call_id=call_id
-        )
+        if not ephemeral:
+            await _persist_message(
+                session_id, "tool", result_content, tool_call_card, tool_call_id=call_id
+            )
         tool_messages.append(ToolMessage(content=result_content, tool_call_id=call_id))
 
     return {"messages": tool_messages}
@@ -359,10 +382,12 @@ async def finalize(state: AgentState) -> dict:
     """Persist the final assistant message and send completion events."""
     ws = state["ws"]
     session_id = state["session_id"]
+    ephemeral = state.get("ephemeral", False)
     ai_message: AIMessage = state["messages"][-1]  # type: ignore[assignment]
 
     content = ai_message.content if isinstance(ai_message.content, str) else str(ai_message.content)
-    await _persist_message(session_id=session_id, role="assistant", content=content, tool_calls=None)
+    if not ephemeral:
+        await _persist_message(session_id=session_id, role="assistant", content=content, tool_calls=None)
     await send_event(ws, "cat_state", {"state": "success"})
 
     # Two-stage title: generate title via LLM after the first round
@@ -374,11 +399,13 @@ async def finalize(state: AgentState) -> dict:
 
 async def _generate_title(state: AgentState, assistant_reply: str) -> None:
     """Generate a conversation title using the LLM after the first round."""
+    import traceback
     from langchain_core.messages import HumanMessage as _HM
 
     ws = state["ws"]
     session_id = state["session_id"]
     llm_config = state["llm_config"]
+    ephemeral = state.get("ephemeral", False)
 
     # Extract first user message
     user_content = ""
@@ -399,16 +426,17 @@ async def _generate_title(state: AgentState, assistant_reply: str) -> None:
         title = (result.content.strip() if isinstance(result.content, str) else str(result.content).strip())[:30]
         if not title:
             return
-        # Update DB
-        async with AsyncSessionLocal() as db:
-            session = await db.get(Session, session_id)
-            if session:
-                session.title = title
-                await db.commit()
+        # Update DB (skip when ephemeral — no server session data to update)
+        if not ephemeral:
+            async with AsyncSessionLocal() as db:
+                session = await db.get(Session, session_id)
+                if session:
+                    session.title = title
+                    await db.commit()
         # Push to client
         await send_event(ws, "title_update", {"session_id": session_id, "title": title})
     except Exception:
-        pass  # Title generation is non-critical
+        traceback.print_exc()  # Log errors for debugging
 
 
 # ── Conditional router ───────────────────────────────────────────────────────

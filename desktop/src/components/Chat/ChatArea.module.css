@@ -352,7 +352,6 @@
 }
 .syncBtn:hover { background: rgba(124, 106, 244, 0.20); }
 .syncBtnBusy { opacity: 0.6; cursor: not-allowed; }
-}
 
 .loadErrorWrap {
   flex: 1;

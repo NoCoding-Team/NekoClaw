@@ -34,3 +34,8 @@ class AgentState(TypedDict):
     # Keys: provider, model, api_key, base_url, temperature, context_limit.
     # When present, overrides DB-looked-up config in the prepare node.
     custom_llm_config: dict | None
+
+    # Ephemeral mode: when True, messages are NOT persisted to the server DB.
+    # The prepare node uses local_history (sent from the client) for context.
+    ephemeral: bool
+    local_history: list[dict] | None  # [{"role": ..., "content": ...}, ...]

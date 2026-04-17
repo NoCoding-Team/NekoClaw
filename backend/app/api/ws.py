@@ -143,23 +143,30 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
     skill_id = data.get("skill_id")
     allowed_tools: list[str] | None = data.get("allowed_tools")  # None=all, []=none, [...]= specified list
     custom_llm_config: dict | None = data.get("custom_llm_config")  # optional user-supplied LLM config
+    ephemeral: bool = bool(data.get("ephemeral", False))
+    local_history: list[dict] | None = data.get("local_history")  # [{role, content}, ...]
 
-    # Persist user message
-    async with AsyncSessionLocal() as db:
-        from sqlalchemy import select as sel, func as fn
-        result = await db.execute(
-            sel(fn.coalesce(fn.max(Message.seq), 0)).where(Message.session_id == session_id)
-        )
-        next_seq = (result.scalar() or 0) + 1
-        msg = Message(
-            id=str(uuid.uuid4()),
-            session_id=session_id,
-            role="user",
-            content=content,
-            seq=next_seq,
-        )
-        db.add(msg)
-        await db.commit()
+    # Persist user message (skip when ephemeral — data stays client-only)
+    if not ephemeral:
+        async with AsyncSessionLocal() as db:
+            from sqlalchemy import select as sel, func as fn
+            result = await db.execute(
+                sel(fn.coalesce(fn.max(Message.seq), 0)).where(Message.session_id == session_id)
+            )
+            next_seq = (result.scalar() or 0) + 1
+            msg = Message(
+                id=str(uuid.uuid4()),
+                session_id=session_id,
+                role="user",
+                content=content,
+                seq=next_seq,
+            )
+            db.add(msg)
+            await db.commit()
+
+    # Merge current user message into local_history so prepare has full context
+    if ephemeral:
+        local_history = (local_history or []) + [{"role": "user", "content": content}]
 
     await send_event(ws, "cat_state", {"state": "thinking"})
     await send_event(ws, "llm_thinking", {})
@@ -172,6 +179,8 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
             ws=ws,
             allowed_tools_override=allowed_tools,
             custom_llm_config=custom_llm_config,
+            ephemeral=ephemeral,
+            local_history=local_history,
         )
     except Exception as exc:
         traceback.print_exc()

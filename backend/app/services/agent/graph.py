@@ -47,6 +47,8 @@ async def run_agent(
     ws: Any,
     allowed_tools_override: list[str] | None = None,
     custom_llm_config: dict | None = None,
+    ephemeral: bool = False,
+    local_history: list[dict] | None = None,
 ) -> None:
     """Invoke the LangGraph agent for a single user-message turn.
 
@@ -64,5 +66,7 @@ async def run_agent(
         "skill_id": skill_id,
         "allowed_tools": allowed_tools_override,
         "custom_llm_config": custom_llm_config,
+        "ephemeral": ephemeral,
+        "local_history": local_history,
     }
     await _graph.ainvoke(initial_state)

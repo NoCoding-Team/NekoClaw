@@ -16,6 +16,11 @@ let _ws: WebSocket | null = null
 // Per-session set: tracks sessions for which local_history was already sent
 const _localHistorySentForSession = new Set<string>()
 
+// Ephemeral WS sessions: maps local session ID → server session ID.
+// When syncEnabled=false, a server session is created only for WS transport;
+// the frontend keeps the session as "local-*" and backend skips persistence.
+const _ephemeralServerMap: Record<string, string> = {}
+
 // Per-round tool call tracking for loop guard & call limit
 const _roundToolCount: Record<string, number> = {}         // sessionId → count in current round
 const _recentTools: Record<string, string[]> = {}          // sessionId → recent tool names (window)
@@ -52,15 +57,26 @@ export function useWebSocket(sessionId: string | null) {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamingMsgId = useRef<string | null>(null)
   /** 待发的第一条消息（local- 会话 materialized 后在 onopen 中发送） */
-  const pendingMessage = useRef<{ content: string; skillId?: string | null; allowedTools?: string[] | null } | null>(null)
+  const pendingMessage = useRef<{
+    content: string
+    skillId?: string | null
+    allowedTools?: string[] | null
+    ephemeral?: boolean
+    localHistory?: Array<{ role: string; content: string }>
+  } | null>(null)
   /** local history to include as fallback for newly materialized sessions */
   const pendingLocalHistory = useRef<Array<{ role: string; content: string }> | null>(null)
 
   const connect = useCallback(() => {
     if (!token || !sessionId) return
-    // local-* sessions are client-side only and never registered on the server
-    if (sessionId.startsWith('local-')) return
-    const wsUrl = serverUrl.replace(/^http/, 'ws') + `/api/ws/${sessionId}?token=${token}`
+    // For local sessions, check ephemeral map for a server session to use for WS
+    let wsSessionId = sessionId
+    if (sessionId.startsWith('local-')) {
+      const mapped = _ephemeralServerMap[sessionId]
+      if (!mapped) return  // no ephemeral mapping yet, can't connect
+      wsSessionId = mapped
+    }
+    const wsUrl = serverUrl.replace(/^http/, 'ws') + `/api/ws/${wsSessionId}?token=${token}`
     setWsStatus('connecting')
 
     const ws = new WebSocket(wsUrl)
@@ -75,8 +91,8 @@ export function useWebSocket(sessionId: string | null) {
       }, 30_000)
       // 发送带入的待发消息（local- 会话 第一条消息）
       if (pendingMessage.current) {
-        const { content, skillId, allowedTools } = pendingMessage.current
-        const localHistory = pendingLocalHistory.current
+        const { content, skillId, allowedTools, ephemeral: eph, localHistory: lh } = pendingMessage.current
+        const localHistory = lh ?? pendingLocalHistory.current
         pendingMessage.current = null
         pendingLocalHistory.current = null
         const sid = useAppStore.getState().activeSessionId!
@@ -85,16 +101,19 @@ export function useWebSocket(sessionId: string | null) {
         if (!existingMsgs.some(m => m.role === 'user' && m.content === content)) {
           appendMessage(sid, { id: uuidv4(), role: 'user', content })
         }
-        // Write user message to local SQLite for the new server session
-        const dbBridge = window.nekoBridge?.db
-        if (dbBridge && sid) {
-          const sTitle = useAppStore.getState().sessions.find((s) => s.id === sid)?.title ?? ''
-          dbBridge.upsertSession(sid, sTitle, Date.now()).catch(() => {})
-          dbBridge.insertMessage({ id: uuidv4(), sessionId: sid, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
+        // Write user message to local SQLite for the new server session (skip for ephemeral — already written)
+        if (!eph) {
+          const dbBridge = window.nekoBridge?.db
+          if (dbBridge && sid) {
+            const sTitle = useAppStore.getState().sessions.find((s) => s.id === sid)?.title ?? ''
+            dbBridge.upsertSession(sid, sTitle, Date.now()).catch(() => {})
+            dbBridge.insertMessage({ id: uuidv4(), sessionId: sid, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
+          }
         }
         if (sid) _localHistorySentForSession.add(sid)
         ws.send(JSON.stringify({
           event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools ?? null,
+          ...(eph ? { ephemeral: true } : {}),
           ...(localHistory?.length ? { local_history: localHistory } : {}),
           ...((() => {
             const { customLLMConfig } = useAppStore.getState()
@@ -183,7 +202,20 @@ export function useWebSocket(sessionId: string | null) {
               }
             })()
           }
-          // 标题由后端 finalize 节点生成（title_update 事件），前端不再主动生成
+          // 标题两段式 Stage 1：首轮消息完成后，立即用用户输入截断作标题
+          const allMsgs = useAppStore.getState().messagesBySession[sid] ?? []
+          const userMsgCount = allMsgs.filter(m => m.role === 'user').length
+          if (userMsgCount === 1) {
+            const firstUserMsg = allMsgs.find(m => m.role === 'user')
+            if (firstUserMsg) {
+              const stage1Title = firstUserMsg.content.slice(0, 15) + (firstUserMsg.content.length > 15 ? '…' : '')
+              useAppStore.getState().updateSessionTitle(sid, stage1Title)
+              if (dbBridge) {
+                dbBridge.upsertSession(sid, stage1Title, Date.now()).catch(() => {})
+              }
+              // Stage 2 由后端 finalize 节点通过 title_update 事件推送覆盖
+            }
+          }
         } else if (cleanedMsgs.length !== msgs.length) {
           // 无 streaming 消息，但幽灵气泡未清理，补一次 setMessages
           useAppStore.getState().setMessages(sid, cleanedMsgs)
@@ -305,11 +337,16 @@ export function useWebSocket(sessionId: string | null) {
         const sid = evt.session_id as string
         const title = evt.title as string
         if (sid && title) {
-          useAppStore.getState().updateSessionTitle(sid, title)
+          // Reverse-lookup: if this server session maps to a local session, target the local one
+          let targetSid = sid
+          for (const [localId, serverId] of Object.entries(_ephemeralServerMap)) {
+            if (serverId === sid) { targetSid = localId; break }
+          }
+          useAppStore.getState().updateSessionTitle(targetSid, title)
           // Also update local SQLite
           const dbBridge = window.nekoBridge?.db
           if (dbBridge) {
-            dbBridge.upsertSession(sid, title, Date.now()).catch(() => {})
+            dbBridge.upsertSession(targetSid, title, Date.now()).catch(() => {})
           }
         }
       }
@@ -349,94 +386,167 @@ export function useWebSocket(sessionId: string | null) {
 
   const sendMessage = useCallback(
     async (content: string, skillId?: string | null) => {
-      // 如果是 local- 会话，先 materialize，待 WS 连接后再发送
       const currentSessionId = useAppStore.getState().activeSessionId
-      if (currentSessionId?.startsWith('local-')) {
+      if (!currentSessionId) return
+
+      // ── Branch A: local session + sync OFF → ephemeral mode ──────
+      if (currentSessionId.startsWith('local-') && !useAppStore.getState().syncEnabled) {
+        const { serverUrl: sv, token: tk, securityConfig: sc } = useAppStore.getState()
+        if (!tk) return
+        try {
+          const dbBridge = window.nekoBridge?.db
+
+          // Build full local history for AI context
+          let localHistory: Array<{ role: string; content: string }> = []
+          if (dbBridge) {
+            const localMsgs = await dbBridge.getMessages(currentSessionId)
+            localHistory = localMsgs
+              .filter(m => m.role === 'user' || m.role === 'assistant')
+              .map(m => ({ role: m.role, content: m.content }))
+          }
+
+          // Optimistic UI
+          const userMsgId = uuidv4()
+          appendMessage(currentSessionId, { id: userMsgId, role: 'user', content })
+          resetRound(currentSessionId)
+
+          // Write to local SQLite
+          if (dbBridge) {
+            const sTitle = useAppStore.getState().sessions.find(s => s.id === currentSessionId)?.title ?? '新对话'
+            dbBridge.upsertSession(currentSessionId, sTitle, Date.now()).catch(() => {})
+            dbBridge.insertMessage({ id: userMsgId, sessionId: currentSessionId, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
+          }
+
+          // Include current message in history sent to backend
+          localHistory.push({ role: 'user', content })
+
+          // Create ephemeral server session for WS transport only (no message persistence)
+          if (!_ephemeralServerMap[currentSessionId]) {
+            const res = await apiFetch(`${sv}/api/sessions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: '临时会话' }),
+            })
+            if (!res.ok) return
+            const s = await res.json()
+            _ephemeralServerMap[currentSessionId] = s.id
+          }
+
+          setCatState('thinking')
+          const allowedTools = sc.toolWhitelist
+
+          // Build message payload
+          const buildPayload = (): string => {
+            const payload: Record<string, unknown> = {
+              event: 'message', content, skill_id: skillId ?? null,
+              allowed_tools: allowedTools, ephemeral: true, local_history: localHistory,
+            }
+            const { customLLMConfig } = useAppStore.getState()
+            if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
+              payload.custom_llm_config = {
+                provider: customLLMConfig.provider, model: customLLMConfig.model,
+                api_key: customLLMConfig.api_key, base_url: customLLMConfig.base_url || null,
+                temperature: customLLMConfig.temperature, context_limit: customLLMConfig.context_limit,
+              }
+            }
+            return JSON.stringify(payload)
+          }
+
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            // WS already connected (subsequent messages), send directly
+            wsRef.current.send(buildPayload())
+          } else {
+            // First message: queue pending and (re)connect
+            pendingMessage.current = { content, skillId, allowedTools, ephemeral: true, localHistory }
+            if (wsRef.current) { intentionalClose.current = true; wsRef.current.close() }
+            intentionalClose.current = false
+            connect()
+          }
+        } catch { /* ignore */ }
+        return
+      }
+
+      // ── Branch B: local session + sync ON → materialize to server ─
+      if (currentSessionId.startsWith('local-')) {
         const { serverUrl: sv, token: tk } = useAppStore.getState()
         if (!tk) return
         try {
-        // Read local history before materializing
-        const dbBridge = window.nekoBridge?.db
-        let localHistory: Array<{ role: string; content: string }> | null = null
-        if (dbBridge) {
-          const localMsgs = await dbBridge.getMessages(currentSessionId)
-          const filtered = localMsgs.filter((m) => m.role === 'user' || m.role === 'assistant')
-          if (filtered.length > 0) {
-            localHistory = filtered.map((m) => ({ role: m.role, content: m.content }))
+          // Read local history before materializing
+          const dbBridge = window.nekoBridge?.db
+          let localHistory: Array<{ role: string; content: string }> | null = null
+          if (dbBridge) {
+            const localMsgs = await dbBridge.getMessages(currentSessionId)
+            const filtered = localMsgs.filter((m) => m.role === 'user' || m.role === 'assistant')
+            if (filtered.length > 0) {
+              localHistory = filtered.map((m) => ({ role: m.role, content: m.content }))
+            }
           }
-        }
-        const res = await apiFetch(`${sv}/api/sessions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: '新对话' }),
-        })
-        if (!res.ok) return
-        const s = await res.json()
-        useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
-        // pendingMessage 会在 onopen 中被发送（connect 会因 activeSessionId 变化而重新触发）
-        const { securityConfig: sc } = useAppStore.getState()
-        // 始终传递实际白名单：[...] = 仅启用列表中的工具, [] = 无工具
-        const allowedTools = sc.toolWhitelist
-        setCatState('thinking')
-        pendingMessage.current = { content, skillId, allowedTools }
-        pendingLocalHistory.current = localHistory
-        resetRound(currentSessionId)
-      } catch {}
-      return
-    }
-
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
-    setCatState('thinking')
-    const userMsgId = uuidv4()
-    appendMessage(sessionId!, {
-      id: userMsgId,
-      role: 'user',
-      content,
-    })
-    resetRound(sessionId!)
-    const { securityConfig } = useAppStore.getState()
-    // 始终传递实际白名单：[...] = 仅启用列表中的工具, [] = 无工具
-    const allowedTools = securityConfig.toolWhitelist
-
-    // Write user message to local SQLite
-    const dbBridge = window.nekoBridge?.db
-    if (dbBridge && sessionId) {
-      const sTitle = useAppStore.getState().sessions.find((s) => s.id === sessionId)?.title ?? ''
-      dbBridge.upsertSession(sessionId, sTitle, Date.now()).catch(() => {})
-      dbBridge.insertMessage({ id: userMsgId, sessionId, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
-    }
-
-    // Include local history as fallback for the first message sent in this WS session
-    let localHistoryPayload: Array<{ role: string; content: string }> | undefined
-    if (dbBridge && sessionId && !_localHistorySentForSession.has(sessionId)) {
-      const localMsgs = await dbBridge.getMessages(sessionId)
-      const prevMsgs = localMsgs.filter((m) => m.id !== userMsgId && (m.role === 'user' || m.role === 'assistant'))
-      if (prevMsgs.length > 0) {
-        localHistoryPayload = prevMsgs.map((m) => ({ role: m.role, content: m.content }))
+          const res = await apiFetch(`${sv}/api/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: '新对话' }),
+          })
+          if (!res.ok) return
+          const s = await res.json()
+          useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
+          const { securityConfig: sc } = useAppStore.getState()
+          const allowedTools = sc.toolWhitelist
+          setCatState('thinking')
+          pendingMessage.current = { content, skillId, allowedTools }
+          pendingLocalHistory.current = localHistory
+          resetRound(currentSessionId)
+        } catch { /* ignore */ }
+        return
       }
-      _localHistorySentForSession.add(sessionId)
-    }
 
-    wsRef.current.send(JSON.stringify({
-      event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools,
-      ...(localHistoryPayload ? { local_history: localHistoryPayload } : {}),
-      ...((() => {
-        const { customLLMConfig } = useAppStore.getState()
-        if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
-        return {
-          custom_llm_config: {
-            provider: customLLMConfig.provider,
-            model: customLLMConfig.model,
-            api_key: customLLMConfig.api_key,
-            base_url: customLLMConfig.base_url || null,
-            temperature: customLLMConfig.temperature,
-            context_limit: customLLMConfig.context_limit,
-          },
+      // ── Branch C: regular server session → direct send ────────────
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
+      setCatState('thinking')
+      const userMsgId = uuidv4()
+      appendMessage(sessionId!, { id: userMsgId, role: 'user', content })
+      resetRound(sessionId!)
+      const { securityConfig } = useAppStore.getState()
+      const allowedTools = securityConfig.toolWhitelist
+
+      // Write user message to local SQLite
+      const dbBridge = window.nekoBridge?.db
+      if (dbBridge && sessionId) {
+        const sTitle = useAppStore.getState().sessions.find((s) => s.id === sessionId)?.title ?? ''
+        dbBridge.upsertSession(sessionId, sTitle, Date.now()).catch(() => {})
+        dbBridge.insertMessage({ id: userMsgId, sessionId, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
+      }
+
+      // Include local history as fallback for the first message sent in this WS session
+      let localHistoryPayload: Array<{ role: string; content: string }> | undefined
+      if (dbBridge && sessionId && !_localHistorySentForSession.has(sessionId)) {
+        const localMsgs = await dbBridge.getMessages(sessionId)
+        const prevMsgs = localMsgs.filter((m) => m.id !== userMsgId && (m.role === 'user' || m.role === 'assistant'))
+        if (prevMsgs.length > 0) {
+          localHistoryPayload = prevMsgs.map((m) => ({ role: m.role, content: m.content }))
         }
-      })()),
-    }))
+        _localHistorySentForSession.add(sessionId)
+      }
+
+      wsRef.current.send(JSON.stringify({
+        event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools,
+        ...(localHistoryPayload ? { local_history: localHistoryPayload } : {}),
+        ...((() => {
+          const { customLLMConfig } = useAppStore.getState()
+          if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
+          return {
+            custom_llm_config: {
+              provider: customLLMConfig.provider,
+              model: customLLMConfig.model,
+              api_key: customLLMConfig.api_key,
+              base_url: customLLMConfig.base_url || null,
+              temperature: customLLMConfig.temperature,
+              context_limit: customLLMConfig.context_limit,
+            },
+          }
+        })()),
+      }))
     },
-    [sessionId, setCatState, appendMessage]
+    [sessionId, setCatState, appendMessage, connect]
   )
 
   return { sendMessage }
@@ -468,4 +578,14 @@ export async function confirmTool(callId: string, tool: string, args: Record<str
 export function denyTool(callId: string) {
   if (!_ws || _ws.readyState !== WebSocket.OPEN) return
   _ws.send(JSON.stringify({ event: 'tool_result', call_id: callId, error: 'User denied' }))
+}
+
+/** Get the ephemeral server session ID mapped to a local session (if any). */
+export function getEphemeralServerId(localId: string): string | undefined {
+  return _ephemeralServerMap[localId]
+}
+
+/** Remove the ephemeral mapping for a local session. */
+export function clearEphemeralMapping(localId: string): void {
+  delete _ephemeralServerMap[localId]
 }
