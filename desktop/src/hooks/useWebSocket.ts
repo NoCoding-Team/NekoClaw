@@ -126,14 +126,11 @@ export function useWebSocket(sessionId: string | null) {
       if (type === 'cat_state') {
         setCatState(evt.state as any)
       } else if (type === 'llm_thinking') {
+        // 仅设状态，不预先创建 streaming 气泡——防止工具卡插入后 token 丢失
         setCatState('thinking')
-        // 预先插入空 streaming 气泡，llm_token 到达时直接追加内容
-        const thinkingId = uuidv4()
-        streamingMsgId.current = thinkingId
-        appendMessage(sessionId, { id: thinkingId, role: 'assistant', content: '', streaming: true })
       } else if (type === 'llm_token') {
         if (!streamingMsgId.current) {
-          // 兜底：服务端未发 llm_thinking 时在此创建气泡
+          // 首个 token 到达时创建气泡（工具卡已在其前，此时 append 就是最后一条）
           const id = uuidv4()
           streamingMsgId.current = id
           appendMessage(sessionId, { id, role: 'assistant', content: '', streaming: true })
@@ -202,6 +199,7 @@ export function useWebSocket(sessionId: string | null) {
           // 无 streaming 消息，但幽灵气泡未清理，补一次 setMessages
           useAppStore.getState().setMessages(sessionId, cleanedMsgs)
         }
+      } else if (type === 'server_tool_call') {
         // Server-side tool: display card only, no local execution
         const tc: ToolCall = {
           callId: evt.call_id as string,
