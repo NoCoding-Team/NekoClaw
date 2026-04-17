@@ -302,20 +302,7 @@ export function useWebSocket(sessionId: string | null) {
               }
             })()
           }
-          // 标题两段式 Stage 1：首轮消息完成后，立即用用户输入截断作标题
-          const allMsgs = useAppStore.getState().messagesBySession[sid] ?? []
-          const userMsgCount = allMsgs.filter(m => m.role === 'user').length
-          if (userMsgCount === 1) {
-            const firstUserMsg = allMsgs.find(m => m.role === 'user')
-            if (firstUserMsg) {
-              const stage1Title = firstUserMsg.content.slice(0, 15) + (firstUserMsg.content.length > 15 ? '…' : '')
-              useAppStore.getState().updateSessionTitle(sid, stage1Title)
-              if (dbBridge) {
-                dbBridge.upsertSession(sid, stage1Title, Date.now()).catch(() => {})
-              }
-              // Stage 2 由后端 finalize 节点通过 title_update 事件推送覆盖
-            }
-          }
+          // Stage 2 由后端 finalize 节点通过 title_update 事件推送覆盖
         } else if (hadStreaming && cleanedMsgs.length !== msgs.length) {
           // hadStreaming=true 但 streaming 消息被清理（空内容）→ LLM 返回空
           // 典型场景：工具执行后第二轮 LLM 调用返回空内容
@@ -618,6 +605,15 @@ export function useWebSocket(sessionId: string | null) {
             appendMessage(currentSessionId, { id: userMsgId, role: 'user', content })
           }
           resetRound(currentSessionId)
+
+          // 标题两段式 Stage 1：用户发出首条消息时立即截断作标题
+          // 不依赖 LLM 响应类型，Stage 2 由后端 title_update 事件覆盖
+          const msgsAfterAppend = useAppStore.getState().messagesBySession[currentSessionId] ?? []
+          const isFirstUserMsg = msgsAfterAppend.filter(m => m.role === 'user').length === 1
+          if (isFirstUserMsg) {
+            const stage1Title = content.slice(0, 15) + (content.length > 15 ? '…' : '')
+            useAppStore.getState().updateSessionTitle(currentSessionId, stage1Title)
+          }
 
           // Write to local SQLite
           if (dbBridge) {
