@@ -56,6 +56,7 @@ export function useWebSocket(sessionId: string | null) {
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamingMsgId = useRef<string | null>(null)
+  const wsUrlRef = useRef<string | null>(null)
   /** 待发的第一条消息（local- 会话 materialized 后在 onopen 中发送） */
   const pendingMessage = useRef<{
     content: string
@@ -77,13 +78,32 @@ export function useWebSocket(sessionId: string | null) {
       wsSessionId = mapped
     }
     const wsUrl = serverUrl.replace(/^http/, 'ws') + `/api/ws/${wsSessionId}?token=${token}`
+
+    // Already connected/connecting to the same URL, skip duplicate connect.
+    if (
+      wsRef.current
+      && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)
+      && wsUrlRef.current === wsUrl
+    ) {
+      return
+    }
+
+    // Switching targets: close old socket intentionally before creating a new one.
+    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+      intentionalClose.current = true
+      try { wsRef.current.close() } catch {}
+    }
+
     setWsStatus('connecting')
 
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
     _ws = ws
+    wsUrlRef.current = wsUrl
+    intentionalClose.current = false
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) return
       backoffRef.current = 1_000
       setWsStatus('connected')
       pingTimer.current = setInterval(() => {
@@ -134,6 +154,7 @@ export function useWebSocket(sessionId: string | null) {
     }
 
     ws.onmessage = async (ev) => {
+      if (wsRef.current !== ws) return
       let evt: Record<string, unknown>
       try {
         evt = JSON.parse(ev.data)
@@ -353,14 +374,17 @@ export function useWebSocket(sessionId: string | null) {
     }
 
     ws.onclose = () => {
+      if (pingTimer.current) clearInterval(pingTimer.current)
+
+      // Ignore stale sockets closed after a newer socket has been created.
+      if (wsRef.current !== ws) return
+
       wsRef.current = null
       _ws = null
+      wsUrlRef.current = null
       setWsStatus('disconnected')
       streamingMsgId.current = null
       setCatState('idle')
-      streamingMsgId.current = null
-      setCatState('idle')
-      if (pingTimer.current) clearInterval(pingTimer.current)
       // Skip reconnect if this was an intentional close (e.g. session changed)
       if (intentionalClose.current) return
       // Exponential backoff reconnect
@@ -370,19 +394,36 @@ export function useWebSocket(sessionId: string | null) {
       }, backoffRef.current)
     }
 
-    ws.onerror = () => ws.close()
+    ws.onerror = () => {
+      if (wsRef.current !== ws) return
+      ws.close()
+    }
   }, [token, sessionId, serverUrl]) // eslint-disable-line
 
+  // (Re)connect when deps change; do NOT close the socket in cleanup —
+  // connect() already handles close-old-if-switching internally.
   useEffect(() => {
-    intentionalClose.current = false
     connect()
+    return () => {
+      // Only cancel pending reconnect timer so a stale timer doesn't fire
+      // for a previous session.  The socket itself stays alive.
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+    }
+  }, [connect])
+
+  // Close the socket only when the component truly unmounts
+  // (e.g. user navigates away from chat panel).
+  useEffect(() => {
     return () => {
       intentionalClose.current = true
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
       if (pingTimer.current) clearInterval(pingTimer.current)
       wsRef.current?.close()
+      wsRef.current = null
+      _ws = null
+      wsUrlRef.current = null
     }
-  }, [connect])
+  }, [])
 
   const sendMessage = useCallback(
     async (content: string, skillId?: string | null) => {

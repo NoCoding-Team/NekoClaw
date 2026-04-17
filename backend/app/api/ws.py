@@ -116,7 +116,10 @@ async def websocket_session(session_id: str, websocket: WebSocket):
         pass
     finally:
         heartbeat_task.cancel()
-        _active.pop(session_id, None)
+        # Only remove from _active if this websocket is still the registered one
+        # (a newer connection for the same session may have replaced it).
+        if _active.get(session_id) is websocket:
+            _active.pop(session_id, None)
         # Clean up any pending tool call futures for this session to avoid leaks
         for call_id, future in list(_pending_tool_calls.items()):
             if not future.done():
