@@ -117,6 +117,11 @@ async def websocket_session(session_id: str, websocket: WebSocket):
     finally:
         heartbeat_task.cancel()
         _active.pop(session_id, None)
+        # Clean up any pending tool call futures for this session to avoid leaks
+        for call_id, future in list(_pending_tool_calls.items()):
+            if not future.done():
+                future.cancel()
+            _pending_tool_calls.pop(call_id, None)
 
 
 async def _heartbeat(ws: WebSocket, session_id: str):
@@ -130,13 +135,12 @@ async def _heartbeat(ws: WebSocket, session_id: str):
 
 
 async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSocket):
-    """Process incoming user message: persist, run LLM pipeline."""
-    from app.services.llm import run_llm_pipeline
+    """Process incoming user message: persist, run LangGraph agent."""
+    from app.services.agent import run_agent
 
     content = data.get("content", "")
     skill_id = data.get("skill_id")
-    allowed_tools: list[str] | None = data.get("allowed_tools")  # None=未指定(不限), []=无工具, [...]= 指定工具列表
-    local_history: list[dict] | None = data.get("local_history")  # Client-side history for fallback
+    allowed_tools: list[str] | None = data.get("allowed_tools")  # None=all, []=none, [...]= specified list
 
     # Persist user message
     async with AsyncSessionLocal() as db:
@@ -158,13 +162,12 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
     await send_event(ws, "cat_state", {"state": "thinking"})
     await send_event(ws, "llm_thinking", {})
 
-    await run_llm_pipeline(
+    await run_agent(
         session_id=session_id,
         user_id=user_id,
         skill_id=skill_id,
-        allowed_tools_override=allowed_tools,
-        local_history=local_history,
         ws=ws,
+        allowed_tools_override=allowed_tools,
     )
 
 

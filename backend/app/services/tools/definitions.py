@@ -188,20 +188,3 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
 
 TOOL_MAP: dict[str, dict] = {t["name"]: t for t in TOOL_DEFINITIONS}
 
-
-def get_openai_tools(allowed_tools: list[str] | None = None) -> list[dict]:
-    """Return tools formatted for OpenAI-compatible API, optionally filtered by whitelist."""
-    tools = TOOL_DEFINITIONS if allowed_tools is None else [
-        t for t in TOOL_DEFINITIONS if t["name"] in allowed_tools
-    ]
-    return [
-        {
-            "type": "function",
-            "function": {
-                "name": t["name"],
-                "description": t["description"],
-                "parameters": t["parameters"],
-            },
-        }
-        for t in tools
-    ]
