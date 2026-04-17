@@ -26,6 +26,8 @@ const _roundToolCount: Record<string, number> = {}         // sessionId → coun
 const _recentTools: Record<string, string[]> = {}          // sessionId → recent tool names (window)
 // 跟踪 callId → 本地 SQLite 消息 ID 的映射，用于工具执行完毕后更新持久化状态
 const _callIdToMsgId: Record<string, string> = {}
+// 已触发过 Stage 2 标题生成的会话集合
+const _titleGenerated = new Set<string>()
 
 function resetRound(sessionId: string) {
   _roundToolCount[sessionId] = 0
@@ -210,6 +212,48 @@ export function useWebSocket(sessionId: string | null) {
 
       if (type === 'cat_state') {
         setCatState(evt.state as any)
+        // 标题两段式 Stage 2：第一轮对话 finalize 后，调用 LLM 生成摘要标题
+        if (evt.state === 'success' && sessionId && !_titleGenerated.has(sessionId)) {
+          const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+          const userMsgCount = allMsgs.filter(m => m.role === 'user').length
+          if (userMsgCount === 1) {
+            _titleGenerated.add(sessionId)
+            const firstUserMsg = allMsgs.find(m => m.role === 'user')
+            const lastAiMsg = [...allMsgs].reverse().find(m => m.role === 'assistant' && m.content)
+            if (firstUserMsg && lastAiMsg) {
+              const { serverUrl: sv, customLLMConfig } = useAppStore.getState()
+              const body: Record<string, unknown> = {
+                user_message: firstUserMsg.content,
+                ai_reply: lastAiMsg.content,
+              }
+              if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
+                body.custom_llm_config = {
+                  provider: customLLMConfig.provider,
+                  model: customLLMConfig.model,
+                  api_key: customLLMConfig.api_key,
+                  base_url: customLLMConfig.base_url || null,
+                  temperature: customLLMConfig.temperature,
+                }
+              }
+              apiFetch(`${sv}/api/sessions/generate-title`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              })
+                .then(r => r.json())
+                .then(data => {
+                  if (data.title) {
+                    useAppStore.getState().updateSessionTitle(sessionId!, data.title)
+                    const dbBridge = window.nekoBridge?.db
+                    if (dbBridge) {
+                      dbBridge.upsertSession(sessionId!, data.title, Date.now()).catch(() => {})
+                    }
+                  }
+                })
+                .catch(() => {}) // Stage 2 失败不影响功能
+            }
+          }
+        }
       } else if (type === 'llm_thinking') {
         // 仅设状态，不预先创建 streaming 气泡——防止工具卡插入后 token 丢失
         setCatState('thinking')
@@ -302,7 +346,7 @@ export function useWebSocket(sessionId: string | null) {
               }
             })()
           }
-          // Stage 2 由后端 finalize 节点通过 title_update 事件推送覆盖
+          // Stage 2 标题生成由 cat_state:success 处理器触发
         } else if (hadStreaming && cleanedMsgs.length !== msgs.length) {
           // hadStreaming=true 但 streaming 消息被清理（空内容）→ LLM 返回空
           // 典型场景：工具执行后第二轮 LLM 调用返回空内容
@@ -439,6 +483,16 @@ export function useWebSocket(sessionId: string | null) {
         }
 
         const autoRun = !blockedByCommandWL && (securityConfig.fullAccessMode || inToolWhitelist || autoByThreshold)
+
+        console.debug('[WS] tool_call auto-exec decision:', {
+          toolName, riskLevel, autoRun,
+          fullAccessMode: securityConfig.fullAccessMode,
+          inToolWhitelist,
+          sandboxThreshold: securityConfig.sandboxThreshold,
+          autoByThreshold,
+          blockedByCommandWL,
+          sessionId,
+        })
 
         if (autoRun) {
           if (inToolWhitelist) {
@@ -607,7 +661,7 @@ export function useWebSocket(sessionId: string | null) {
           resetRound(currentSessionId)
 
           // 标题两段式 Stage 1：用户发出首条消息时立即截断作标题
-          // 不依赖 LLM 响应类型，Stage 2 由后端 title_update 事件覆盖
+          // Stage 2 在 cat_state:success 时由前端调用 API 生成
           const msgsAfterAppend = useAppStore.getState().messagesBySession[currentSessionId] ?? []
           const isFirstUserMsg = msgsAfterAppend.filter(m => m.role === 'user').length === 1
           if (isFirstUserMsg) {

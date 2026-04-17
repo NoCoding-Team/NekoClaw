@@ -6,10 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.core.exceptions import NotFoundError, ForbiddenError
+from app.models.base import AsyncSessionLocal
 from app.models.session import Session
 from app.models.message import Message
 from app.models.user import User
-from app.schemas.session import SessionCreate, SessionResponse, MessageResponse, MessageCreate, SessionUpdate
+from app.schemas.session import SessionCreate, SessionResponse, MessageResponse, MessageCreate, SessionUpdate, GenerateTitleRequest
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -204,3 +205,57 @@ async def batch_create_messages(
         db.add(msg)
     await db.commit()
     return {"ok": True, "count": len(body)}
+
+
+# ── Title generation ──────────────────────────────────────────────────────
+@router.post("/generate-title")
+async def generate_title(
+    body: GenerateTitleRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a short conversation title via LLM given user message + AI reply."""
+    from langchain_core.messages import HumanMessage as _HM
+
+    prompt = (
+        "请用不超过15个字的中文为以下对话生成一个简短标题，只输出标题本身，不要加引号和标点：\n"
+        f"用户: {body.user_message[:200]}\n助手: {body.ai_reply[:200]}"
+    )
+
+    try:
+        # Use custom LLM config from client if provided
+        if body.custom_llm_config:
+            cfg = body.custom_llm_config
+            provider = (cfg.get("provider") or "openai").lower()
+            api_key = cfg.get("api_key", "")
+            model_name = cfg.get("model", "")
+            base_url = cfg.get("base_url")
+            temperature = cfg.get("temperature", 0.7)
+
+            if provider == "anthropic":
+                from langchain_anthropic import ChatAnthropic  # type: ignore[import-untyped]
+                model = ChatAnthropic(model=model_name, api_key=api_key, temperature=temperature, streaming=False)  # type: ignore[call-arg]
+            elif provider in ("gemini", "google"):
+                from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore[import-untyped]
+                model = ChatGoogleGenerativeAI(model=model_name, google_api_key=api_key, temperature=temperature)  # type: ignore[call-arg]
+            else:
+                from langchain_openai import ChatOpenAI  # type: ignore[import-untyped]
+                kwargs: dict = {"model": model_name, "api_key": api_key, "temperature": temperature, "streaming": False}
+                if base_url:
+                    kwargs["base_url"] = base_url
+                model = ChatOpenAI(**kwargs)  # type: ignore[call-arg]
+        else:
+            # Fallback: use the first available server-side LLM config
+            from app.services.agent.provider import get_chat_model
+            from app.models.llm_config import LLMConfig
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(select(LLMConfig).limit(1))
+                llm_cfg = result.scalar_one_or_none()
+            if not llm_cfg:
+                return {"title": None, "error": "No LLM config available"}
+            model = get_chat_model(llm_cfg)
+
+        result = await model.ainvoke([_HM(content=prompt)])
+        title = (result.content.strip() if isinstance(result.content, str) else str(result.content).strip())[:30]
+        return {"title": title or None}
+    except Exception as exc:
+        return {"title": None, "error": str(exc)}

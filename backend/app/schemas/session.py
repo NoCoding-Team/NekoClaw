@@ -38,3 +38,9 @@ class MessageCreate(BaseModel):
 
 class SessionUpdate(BaseModel):
     title: str
+
+
+class GenerateTitleRequest(BaseModel):
+    user_message: str
+    ai_reply: str
+    custom_llm_config: dict | None = None

@@ -391,10 +391,6 @@ async def finalize(state: AgentState) -> dict:
         await _persist_message(session_id=session_id, role="assistant", content=content, tool_calls=None)
     await send_event(ws, "cat_state", {"state": "success"})
 
-    # Two-stage title: generate title via LLM after the first round
-    if state.get("user_turn_count", 0) == 1 and state.get("llm_config"):
-        asyncio.ensure_future(_generate_title(state, content))
-
     return {}
 
 
