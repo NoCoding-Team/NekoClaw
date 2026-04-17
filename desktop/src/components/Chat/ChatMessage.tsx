@@ -217,7 +217,7 @@ function ToolCallCard({ tc }: { tc: ToolCall }) {
         <div className={styles.toolReason}>⚠️ {tc.reason}</div>
       )}
 
-      {tc.status === 'pending' && (
+      {(tc.riskLevel === 'MEDIUM' || tc.riskLevel === 'HIGH') && tc.status === 'pending' && (
         <div className={styles.toolActions}>
           <button className={styles.denyBtn} onClick={() => denyTool(tc.callId)}>拒绝</button>
           <button className={styles.confirmBtn} onClick={() => confirmTool(tc.callId, tc.tool, tc.args)}>
