@@ -143,7 +143,8 @@ export function useWebSocket(sessionId: string | null) {
         updateLastAssistantToken(sessionId!, evt.token as string)
       } else if (type === 'llm_done') {
         streamingMsgId.current = null
-        // 不在此设 catState='idle'——差包场景下 llm_done 会多次触发，由后端 cat_state 事件统一控制
+        // 本轮 LLM 输出结束，立即重置为 idle，避免残留 thinking 状态导致闪现加载气泡
+        setCatState('idle')
         // 清除幽灵空 streaming 消息，将最后一条标记为完成
         const sid = sessionId!
         const msgs = useAppStore.getState().messagesBySession[sid] ?? []
