@@ -210,6 +210,8 @@ export function useWebSocket(sessionId: string | null) {
       } else if (type === 'llm_thinking') {
         // 仅设状态，不预先创建 streaming 气泡——防止工具卡插入后 token 丢失
         setCatState('thinking')
+        // 为后续轮次（工具循环后的第二次 LLM 调用）重新启动超时保护
+        startReplyTimeout()
       } else if (type === 'llm_token') {
         if (!streamingMsgId.current) {
           // 首个 token 到达时创建气泡（工具卡已在其前，此时 append 就是最后一条）
@@ -240,6 +242,16 @@ export function useWebSocket(sessionId: string | null) {
 
         if (last?.streaming) {
           const finalContent = last.content
+          // 若 streaming 消息最终内容为空（LLM 返回空、网络丢 token 等），
+          // 移除空气泡并插入错误提示，而非保留一个不可见的空消息
+          if (!finalContent?.trim()) {
+            const withoutEmpty = cleanedMsgs.slice(0, -1)
+            useAppStore.getState().setMessages(sid, [
+              ...withoutEmpty,
+              { id: uuidv4(), role: 'assistant' as const, content: '⚠️ LLM 返回了空内容，请重试。' },
+            ])
+            return
+          }
           useAppStore.getState().setMessages(sid, [
             ...cleanedMsgs.slice(0, -1),
             { ...last, streaming: false },
@@ -285,6 +297,13 @@ export function useWebSocket(sessionId: string | null) {
               // Stage 2 由后端 finalize 节点通过 title_update 事件推送覆盖
             }
           }
+        } else if (hadStreaming && cleanedMsgs.length !== msgs.length) {
+          // hadStreaming=true 但 streaming 消息被清理（空内容）→ LLM 返回空
+          // 典型场景：工具执行后第二轮 LLM 调用返回空内容
+          useAppStore.getState().setMessages(sid, [
+            ...cleanedMsgs,
+            { id: uuidv4(), role: 'assistant' as const, content: '⚠️ LLM 返回了空内容，请重试。' },
+          ])
         } else if (cleanedMsgs.length !== msgs.length) {
           // 无 streaming 消息，但幽灵气泡未清理，补一次 setMessages
           useAppStore.getState().setMessages(sid, cleanedMsgs)
