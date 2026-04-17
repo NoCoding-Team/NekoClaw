@@ -441,9 +441,20 @@ export function useWebSocket(sessionId: string | null) {
           if (inToolWhitelist) {
             useAppStore.getState().incrementToolCallCount(toolName)
           }
-          await _executeAndReply(ws, sessionId, tc, callId, toolMsgIdCt)
+          try {
+            await _executeAndReply(ws, sessionId, tc, callId, toolMsgIdCt)
+          } catch (err) {
+            console.error('[WS] tool auto-execute failed:', err)
+            useAppStore.getState().updateToolCallStatus(sessionId, callId, {
+              status: 'error',
+              result: `自动执行失败: ${err}`,
+            })
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ event: 'tool_result', call_id: callId, error: String(err) }))
+            }
+          }
         }
-        // For MEDIUM/HIGH (not whitelisted, not full-access): SandboxConfirmDialog handles it
+        // Non-autoRun tools: confirm/deny buttons shown in ToolCallCard
       } else if (type === 'tool_denied') {
         updateToolCallStatus(sessionId, evt.call_id as string, { status: 'denied' })
       } else if (type === 'tool_error') {
