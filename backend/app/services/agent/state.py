@@ -30,3 +30,7 @@ class AgentState(TypedDict):
     # Inputs passed from ws.py when spawning the agent
     skill_id: str | None
     allowed_tools: list[str] | None  # None=all, []=none, [...]=whitelist
+    # Optional user-supplied LLM config (stored locally, passed per-message).
+    # Keys: provider, model, api_key, base_url, temperature, context_limit.
+    # When present, overrides DB-looked-up config in the prepare node.
+    custom_llm_config: dict | None

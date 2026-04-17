@@ -1,60 +1,60 @@
 ## 1. 项目基础设施
 
-- [ ] 1.1 更新 `requirements.txt`：添加 `langchain-core`、`langchain-openai`、`langchain-anthropic`、`langchain-google-genai`、`langgraph` 依赖
-- [ ] 1.2 创建 `backend/app/services/agent/` 目录结构：`__init__.py`、`state.py`、`provider.py`、`callbacks.py`、`tools.py`、`context.py`、`nodes.py`、`graph.py`
+- [x] 1.1 更新 `requirements.txt`：添加 `langchain-core`、`langchain-openai`、`langchain-anthropic`、`langchain-google-genai`、`langgraph` 依赖
+- [x] 1.2 创建 `backend/app/services/agent/` 目录结构：`__init__.py`、`state.py`、`provider.py`、`callbacks.py`、`tools.py`、`context.py`、`nodes.py`、`graph.py`
 
 ## 2. Provider 路由层
 
-- [ ] 2.1 实现 `provider.py`：`get_chat_model(config: LLMConfig) -> BaseChatModel` 工厂函数，根据 provider 字段返回 ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI 实例
-- [ ] 2.2 实现 API Key 解密集成：在工厂函数中调用 `decrypt_api_key()` 解密 `api_key_encrypted`
+- [x] 2.1 实现 `provider.py`：`get_chat_model(config: LLMConfig) -> BaseChatModel` 工厂函数，根据 provider 字段返回 ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI 实例
+- [x] 2.2 实现 API Key 解密集成：在工厂函数中调用 `decrypt_api_key()` 解密 `api_key_encrypted`
 
 ## 3. WebSocket 回调处理器
 
-- [ ] 3.1 实现 `callbacks.py`：`WebSocketStreamHandler(AsyncCallbackHandler)` 子类
-- [ ] 3.2 实现 `on_llm_new_token`：推送 `llm_token` 事件到 WebSocket
-- [ ] 3.3 实现 `on_llm_start`：推送 `llm_thinking` + `cat_state: thinking` 事件
-- [ ] 3.4 实现 `on_tool_start`：推送 `cat_state: working` 事件
-- [ ] 3.5 实现错误静默处理：WebSocket 推送失败时不影响主流程
+- [x] 3.1 实现 `callbacks.py`：`WebSocketStreamHandler(AsyncCallbackHandler)` 子类
+- [x] 3.2 实现 `on_llm_new_token`：推送 `llm_token` 事件到 WebSocket
+- [x] 3.3 实现 `on_llm_start`：推送 `llm_thinking` + `cat_state: thinking` 事件
+- [x] 3.4 实现 `on_tool_start`：推送 `cat_state: working` 事件
+- [x] 3.5 实现错误静默处理：WebSocket 推送失败时不影响主流程
 
 ## 4. LangChain 工具层
 
-- [ ] 4.1 实现 `tools.py`：为每个 server tool（web_search、http_request、memory_read、memory_write、memory_search）创建 `BaseTool` 子类，`_arun()` 调用 `execute_server_tool()`
-- [ ] 4.2 实现 `ClientToolBridge(BaseTool)` 基类：封装 WebSocket 转发 + Future 等待逻辑
-- [ ] 4.3 为每个 client tool（file_read、file_write、file_list、file_delete、shell_exec、browser_navigate、browser_screenshot、browser_click、browser_type）创建 `ClientToolBridge` 子类
-- [ ] 4.4 在每个 BaseTool._arun() 开头集成沙箱检查：调用 `analyze_risk()`，DENY 返回错误 + 推送 `tool_denied`
-- [ ] 4.5 实现工具结果截断逻辑：超过 8000 字符时截断（前 6000 + 后 1500）
-- [ ] 4.6 实现 `get_tools(allowed_tools, ws, user_id)` 函数：根据白名单返回 BaseTool 实例列表
+- [x] 4.1 实现 `tools.py`：为每个 server tool（web_search、http_request、memory_read、memory_write、memory_search）创建 `BaseTool` 子类，`_arun()` 调用 `execute_server_tool()`
+- [x] 4.2 实现 `ClientToolBridge(BaseTool)` 基类：封装 WebSocket 转发 + Future 等待逻辑
+- [x] 4.3 为每个 client tool（file_read、file_write、file_list、file_delete、shell_exec、browser_navigate、browser_screenshot、browser_click、browser_type）创建 `ClientToolBridge` 子类
+- [x] 4.4 在每个 BaseTool._arun() 开头集成沙箱检查：调用 `analyze_risk()`，DENY 返回错误 + 推送 `tool_denied`
+- [x] 4.5 实现工具结果截断逻辑：超过 8000 字符时截断（前 6000 + 后 1500）
+- [x] 4.6 实现 `get_tools(allowed_tools, ws, user_id)` 函数：根据白名单返回 BaseTool 实例列表
 
 ## 5. Agent State 和上下文管理
 
-- [ ] 5.1 实现 `state.py`：定义 `AgentState(TypedDict)` 含 messages（add_messages 注解）、session_id、user_id、ws、llm_config、skill、context_limit、user_turn_count
-- [ ] 5.2 实现 `context.py`：迁移 `_prune_tool_results()` 三级裁剪逻辑
-- [ ] 5.3 实现 `context.py`：迁移 `_compress_history()` 上下文压缩逻辑（使用 `get_chat_model()` 替代直接 openai 调用）
-- [ ] 5.4 实现 `context.py`：迁移 `_memory_refresh()` 记忆刷新逻辑（使用 `get_chat_model()` 和 LangChain 工具）
-- [ ] 5.5 实现 `context.py`：迁移 `_build_system_prompt()` 和 `_load_memory()` 记忆注入逻辑
-- [ ] 5.6 实现 `context.py`：迁移 `estimate_tokens()` 和刷新间隔保护逻辑（`_can_refresh`、`_mark_refresh_done`）
+- [x] 5.1 实现 `state.py`：定义 `AgentState(TypedDict)` 含 messages（add_messages 注解）、session_id、user_id、ws、llm_config、skill、context_limit、user_turn_count
+- [x] 5.2 实现 `context.py`：迁移 `_prune_tool_results()` 三级裁剪逻辑
+- [x] 5.3 实现 `context.py`：迁移 `_compress_history()` 上下文压缩逻辑（使用 `get_chat_model()` 替代直接 openai 调用）
+- [x] 5.4 实现 `context.py`：迁移 `_memory_refresh()` 记忆刷新逻辑（使用 `get_chat_model()` 和 LangChain 工具）
+- [x] 5.5 实现 `context.py`：迁移 `_build_system_prompt()` 和 `_load_memory()` 记忆注入逻辑
+- [x] 5.6 实现 `context.py`：迁移 `estimate_tokens()` 和刷新间隔保护逻辑（`_can_refresh`、`_mark_refresh_done`）
 
 ## 6. LangGraph StateGraph 核心
 
-- [ ] 6.1 实现 `nodes.py`：`prepare` 节点 — 加载会话历史、技能、LLM 配置，构建系统提示，执行上下文裁剪和记忆刷新
-- [ ] 6.2 实现 `nodes.py`：`llm_call` 节点 — 使用 `get_chat_model()` 获取模型，`bind_tools()` 绑定工具，`astream()` 流式调用，通过 callback 推 token
-- [ ] 6.3 实现 `nodes.py`：`tools` 节点 — 遍历 AIMessage.tool_calls，调用对应 BaseTool._arun()，收集结果，持久化消息，执行 mid-loop 上下文安全检查
-- [ ] 6.4 实现 `nodes.py`：`finalize` 节点 — 持久化最终 assistant 消息，推送 `cat_state: success` 和 `llm_done`
-- [ ] 6.5 实现 `graph.py`：定义 StateGraph，添加节点，定义条件边（should_continue），编译图
-- [ ] 6.6 导出 `run_agent(session_id, user_id, skill_id, ws, ...)` 入口函数，供 ws.py 调用
+- [x] 6.1 实现 `nodes.py`：`prepare` 节点 — 加载会话历史、技能、LLM 配置，构建系统提示，执行上下文裁剪和记忆刷新
+- [x] 6.2 实现 `nodes.py`：`llm_call` 节点 — 使用 `get_chat_model()` 获取模型，`bind_tools()` 绑定工具，`astream()` 流式调用，通过 callback 推 token
+- [x] 6.3 实现 `nodes.py`：`tools` 节点 — 遍历 AIMessage.tool_calls，调用对应 BaseTool._arun()，收集结果，持久化消息，执行 mid-loop 上下文安全检查
+- [x] 6.4 实现 `nodes.py`：`finalize` 节点 — 持久化最终 assistant 消息，推送 `cat_state: success` 和 `llm_done`
+- [x] 6.5 实现 `graph.py`：定义 StateGraph，添加节点，定义条件边（should_continue），编译图
+- [x] 6.6 导出 `run_agent(session_id, user_id, skill_id, ws, ...)` 入口函数，供 ws.py 调用
 
 ## 7. WebSocket 层适配
 
-- [ ] 7.1 修改 `api/ws.py`：`_handle_message()` 改为调用 `run_agent()` 替代 `run_llm_pipeline()`
-- [ ] 7.2 修改 `api/ws.py`：连接断开时清理 pending tool call futures
-- [ ] 7.3 保持 WebSocket 事件协议不变：验证 `llm_token`、`llm_done`、`tool_call`、`tool_result`、`tool_denied`、`server_tool_call`、`server_tool_done`、`cat_state` 事件格式兼容
+- [x] 7.1 修改 `api/ws.py`：`_handle_message()` 改为调用 `run_agent()` 替代 `run_llm_pipeline()`
+- [x] 7.2 修改 `api/ws.py`：连接断开时清理 pending tool call futures
+- [x] 7.3 保持 WebSocket 事件协议不变：验证 `llm_token`、`llm_done`、`tool_call`、`tool_result`、`tool_denied`、`server_tool_call`、`server_tool_done`、`cat_state` 事件格式兼容
 
 ## 8. 后端清理
 
-- [ ] 8.1 删除 `api/llm.py`（enhance 端点）
-- [ ] 8.2 从 `api/router.py` 移除 llm enhance 路由注册
-- [ ] 8.3 删除旧 `services/llm.py`（确认所有逻辑已迁移到 `services/agent/` 后）
-- [ ] 8.4 更新 `services/tools/definitions.py`：保留工具元数据（供 BaseTool 子类引用），移除 `get_openai_tools()` 函数（不再需要手动构建 OpenAI schema）
+- [x] 8.1 删除 `api/llm.py`（enhance 端点）
+- [x] 8.2 从 `api/router.py` 移除 llm enhance 路由注册
+- [x] 8.3 删除旧 `services/llm.py`（确认所有逻辑已迁移到 `services/agent/` 后）
+- [x] 8.4 更新 `services/tools/definitions.py`：保留工具元数据（供 BaseTool 子类引用），移除 `get_openai_tools()` 函数（不再需要手动构建 OpenAI schema）
 
 ## 9. 前端瘦身
 

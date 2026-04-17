@@ -50,6 +50,17 @@ const nekoBridge = {
     deleteSession: (sessionId) => electron.ipcRenderer.invoke("db:deleteSession", sessionId),
     readLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:readLegacyLocalMemories"),
     deleteLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:deleteLegacyLocalMemories")
+  },
+  scheduler: {
+    sync: (tasks) => electron.ipcRenderer.invoke("scheduler:sync", tasks),
+    validateCron: (expr) => electron.ipcRenderer.invoke("scheduler:validate-cron", expr),
+    onFired: (callback) => {
+      const handler = (_e, task) => callback(task);
+      electron.ipcRenderer.on("scheduler:fired", handler);
+      return () => {
+        electron.ipcRenderer.removeListener("scheduler:fired", handler);
+      };
+    }
   }
 };
 electron.contextBridge.exposeInMainWorld("nekoBridge", nekoBridge);

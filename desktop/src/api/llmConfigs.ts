@@ -63,3 +63,18 @@ export async function deleteLLMConfig(id: string): Promise<void> {
   })
   if (!res.ok && res.status !== 204) throw new Error(await res.text())
 }
+
+export async function testLLMConfig(body: {
+  provider: string
+  model: string
+  api_key: string
+  base_url?: string
+}): Promise<{ ok: boolean; latency_ms: number | null; error?: string }> {
+  const res = await apiFetch(`${getBase()}/api/llm-configs/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}

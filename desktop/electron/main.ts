@@ -2,6 +2,7 @@
 import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
+import cron from 'node-cron'
 
 // ── SQLite DbService ─────────────────────────────────────────────────────
 // Lazily required so that the renderer bundle never imports it
@@ -166,6 +167,73 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// ── Scheduled-task scheduler (node-cron) ──────────────────────────────────
+interface ScheduledTaskInfo {
+  id: number
+  title: string
+  description: string
+  cron_expr: string | null
+  run_at: string | null
+  skill_id: string | null
+  is_enabled: boolean
+}
+
+const _cronJobs = new Map<number, cron.ScheduledTask>()
+const _onceTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+function clearScheduledTask(taskId: number) {
+  const job = _cronJobs.get(taskId)
+  if (job) { job.stop(); _cronJobs.delete(taskId) }
+  const timer = _onceTimers.get(taskId)
+  if (timer) { clearTimeout(timer); _onceTimers.delete(taskId) }
+}
+
+function fireTask(task: ScheduledTaskInfo) {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) {
+    win.webContents.send('scheduler:fired', {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      skill_id: task.skill_id,
+    })
+  }
+}
+
+function scheduleTask(task: ScheduledTaskInfo) {
+  clearScheduledTask(task.id)
+  if (!task.is_enabled) return
+
+  if (task.cron_expr) {
+    if (!cron.validate(task.cron_expr)) return
+    const job = cron.schedule(task.cron_expr, () => fireTask(task))
+    _cronJobs.set(task.id, job)
+  } else if (task.run_at) {
+    const delay = new Date(task.run_at).getTime() - Date.now()
+    if (delay > 0) {
+      const timer = setTimeout(() => {
+        _onceTimers.delete(task.id)
+        fireTask(task)
+      }, delay)
+      _onceTimers.set(task.id, timer)
+    }
+    // delay <= 0 means missed — renderer handles detection
+  }
+}
+
+ipcMain.handle('scheduler:sync', (_e, tasks: ScheduledTaskInfo[]) => {
+  // Clear all existing jobs
+  for (const id of _cronJobs.keys()) clearScheduledTask(id)
+  for (const id of _onceTimers.keys()) clearScheduledTask(id)
+  // Schedule each active task
+  for (const task of tasks) scheduleTask(task)
+  return { scheduled: tasks.filter(t => t.is_enabled).length }
+})
+
+ipcMain.handle('scheduler:validate-cron', (_e, expr: string) => {
+  return { valid: cron.validate(expr) }
 })
 
 // ── IPC: File operations ───────────────────────────────────────────────────

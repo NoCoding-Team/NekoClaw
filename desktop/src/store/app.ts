@@ -7,6 +7,7 @@ const STORAGE_ACTIVE_SESSION = 'neko_active_session'
 const STORAGE_PERSONAL = 'neko_personal'
 const STORAGE_SECURITY = 'neko_security'
 const STORAGE_SYNC_ENABLED = 'neko_sync_enabled'
+const STORAGE_CUSTOM_LLM = 'neko_custom_llm'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -33,6 +34,44 @@ export interface PersonalizationConfig {
   replyStyle: string
   customPrompt: string
   systemPrompt: string   // 由"生成配置"按钮编译生成
+}
+
+export interface FallbackLLMConfig {
+  provider: string
+  model: string
+  api_key: string
+  base_url: string
+}
+
+export interface CustomLLMConfig {
+  enabled: boolean      // 是否使用自定义配置替代服务端默认配置
+  provider: string      // openai | anthropic | gemini | custom
+  model: string
+  api_key: string
+  base_url: string
+  context_limit: number
+  temperature: number
+  fallbacks: FallbackLLMConfig[]
+}
+
+export const DEFAULT_CUSTOM_LLM_CONFIG: CustomLLMConfig = {
+  enabled: false,
+  provider: 'openai',
+  model: '',
+  api_key: '',
+  base_url: '',
+  context_limit: 128000,
+  temperature: 0.7,
+  fallbacks: [],
+}
+
+function loadCustomLLMConfig(): CustomLLMConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_CUSTOM_LLM)
+    return raw ? { ...DEFAULT_CUSTOM_LLM_CONFIG, ...JSON.parse(raw) } : DEFAULT_CUSTOM_LLM_CONFIG
+  } catch {
+    return DEFAULT_CUSTOM_LLM_CONFIG
+  }
 }
 
 export interface SecurityConfig {
@@ -204,6 +243,10 @@ export interface AppState {
   // Sync: local-first chat history sync to server
   syncEnabled: boolean
   setSyncEnabled: (v: boolean) => void
+
+  // Custom LLM config (stored locally, passed to backend per-message when enabled)
+  customLLMConfig: CustomLLMConfig
+  setCustomLLMConfig: (cfg: Partial<CustomLLMConfig>) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -349,4 +392,12 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem(STORAGE_SYNC_ENABLED, String(v))
     set({ syncEnabled: v })
   },
+
+  customLLMConfig: loadCustomLLMConfig(),
+  setCustomLLMConfig: (patch) =>
+    set((s) => {
+      const next = { ...s.customLLMConfig, ...patch }
+      localStorage.setItem(STORAGE_CUSTOM_LLM, JSON.stringify(next))
+      return { customLLMConfig: next }
+    }),
 }))

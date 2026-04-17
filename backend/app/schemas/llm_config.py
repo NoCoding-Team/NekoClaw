@@ -22,6 +22,13 @@ class LLMConfigUpdate(BaseModel):
     temperature: float | None = None
 
 
+class LLMConfigTestRequest(BaseModel):
+    provider: str = "openai"
+    model: str
+    api_key: str
+    base_url: str | None = None
+
+
 class LLMConfigResponse(BaseModel):
     id: str
     provider: str

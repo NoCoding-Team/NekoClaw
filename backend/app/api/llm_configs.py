@@ -8,9 +8,45 @@ from app.core.exceptions import NotFoundError, ForbiddenError
 from app.core.security import encrypt_api_key
 from app.models.llm_config import LLMConfig
 from app.models.user import User
-from app.schemas.llm_config import LLMConfigCreate, LLMConfigResponse, LLMConfigUpdate
+from app.schemas.llm_config import LLMConfigCreate, LLMConfigResponse, LLMConfigUpdate, LLMConfigTestRequest
 
 router = APIRouter(tags=["llm-configs"])
+
+
+# ── Test connection ────────────────────────────────────────────────────────
+@router.post("/llm-configs/test")
+async def test_llm_connection(
+    body: LLMConfigTestRequest,
+    _: User = Depends(get_current_user),
+):
+    """Test a LLM config by sending a minimal message and measuring latency.
+    The api_key is used only for this request and never stored."""
+    import time
+    from langchain_core.messages import HumanMessage
+
+    start = time.time()
+    try:
+        provider = (body.provider or "openai").lower()
+        api_key = body.api_key
+
+        if provider == "anthropic":
+            from langchain_anthropic import ChatAnthropic  # type: ignore[import-untyped]
+            model = ChatAnthropic(model=body.model, api_key=api_key, temperature=0.7, streaming=False)  # type: ignore[call-arg]
+        elif provider in ("gemini", "google"):
+            from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore[import-untyped]
+            model = ChatGoogleGenerativeAI(model=body.model, google_api_key=api_key, temperature=0.7)  # type: ignore[call-arg]
+        else:
+            from langchain_openai import ChatOpenAI  # type: ignore[import-untyped]
+            kwargs: dict = {"model": body.model, "api_key": api_key, "temperature": 0.7, "streaming": False}
+            if body.base_url:
+                kwargs["base_url"] = body.base_url
+            model = ChatOpenAI(**kwargs)  # type: ignore[call-arg]
+
+        await model.ainvoke([HumanMessage(content="hi")])
+        latency_ms = int((time.time() - start) * 1000)
+        return {"ok": True, "latency_ms": latency_ms}
+    except Exception as exc:
+        return {"ok": False, "latency_ms": None, "error": str(exc)}
 
 
 # ── Public: list global (admin-managed) configs ────────────────────────────

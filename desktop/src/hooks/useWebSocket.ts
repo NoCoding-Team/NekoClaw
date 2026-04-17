@@ -92,6 +92,20 @@ export function useWebSocket(sessionId: string | null) {
         ws.send(JSON.stringify({
           event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools ?? null,
           ...(localHistory?.length ? { local_history: localHistory } : {}),
+          ...((() => {
+            const { customLLMConfig } = useAppStore.getState()
+            if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
+            return {
+              custom_llm_config: {
+                provider: customLLMConfig.provider,
+                model: customLLMConfig.model,
+                api_key: customLLMConfig.api_key,
+                base_url: customLLMConfig.base_url || null,
+                temperature: customLLMConfig.temperature,
+                context_limit: customLLMConfig.context_limit,
+              },
+            }
+          })()),
         }))
       }
     }
@@ -378,6 +392,20 @@ export function useWebSocket(sessionId: string | null) {
     wsRef.current.send(JSON.stringify({
       event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools,
       ...(localHistoryPayload ? { local_history: localHistoryPayload } : {}),
+      ...((() => {
+        const { customLLMConfig } = useAppStore.getState()
+        if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
+        return {
+          custom_llm_config: {
+            provider: customLLMConfig.provider,
+            model: customLLMConfig.model,
+            api_key: customLLMConfig.api_key,
+            base_url: customLLMConfig.base_url || null,
+            temperature: customLLMConfig.temperature,
+            context_limit: customLLMConfig.context_limit,
+          },
+        }
+      })()),
     }))
     },
     [sessionId, setCatState, appendMessage]

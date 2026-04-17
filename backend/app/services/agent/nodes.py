@@ -101,6 +101,7 @@ async def prepare(state: AgentState) -> dict:
     session_id = state["session_id"]
     user_id = state["user_id"]
     input_skill_id = state.get("skill_id")
+    custom_llm_cfg = state.get("custom_llm_config")
 
     async with AsyncSessionLocal() as db:
         # Session
@@ -112,25 +113,42 @@ async def prepare(state: AgentState) -> dict:
         if active_skill_id:
             skill = await db.get(Skill, active_skill_id)
 
-        # LLM config: user-owned default first, then global default
-        result = await db.execute(
-            select(LLMConfig).where(
-                LLMConfig.owner_id == user_id,
-                LLMConfig.is_default.is_(True),
-                LLMConfig.deleted_at.is_(None),
-            )
-        )
-        llm_config = result.scalar_one_or_none()
+        # LLM config: custom (from client) > user-owned default > global default
+        llm_config = None
+        if custom_llm_cfg:
+            # Build a duck-typed config object from client-supplied data.
+            # The api_key is passed plain-text and encrypted here so provider.py
+            # can decrypt it with decrypt_api_key as usual.
+            from app.core.security import encrypt_api_key as _enc
 
-        if not llm_config:
+            class _CustomConfig:
+                provider = custom_llm_cfg.get("provider", "openai")
+                model = custom_llm_cfg.get("model", "")
+                base_url = custom_llm_cfg.get("base_url") or None
+                temperature = float(custom_llm_cfg.get("temperature", 0.7))
+                context_limit = int(custom_llm_cfg.get("context_limit", 128000))
+                api_key_encrypted = _enc(custom_llm_cfg.get("api_key", ""))
+
+            llm_config = _CustomConfig()
+        else:
             result = await db.execute(
                 select(LLMConfig).where(
-                    LLMConfig.owner_id.is_(None),
+                    LLMConfig.owner_id == user_id,
                     LLMConfig.is_default.is_(True),
                     LLMConfig.deleted_at.is_(None),
                 )
             )
             llm_config = result.scalar_one_or_none()
+
+            if not llm_config:
+                result = await db.execute(
+                    select(LLMConfig).where(
+                        LLMConfig.owner_id.is_(None),
+                        LLMConfig.is_default.is_(True),
+                        LLMConfig.deleted_at.is_(None),
+                    )
+                )
+                llm_config = result.scalar_one_or_none()
 
         # Message history
         msgs_result = await db.execute(

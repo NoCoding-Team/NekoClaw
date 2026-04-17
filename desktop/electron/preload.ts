@@ -74,6 +74,22 @@ export const nekoBridge = {
     deleteLegacyLocalMemories: (): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('db:deleteLegacyLocalMemories'),
   },
+  scheduler: {
+    sync: (tasks: Array<{
+      id: number; title: string; description: string
+      cron_expr: string | null; run_at: string | null
+      skill_id: string | null; is_enabled: boolean
+    }>): Promise<{ scheduled: number }> => ipcRenderer.invoke('scheduler:sync', tasks),
+
+    validateCron: (expr: string): Promise<{ valid: boolean }> =>
+      ipcRenderer.invoke('scheduler:validate-cron', expr),
+
+    onFired: (callback: (task: { id: number; title: string; description: string; skill_id: string | null }) => void) => {
+      const handler = (_e: any, task: any) => callback(task)
+      ipcRenderer.on('scheduler:fired', handler)
+      return () => { ipcRenderer.removeListener('scheduler:fired', handler) }
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('nekoBridge', nekoBridge)

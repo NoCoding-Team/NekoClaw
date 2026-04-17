@@ -1,13 +1,11 @@
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react'
-import { useAppStore, SecurityConfig } from '../../store/app'
+import { useAppStore, SecurityConfig, FallbackLLMConfig } from '../../store/app'
 import styles from './SettingsPanel.module.css'
 import { apiFetch } from '../../api/apiFetch'
 import {
   LLMConfig,
   fetchLLMConfigs,
-  createLLMConfig,
-  updateLLMConfig,
-  deleteLLMConfig,
+  testLLMConfig,
 } from '../../api/llmConfigs'
 
 type Tab = 'account' | 'general' | 'models' | 'mcp' | 'im-bot' | 'security' | 'feedback' | 'about'
@@ -17,187 +15,342 @@ const APP_VERSION = '0.1.0'
 
 // ── ModelCenterTab ────────────────────────────────────────────────────────────
 const PROVIDERS = [
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'gemini', label: 'Gemini' },
-  { value: 'custom', label: '自定义' },
+  { value: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1' },
+  { value: 'anthropic', label: 'Anthropic', url: 'https://api.anthropic.com' },
+  { value: 'gemini', label: 'Gemini', url: '' },
+  { value: 'custom', label: '自定义', url: '' },
 ]
 
+interface FallbackFormRow extends FallbackLLMConfig {
+  showKey: boolean
+}
+
 function ModelCenterTab() {
-  const [configs, setConfigs] = useState<LLMConfig[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [provider, setProvider] = useState('openai')
-  const [name, setName] = useState('')
-  const [model, setModel] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [contextLimit, setContextLimit] = useState(128000)
-  const [temperature, setTemperature] = useState(0.7)
+  const { customLLMConfig, setCustomLLMConfig } = useAppStore()
+  const [modelSubTab, setModelSubTab] = useState<'default' | 'custom'>('default')
+
+  // ── 默认配置 state
+  const [serverConfigs, setServerConfigs] = useState<LLMConfig[]>([])
+  const [loadingConfigs, setLoadingConfigs] = useState(true)
+
+  // ── 自定义配置 form state（与 store 同步，编辑后点保存才写入）
+  const [provider, setProvider] = useState(customLLMConfig.provider)
+  const [model, setModel] = useState(customLLMConfig.model)
+  const [apiKey, setApiKey] = useState(customLLMConfig.api_key)
+  const [baseUrl, setBaseUrl] = useState(customLLMConfig.base_url)
+  const [contextLimit, setContextLimit] = useState(customLLMConfig.context_limit)
+  const [temperature, setTemperature] = useState(customLLMConfig.temperature)
   const [showKey, setShowKey] = useState(false)
+  const [fallbacks, setFallbacks] = useState<FallbackFormRow[]>(
+    customLLMConfig.fallbacks.map(f => ({ ...f, showKey: false }))
+  )
   const [saving, setSaving] = useState(false)
-  const [errMsg, setErrMsg] = useState('')
+  const [testResult, setTestResult] = useState<{ ok: boolean; latency_ms?: number | null; error?: string } | null>(null)
 
-  const load = async () => {
-    try { setConfigs(await fetchLLMConfigs()) } catch {}
-    setLoading(false)
+  useEffect(() => {
+    fetchLLMConfigs()
+      .then(setServerConfigs)
+      .catch(() => {})
+      .finally(() => setLoadingConfigs(false))
+  }, [])
+
+  // Quick-select provider and auto-fill base URL
+  const selectProvider = (val: string) => {
+    setProvider(val)
+    const preset = PROVIDERS.find(p => p.value === val)
+    if (preset?.url) setBaseUrl(preset.url)
+    else if (val !== 'custom') setBaseUrl('')
   }
-  useEffect(() => { load() }, [])
 
-  const resetForm = () => {
-    setProvider('openai'); setName(''); setModel(''); setApiKey('')
-    setBaseUrl(''); setContextLimit(128000); setTemperature(0.7)
-    setShowKey(false); setErrMsg('')
-  }
+  const addFallback = () =>
+    setFallbacks(prev => [...prev, { provider: 'openai', model: '', api_key: '', base_url: '', showKey: false }])
 
-  const handleCreate = async () => {
-    if (!name.trim() || !model.trim() || !apiKey.trim()) {
-      setErrMsg('名称、模型、API Key 为必填项')
+  const removeFallback = (i: number) =>
+    setFallbacks(prev => prev.filter((_, idx) => idx !== i))
+
+  const updateFallback = (i: number, patch: Partial<FallbackFormRow>) =>
+    setFallbacks(prev => prev.map((f, idx) => idx === i ? { ...f, ...patch } : f))
+
+  const handleSaveAndConnect = async () => {
+    if (!model.trim() || !apiKey.trim()) {
+      setTestResult({ ok: false, error: '模型 ID 和 API Key 为必填项' })
       return
     }
-    setSaving(true); setErrMsg('')
+    setSaving(true)
+    setTestResult(null)
     try {
-      await createLLMConfig({
-        provider, name: name.trim(), model: model.trim(), api_key: apiKey.trim(),
+      const result = await testLLMConfig({
+        provider,
+        model: model.trim(),
+        api_key: apiKey.trim(),
         base_url: baseUrl.trim() || undefined,
-        context_limit: contextLimit,
-        temperature,
       })
-      setShowForm(false); resetForm(); await load()
-    } catch (e: any) { setErrMsg(e.message) }
+      setTestResult(result)
+      if (result.ok) {
+        // Save to store/localStorage on success
+        setCustomLLMConfig({
+          enabled: true,
+          provider,
+          model: model.trim(),
+          api_key: apiKey.trim(),
+          base_url: baseUrl.trim(),
+          context_limit: contextLimit,
+          temperature,
+          fallbacks: fallbacks.map(({ showKey: _sk, ...rest }) => rest),
+        })
+      }
+    } catch (e: any) {
+      setTestResult({ ok: false, error: e.message })
+    }
     setSaving(false)
   }
 
-  const handleSetDefault = async (id: string) => {
-    try { await updateLLMConfig(id, { is_default: true }); await load() } catch {}
+  const handleDisable = () => {
+    setCustomLLMConfig({ enabled: false })
+    setTestResult(null)
   }
 
-  const handleDelete = async (id: string) => {
-    try { await deleteLLMConfig(id); await load() } catch {}
-  }
-
-  const providerLabel = (p: string) =>
-    PROVIDERS.find(x => x.value === p)?.label ?? p
+  const providerLabel = (p: string) => PROVIDERS.find(x => x.value === p)?.label ?? p
 
   return (
-    <div>
-      <h2 className={styles.sectionTitle}>模型中心</h2>
+    <div className={styles.modelCenter}>
+      {/* Sub-tab switcher */}
+      <div className={styles.modeTabs}>
+        <button
+          className={`${styles.modeTab} ${modelSubTab === 'default' ? styles.modeTabActive : ''}`}
+          onClick={() => setModelSubTab('default')}>
+          默认配置
+        </button>
+        <button
+          className={`${styles.modeTab} ${modelSubTab === 'custom' ? styles.modeTabActive : ''}`}
+          onClick={() => setModelSubTab('custom')}>
+          自定义配置
+          {customLLMConfig.enabled && (
+            <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)' }}>● 启用中</span>
+          )}
+        </button>
+      </div>
 
-      {/* 配置列表 */}
-      {loading ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>加载中…</p>
-      ) : configs.length === 0 && !showForm ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>暂无模型配置，请添加一个。</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-          {configs.map(cfg => (
-            <div key={cfg.id} className={styles.fieldCard}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500 }}>
-                    {cfg.name}
-                  </span>
-                  {cfg.is_default && (
-                    <span style={{
-                      fontSize: 11, padding: '1px 6px', borderRadius: 4,
-                      background: 'var(--accent-glow)', color: 'var(--accent)'
-                    }}>默认</span>
-                  )}
+      {/* ── 默认配置 ── */}
+      {modelSubTab === 'default' && (
+        <div>
+          {loadingConfigs ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>加载中…</p>
+          ) : serverConfigs.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>暂无服务端模型配置，请联系管理员添加。</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {serverConfigs.map(cfg => (
+                <div key={cfg.id} className={styles.fallbackCard}>
+                  <div className={styles.fallbackCardHead}>
+                    <span className={styles.fallbackProviderBadge}>{providerLabel(cfg.provider)}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                      {cfg.name}
+                    </span>
+                    {cfg.is_default && (
+                      <span style={{
+                        fontSize: 11, padding: '2px 8px', borderRadius: 999,
+                        background: 'rgba(82,200,120,0.12)', color: '#52c878',
+                        border: '1px solid rgba(82,200,120,0.3)',
+                      }}>默认</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {cfg.model}{cfg.context_limit ? ` · ${(cfg.context_limit / 1000).toFixed(0)}k ctx` : ''}
+                    {cfg.base_url ? ` · ${cfg.base_url}` : ''}
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                  {providerLabel(cfg.provider)} · {cfg.model}
-                  {cfg.context_limit ? ` · ${(cfg.context_limit / 1000).toFixed(0)}k ctx` : ''}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                {!cfg.is_default && (
-                  <button className={styles.primaryBtn}
-                    style={{ padding: '4px 10px', fontSize: 12 }}
-                    onClick={() => handleSetDefault(cfg.id)}>
-                    设为默认
-                  </button>
-                )}
-                <button className={styles.dangerBtn}
-                  style={{ padding: '4px 10px', fontSize: 12 }}
-                  onClick={() => handleDelete(cfg.id)}>
-                  删除
-                </button>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
+          <p className={styles.formHint} style={{ marginTop: 14 }}>
+            以上模型由服务端管理员统一配置，连接账号后即可使用，无需填写 API Key。
+            若需使用自己的密钥，请切换到「自定义配置」标签页。
+          </p>
         </div>
       )}
 
-      {/* 新增表单 */}
-      {showForm ? (
+      {/* ── 自定义配置 ── */}
+      {modelSubTab === 'custom' && (
         <div className={styles.customForm}>
-          {/* Provider 选择 */}
+          {/* Provider 快捷选择 */}
           <div className={styles.formRow}>
-            <label className={styles.formLabel}>Provider</label>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {PROVIDERS.map(p => (
-                <button key={p.value}
+            <label className={styles.formLabel}>API Base URL</label>
+            <div className={styles.urlQuickBtns} style={{ marginBottom: 6 }}>
+              {PROVIDERS.filter(p => p.url).map(p => (
+                <button
+                  key={p.value}
                   className={`${styles.quickBtn} ${provider === p.value ? styles.quickBtnActive : ''}`}
-                  onClick={() => setProvider(p.value)}>
+                  onClick={() => selectProvider(p.value)}>
                   {p.label}
                 </button>
               ))}
+              <button
+                className={`${styles.quickBtn} ${provider === 'custom' ? styles.quickBtnActive : ''}`}
+                onClick={() => selectProvider('custom')}>
+                自定义
+              </button>
             </div>
+            <input
+              className={styles.formInput}
+              placeholder="https://api.openai.com/v1"
+              value={baseUrl}
+              onChange={e => setBaseUrl(e.target.value)}
+            />
           </div>
-          <div className={styles.formRowDouble}>
-            <div className={styles.formCol}>
-              <label className={styles.formLabel}>名称</label>
-              <input className={styles.formInput} placeholder="例：我的 GPT-4"
-                value={name} onChange={e => setName(e.target.value)} />
-            </div>
-            <div className={styles.formCol}>
-              <label className={styles.formLabel}>模型 ID</label>
-              <input className={styles.formInput} placeholder="gpt-4o"
-                value={model} onChange={e => setModel(e.target.value)} />
-            </div>
+
+          {/* 模型 */}
+          <div className={styles.formRow}>
+            <label className={styles.formLabel}>模型</label>
+            <input
+              className={styles.formInput}
+              placeholder="gpt-4o"
+              value={model}
+              onChange={e => setModel(e.target.value)}
+            />
           </div>
+
+          {/* API Key */}
           <div className={styles.formRow}>
             <label className={styles.formLabel}>API Key</label>
             <div className={styles.apiKeyWrap}>
-              <input className={styles.formInput}
+              <input
+                className={styles.formInput}
                 type={showKey ? 'text' : 'password'}
                 placeholder="sk-..."
-                value={apiKey} onChange={e => setApiKey(e.target.value)} />
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+              />
               <button className={styles.eyeBtn} onClick={() => setShowKey(!showKey)}>
                 {showKey ? '🙈' : '👁️'}
               </button>
             </div>
           </div>
-          <div className={styles.formRow}>
-            <label className={styles.formLabel}>Base URL（可选，自定义/兼容接口）</label>
-            <input className={styles.formInput} placeholder="https://api.openai.com/v1"
-              value={baseUrl} onChange={e => setBaseUrl(e.target.value)} />
-          </div>
+
+          {/* 最大 Tokens + Temperature */}
           <div className={styles.formRowDouble}>
             <div className={styles.formCol}>
-              <label className={styles.formLabel}>上下文长度</label>
-              <input className={styles.formInput} type="number" min={1024} step={1024}
-                value={contextLimit} onChange={e => setContextLimit(Number(e.target.value))} />
+              <label className={styles.formLabel}>最大 Tokens</label>
+              <input
+                className={styles.formInput}
+                type="number"
+                min={1024}
+                step={1024}
+                value={contextLimit}
+                onChange={e => setContextLimit(Number(e.target.value))}
+              />
             </div>
             <div className={styles.formCol}>
               <label className={styles.formLabel}>Temperature</label>
-              <input className={styles.formInput} type="number" min={0} max={2} step={0.1}
-                value={temperature} onChange={e => setTemperature(Number(e.target.value))} />
+              <input
+                className={styles.formInput}
+                type="number"
+                min={0}
+                max={2}
+                step={0.1}
+                value={temperature}
+                onChange={e => setTemperature(Number(e.target.value))}
+              />
             </div>
           </div>
-          {errMsg && <p style={{ color: 'var(--danger, #e05252)', fontSize: 12, margin: '4px 0' }}>{errMsg}</p>}
-          <div className={styles.saveRow}>
-            <button className={styles.primaryBtn} onClick={handleCreate} disabled={saving}>
-              {saving ? '保存中…' : '保存'}
+
+          {/* 备用模型 */}
+          <div className={styles.fallbackSection}>
+            <div className={styles.fallbackHeader}>
+              <span className={styles.formLabel}>备用模型</span>
+              <span className={styles.formHint}>主模型调用失败时，按顺序尝试备用模型</span>
+            </div>
+
+            {fallbacks.map((fb, i) => (
+              <div key={i} className={styles.fallbackCard}>
+                <div className={styles.fallbackCardHead}>
+                  <span className={styles.fallbackIdx}>{i + 1}</span>
+                  <div className={styles.fallbackProvTabs}>
+                    {PROVIDERS.map(p => (
+                      <button
+                        key={p.value}
+                        className={`${styles.fallbackProvTab} ${fb.provider === p.value ? styles.fallbackProvTabActive : ''}`}
+                        onClick={() => updateFallback(i, {
+                          provider: p.value,
+                          base_url: p.url || fb.base_url,
+                        })}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button className={styles.fallbackCardRemove} onClick={() => removeFallback(i)}>×</button>
+                </div>
+
+                <div className={styles.fallbackApiRow}>
+                  <span className={styles.fallbackFieldLabel}>API URL</span>
+                  <input
+                    className={styles.fallbackInput}
+                    placeholder="https://api.openai.com/v1"
+                    value={fb.base_url}
+                    onChange={e => updateFallback(i, { base_url: e.target.value })}
+                  />
+                </div>
+                <div className={styles.fallbackApiRow}>
+                  <span className={styles.fallbackFieldLabel}>模型</span>
+                  <input
+                    className={styles.fallbackInput}
+                    placeholder="gpt-4o"
+                    value={fb.model}
+                    onChange={e => updateFallback(i, { model: e.target.value })}
+                  />
+                </div>
+                <div className={styles.fallbackApiRow}>
+                  <span className={styles.fallbackFieldLabel}>API Key</span>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <input
+                      className={styles.fallbackInput}
+                      type={fb.showKey ? 'text' : 'password'}
+                      placeholder="sk-..."
+                      value={fb.api_key}
+                      onChange={e => updateFallback(i, { api_key: e.target.value })}
+                      style={{ paddingRight: 32 }}
+                    />
+                    <button
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--text-muted)' }}
+                      onClick={() => updateFallback(i, { showKey: !fb.showKey })}>
+                      {fb.showKey ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <button className={styles.addFallbackBtn} onClick={addFallback}>
+              + 添加备用模型
             </button>
-            <button className={styles.dangerBtn} onClick={() => { setShowForm(false); resetForm() }}>
-              取消
+          </div>
+
+          {/* 状态消息 */}
+          {testResult && (
+            <div className={testResult.ok ? styles.okMsg : styles.errMsg}>
+              {testResult.ok
+                ? `✓ 连接成功，延迟 ${testResult.latency_ms} ms，配置已保存`
+                : `✗ 连接失败：${testResult.error ?? '未知错误'}`}
+            </div>
+          )}
+
+          {/* 底部操作 */}
+          <div className={styles.saveRow} style={{ gap: 8 }}>
+            {customLLMConfig.enabled && (
+              <button
+                style={{ padding: '9px 16px', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                onClick={handleDisable}>
+                停用自定义
+              </button>
+            )}
+            <button
+              className={styles.saveConnectBtn}
+              onClick={handleSaveAndConnect}
+              disabled={saving}>
+              {saving ? '测试中…' : '保存并连接'}
             </button>
           </div>
         </div>
-      ) : (
-        <button className={styles.primaryBtn} onClick={() => setShowForm(true)}>+ 添加模型</button>
       )}
     </div>
   )
