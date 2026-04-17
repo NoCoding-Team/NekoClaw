@@ -3,7 +3,6 @@ import { useAppStore, ChatMessage as ChatMsg, ToolCall, TurnSegment } from '../.
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
-import { useLocalLLM } from '../../hooks/useLocalLLM'
 import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
@@ -92,7 +91,6 @@ export function ChatArea() {
     catState,
     wsStatus,
     activeSkillId,
-    localLLMConfig,
     serverUrl,
     token,
     setMessages,
@@ -102,8 +100,7 @@ export function ChatArea() {
   } = useAppStore()
 
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? []) : []
-  const { sendMessage: wsSend } = useWebSocket(localLLMConfig ? null : activeSessionId)
-  const { sendMessage: localSend } = useLocalLLM(activeSessionId)
+  const { sendMessage: wsSend } = useWebSocket(activeSessionId)
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -253,10 +250,8 @@ export function ChatArea() {
     })()
   }, [activeSessionId, reloadKey])
 
-  // Route to local LLM or backend WebSocket based on config
-  const sendMessage = localLLMConfig
-    ? (text: string, _skillId?: string | null) => localSend(text)
-    : wsSend
+  // Always route through backend WebSocket
+  const sendMessage = wsSend
 
   const [input, setInput] = useState('')
   const [showAssets, setShowAssets] = useState(false)
@@ -307,7 +302,7 @@ export function ChatArea() {
     return (
       <div className={styles.chatArea}>
         <div className={styles.topBar}>
-          <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
+          <WsStatusPill status={wsStatus} />
           <span className={styles.topBarSpacer} />
           <WindowControls />
         </div>
@@ -346,7 +341,7 @@ export function ChatArea() {
     return (
       <div className={styles.chatArea}>
         <div className={styles.topBar}>
-          <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
+          <WsStatusPill status={wsStatus} />
           <span className={styles.topBarSpacer} />
           {isLocalSession && !!serverUrl && !!token && (
             <button
@@ -411,7 +406,7 @@ export function ChatArea() {
   return (
     <div className={styles.chatArea}>
       <div className={styles.topBar}>
-        <WsStatusPill status={wsStatus} isLocal={!!localLLMConfig} />
+        <WsStatusPill status={wsStatus} />
         <span className={styles.topBarSpacer} />
         {isLocalSession && !!serverUrl && !!token && (
           <button
@@ -460,15 +455,7 @@ export function ChatArea() {
   )
 }
 
-function WsStatusPill({ status, isLocal }: { status: string; isLocal?: boolean }) {
-  if (isLocal) {
-    return (
-      <div className={`${styles.wsPill} ${styles['ws_connected']}`}>
-        <span className={styles.wsDot} />
-        本地直连
-      </div>
-    )
-  }
+function WsStatusPill({ status }: { status: string }) {
   const label = { connected: '已连接', connecting: '连接中…', disconnected: '未连接' }[status] || '未知'
   return (
     <div className={`${styles.wsPill} ${styles['ws_' + status]}`}>

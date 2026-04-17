@@ -2,7 +2,6 @@ import { create } from 'zustand'
 
 const STORAGE_SERVER = 'neko_server_url'
 const STORAGE_RECENT = 'neko_recent_servers'
-const STORAGE_LOCAL_LLM = 'neko_local_llm_config'
 const STORAGE_AUTH = 'neko_auth'
 const STORAGE_ACTIVE_SESSION = 'neko_active_session'
 const STORAGE_PERSONAL = 'neko_personal'
@@ -21,53 +20,6 @@ function loadRecentServers(): string[] {
   }
 }
 
-export interface AuxModelConfig {
-  enabled: boolean
-  baseUrl: string    // empty = same as main model
-  model: string
-  apiKeyB64: string  // empty = same as main model
-}
-
-export interface LocalLLMConfig {
-  provider: string   // 'openai' | 'anthropic' | 'custom'
-  baseUrl: string
-  model: string
-  apiKeyB64: string  // base64 or safeStorage-encrypted bytes encoded as base64
-  maxTokens: number
-  temperature: number
-  contextLimit?: number  // max context window tokens (default: maxTokens * 4)
-  embeddingModel?: AuxModelConfig
-  rerankModel?: AuxModelConfig
-}
-
-function loadLocalLLMConfig(): LocalLLMConfig | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_LOCAL_LLM)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-/** Push embedding model config to Electron main process for indexing */
-async function syncEmbeddingConfig(cfg: LocalLLMConfig | null) {
-  const bridge = (window as any).nekoBridge
-  if (!bridge?.memory?.setEmbeddingConfig) return
-  const emb = cfg?.embeddingModel
-  if (!emb?.enabled || !emb.model) {
-    bridge.memory.setEmbeddingConfig({ enabled: false, baseUrl: '', model: '', apiKey: '' })
-    return
-  }
-  try {
-    const keyB64 = emb.apiKeyB64 || cfg!.apiKeyB64
-    const { decrypted } = await bridge.storage.decrypt(keyB64)
-    const baseUrl = emb.baseUrl || cfg!.baseUrl
-    bridge.memory.setEmbeddingConfig({ enabled: true, baseUrl, model: emb.model, apiKey: decrypted })
-  } catch { /* ignore decrypt failure */ }
-}
-
-// Fire on initial load
-syncEmbeddingConfig(loadLocalLLMConfig())
 
 export interface PersonalizationConfig {
   userName: string
@@ -236,10 +188,6 @@ export interface AppState {
   activeSkillId: string | null
   setActiveSkillId: (id: string | null) => void
 
-  // Local LLM config (bypass backend, direct API calls from desktop)
-  localLLMConfig: LocalLLMConfig | null
-  setLocalLLMConfig: (cfg: LocalLLMConfig | null) => void
-
   // Personalization config
   personalizationConfig: PersonalizationConfig | null
   setPersonalizationConfig: (cfg: PersonalizationConfig) => void
@@ -374,18 +322,6 @@ export const useAppStore = create<AppState>((set) => ({
 
   activeSkillId: null,
   setActiveSkillId: (activeSkillId) => set({ activeSkillId }),
-
-  localLLMConfig: loadLocalLLMConfig(),
-  setLocalLLMConfig: (cfg) => {
-    if (cfg) {
-      localStorage.setItem(STORAGE_LOCAL_LLM, JSON.stringify(cfg))
-    } else {
-      localStorage.removeItem(STORAGE_LOCAL_LLM)
-    }
-    set({ localLLMConfig: cfg })
-    // Push embedding config to main process
-    syncEmbeddingConfig(cfg)
-  },
 
   personalizationConfig: loadPersonalizationConfig(),
   setPersonalizationConfig: (cfg) => {
