@@ -95,6 +95,7 @@ export function useWebSocket(sessionId: string | null) {
     }
 
     setWsStatus('connecting')
+    streamingMsgId.current = null   // reset stale streaming state from previous session
 
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
@@ -182,6 +183,7 @@ export function useWebSocket(sessionId: string | null) {
         }
         updateLastAssistantToken(sessionId!, evt.token as string)
       } else if (type === 'llm_done') {
+        const hadStreaming = !!streamingMsgId.current
         streamingMsgId.current = null
         // 本轮 LLM 输出结束，立即重置为 idle，避免残留 thinking 状态导致闪现加载气泡
         setCatState('idle')
@@ -190,6 +192,14 @@ export function useWebSocket(sessionId: string | null) {
         const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const cleanedMsgs = msgs.filter(m => !(m.role === 'assistant' && m.streaming && !m.content))
         const last = cleanedMsgs[cleanedMsgs.length - 1]
+
+        // 如果本轮完全没有收到 token 且没有 streaming 气泡，插入一条回退提示
+        // （常见原因：后端 LLM 返回空内容、WS 中途重连丢失 token 等）
+        if (!hadStreaming && (!last || last.role !== 'assistant')) {
+          appendMessage(sid, { id: uuidv4(), role: 'assistant', content: '⚠️ 未收到回复，请重试' })
+          return
+        }
+
         if (last?.streaming) {
           const finalContent = last.content
           useAppStore.getState().setMessages(sid, [
