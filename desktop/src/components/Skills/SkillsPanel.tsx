@@ -361,7 +361,7 @@ export default function SkillsPanel() {
               </div>
 
               <div className={styles.field}>
-                <label>沙盒级别</label>
+                <label>审批级别</label>
                 <div className={styles.radioGroup}>
                   {SANDBOX_LEVELS.map(level => (
                     <label key={level} className={styles.radioLabel}>
