@@ -578,6 +578,17 @@ export function useWebSocket(sessionId: string | null) {
       waitingReply.current = false
       if (replyTimeoutRef.current) { clearTimeout(replyTimeoutRef.current); replyTimeoutRef.current = null }
       setCatState('idle')
+
+      // 清理服务端临时会话，避免它们出现在会话列表中
+      if (sessionId && sessionId.startsWith('local-')) {
+        const ephServerId = _ephemeralServerMap[sessionId]
+        if (ephServerId && intentionalClose.current) {
+          const { serverUrl: sv } = useAppStore.getState()
+          apiFetch(`${sv}/api/sessions/${ephServerId}`, { method: 'DELETE' }).catch(() => {})
+          delete _ephemeralServerMap[sessionId]
+        }
+      }
+
       // Skip reconnect if this was an intentional close (e.g. session changed)
       if (intentionalClose.current) return
       // Exponential backoff reconnect
@@ -882,4 +893,9 @@ export function getEphemeralServerId(localId: string): string | undefined {
 /** Remove the ephemeral mapping for a local session. */
 export function clearEphemeralMapping(localId: string): void {
   delete _ephemeralServerMap[localId]
+}
+
+/** Return all ephemeral server session IDs (used to filter them from session lists). */
+export function getEphemeralServerIds(): Set<string> {
+  return new Set(Object.values(_ephemeralServerMap))
 }
