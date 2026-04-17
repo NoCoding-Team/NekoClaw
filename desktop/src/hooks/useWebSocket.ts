@@ -569,10 +569,12 @@ export function useWebSocket(sessionId: string | null) {
               .map(m => ({ role: m.role, content: m.content }))
           }
 
-          // Optimistic UI — skip if handleSend already appended this user message
+          // Optimistic UI — skip only if handleSend *just* appended this exact user message
+          // as the very last message (prevents duplicate bubble for the same send action)
           const existingMsgs = useAppStore.getState().messagesBySession[currentSessionId] ?? []
-          const alreadyAppended = existingMsgs.some(m => m.role === 'user' && m.content === content)
-          const userMsgId = uuidv4()
+          const lastMsg = existingMsgs[existingMsgs.length - 1]
+          const alreadyAppended = lastMsg?.role === 'user' && lastMsg.content === content
+          const userMsgId = alreadyAppended ? lastMsg.id : uuidv4()
           if (!alreadyAppended) {
             appendMessage(currentSessionId, { id: userMsgId, role: 'user', content })
           }
