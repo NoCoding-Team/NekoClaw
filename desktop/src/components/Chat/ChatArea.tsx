@@ -448,7 +448,7 @@ export function ChatArea() {
         {groupToolMessages(messages).map((m) => (
           <ChatMessage key={m.id} message={m} />
         ))}
-        {(catState === 'thinking' || catState === 'working') && !messages.some(m => m.streaming) && <ThinkingBubble />}
+        {(catState === 'thinking' || catState === 'working') && !messages.some(m => m.streaming) && !messages.some(m => m.role === 'tool' && m.toolCalls?.some(tc => tc.status === 'pending' || tc.status === 'executing')) && <ThinkingBubble />}
         <div ref={bottomRef} />
       </div>
       <div className={styles.inputArea}>
