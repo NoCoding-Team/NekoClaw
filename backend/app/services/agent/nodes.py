@@ -286,7 +286,7 @@ async def tools_node(state: AgentState) -> dict:
     tool_messages: list[ToolMessage] = []
 
     for tool_call in ai_message.tool_calls:
-        call_id: str = tool_call["id"]
+        call_id: str = tool_call.get("id") or f"tc_{uuid.uuid4().hex[:12]}"
         tool_name: str = tool_call["name"]
         args: dict = tool_call.get("args", {})
 
