@@ -365,7 +365,50 @@ async def finalize(state: AgentState) -> dict:
     await _persist_message(session_id=session_id, role="assistant", content=content, tool_calls=None)
     await send_event(ws, "cat_state", {"state": "success"})
 
+    # Two-stage title: generate title via LLM after the first round
+    if state.get("user_turn_count", 0) == 1 and state.get("llm_config"):
+        asyncio.ensure_future(_generate_title(state, content))
+
     return {}
+
+
+async def _generate_title(state: AgentState, assistant_reply: str) -> None:
+    """Generate a conversation title using the LLM after the first round."""
+    from langchain_core.messages import HumanMessage as _HM
+
+    ws = state["ws"]
+    session_id = state["session_id"]
+    llm_config = state["llm_config"]
+
+    # Extract first user message
+    user_content = ""
+    for m in state["messages"]:
+        if isinstance(m, _HM):
+            user_content = m.content if isinstance(m.content, str) else str(m.content)
+            break
+    if not user_content:
+        return
+
+    prompt = (
+        "请用不超过15个字的中文为以下对话生成一个简短标题，只输出标题本身，不要加引号和标点：\n"
+        f"用户: {user_content[:200]}\n助手: {assistant_reply[:200]}"
+    )
+    try:
+        model = get_chat_model(llm_config)
+        result = await model.ainvoke([_HM(content=prompt)])
+        title = (result.content.strip() if isinstance(result.content, str) else str(result.content).strip())[:30]
+        if not title:
+            return
+        # Update DB
+        async with AsyncSessionLocal() as db:
+            session = await db.get(Session, session_id)
+            if session:
+                session.title = title
+                await db.commit()
+        # Push to client
+        await send_event(ws, "title_update", {"session_id": session_id, "title": title})
+    except Exception:
+        pass  # Title generation is non-critical
 
 
 # ── Conditional router ───────────────────────────────────────────────────────
