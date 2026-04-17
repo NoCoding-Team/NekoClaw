@@ -81,6 +81,12 @@ async def create_tables():
                 "ALTER TABLE messages ADD COLUMN IF NOT EXISTS seq INTEGER NOT NULL DEFAULT 0"
             )
         )
+        # LLMConfig temperature: added in langgraph-migration
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE llm_configs ADD COLUMN IF NOT EXISTS temperature FLOAT NOT NULL DEFAULT 0.7"
+            )
+        )
         # Message tool_call_id: store OpenAI tool_call_id for role='tool' messages
         await conn.execute(
             __import__("sqlalchemy").text(
