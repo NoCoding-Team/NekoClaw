@@ -38,12 +38,9 @@ export function Sidebar() {
   }
 
   const createNewSession = () => {
-    const newId = `local-${Date.now()}`
-    useAppStore.getState().addSession({ id: newId, title: '新对话' })
-    setActiveSession(newId)
+    // 不立即创建会话，只清空选中态回到欢迎页；发送第一条消息时再创建
+    setActiveSession(null)
     setSidebarTab('sessions')
-    // 持久化到本地 SQLite
-    window.nekoBridge?.db?.upsertSession(newId, '新对话', Date.now()).catch(() => {})
   }
 
   return (

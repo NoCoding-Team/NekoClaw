@@ -321,6 +321,8 @@ export function ChatArea() {
       const newId = `local-${Date.now()}`
       addSession({ id: newId, title: '新对话' })
       setActiveSession(newId)
+      // 持久化到本地 SQLite
+      window.nekoBridge?.db?.upsertSession(newId, '新对话', Date.now()).catch(() => {})
       // 立刻写入用户消息，避免欢迎屏闪烁；并进入思考态让三点气泡立即出现
       appendMessage(newId, { id: uuidv4(), role: 'user', content: text })
       setCatState('thinking')
