@@ -506,7 +506,8 @@ function SecurityTab() {
       <div className={styles.secDivider} />
 
       {/* 命令白名单 */}
-      <div className={styles.secBlock}>
+      <div className={`${styles.secBlock} ${cfg.fullAccessMode ? styles.secBlockDisabled : ''}`}>
+        {cfg.fullAccessMode && <span className={styles.fullAccessBadge}>🔓 完全访问模式已开启，此策略暂时跳过</span>}
         <div className={styles.secBlockHeader}>
           <span className={styles.secBlockTitle}>命令白名单</span>
           <span className={styles.secBlockDesc}>可自动执行的终端命令</span>
@@ -589,7 +590,7 @@ function SecurityTab() {
       <div className={styles.secDivider} />
 
       {/* 工具审批策略 */}
-      <SandboxThresholdBlock cfg={cfg} setSecurityConfig={setSecurityConfig} />
+      <SandboxThresholdBlock cfg={cfg} setSecurityConfig={setSecurityConfig} disabled={cfg.fullAccessMode} />
 
     </div>
   )
@@ -599,9 +600,11 @@ function SecurityTab() {
 function SandboxThresholdBlock({
   cfg,
   setSecurityConfig,
+  disabled = false,
 }: {
   cfg: SecurityConfig
   setSecurityConfig: (patch: Partial<SecurityConfig>) => void
+  disabled?: boolean
 }) {
   const [confirmOff, setConfirmOff] = useState(false)
 
@@ -619,7 +622,8 @@ function SandboxThresholdBlock({
   }
 
   return (
-    <div className={styles.secBlock}>
+    <div className={`${styles.secBlock} ${disabled ? styles.secBlockDisabled : ''}`}>
+      {disabled && <span className={styles.fullAccessBadge}>🔓 完全访问模式已开启，此策略暂时跳过</span>}
       <div className={styles.secBlockHeader}>
         <span className={styles.secBlockTitle}>工具审批策略</span>
         <span className={styles.secBlockDesc}>达到该风险级别的工具调用会弹出确认对话框</span>

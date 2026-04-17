@@ -788,6 +788,26 @@
   line-height: 1.5;
 }
 
+/* Disabled block — when full-access mode overrides */
+.secBlockDisabled {
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}
+.fullAccessBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 4px;
+  padding: 2px 7px;
+  margin-bottom: 8px;
+  pointer-events: none;
+}
+
 /* Limit input row */
 .limitRow {
   display: flex;
