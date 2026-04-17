@@ -57,6 +57,10 @@ export function useWebSocket(sessionId: string | null) {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamingMsgId = useRef<string | null>(null)
   const wsUrlRef = useRef<string | null>(null)
+  /** 标记当前是否有消息等待回复（发送后→收到 llm_done 前） */
+  const waitingReply = useRef(false)
+  /** 回复超时计时器 */
+  const replyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   /** 待发的第一条消息（local- 会话 materialized 后在 onopen 中发送） */
   const pendingMessage = useRef<{
     content: string
@@ -67,6 +71,30 @@ export function useWebSocket(sessionId: string | null) {
   } | null>(null)
   /** local history to include as fallback for newly materialized sessions */
   const pendingLocalHistory = useRef<Array<{ role: string; content: string }> | null>(null)
+
+  /** 启动回复超时：45s 没收到 llm_token/llm_done 则注入错误提示 */
+  const startReplyTimeout = () => {
+    if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current)
+    replyTimeoutRef.current = setTimeout(() => {
+      if (!waitingReply.current) return
+      waitingReply.current = false
+      streamingMsgId.current = null
+      setCatState('idle')
+      const sid = useAppStore.getState().activeSessionId
+      if (!sid) return
+      // 清理可能存在的空 streaming 气泡
+      const msgs = useAppStore.getState().messagesBySession[sid] ?? []
+      const cleaned = msgs.filter(m => !(m.role === 'assistant' && m.streaming && !m.content))
+      if (cleaned.length !== msgs.length) {
+        useAppStore.getState().setMessages(sid, cleaned)
+      }
+      const last = cleaned[cleaned.length - 1]
+      if (!last || last.role !== 'assistant') {
+        appendMessage(sid, { id: uuidv4(), role: 'assistant', content: '⚠️ 回复超时，请检查后端服务或网络，然后重试。' })
+      }
+      console.warn('[WS] 回复超时（45s 未收到 llm_token/llm_done）')
+    }, 45_000)
+  }
 
   const connect = useCallback(() => {
     if (!token || !sessionId) return
@@ -132,6 +160,8 @@ export function useWebSocket(sessionId: string | null) {
           }
         }
         if (sid) _localHistorySentForSession.add(sid)
+        waitingReply.current = true
+        startReplyTimeout()
         ws.send(JSON.stringify({
           event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools ?? null,
           ...(eph ? { ephemeral: true } : {}),
@@ -155,7 +185,13 @@ export function useWebSocket(sessionId: string | null) {
     }
 
     ws.onmessage = async (ev) => {
-      if (wsRef.current !== ws) return
+      if (wsRef.current !== ws) {
+        // 事件到达但 WS 已被替换——记录警告帮助排查丢消息
+        try {
+          const d = JSON.parse(ev.data); if (d.event !== 'pong') console.warn('[WS] 事件被丢弃（旧连接）:', d.event)
+        } catch { /* ignore */ }
+        return
+      }
       let evt: Record<string, unknown>
       try {
         evt = JSON.parse(ev.data)
@@ -185,6 +221,8 @@ export function useWebSocket(sessionId: string | null) {
       } else if (type === 'llm_done') {
         const hadStreaming = !!streamingMsgId.current
         streamingMsgId.current = null
+        waitingReply.current = false
+        if (replyTimeoutRef.current) { clearTimeout(replyTimeoutRef.current); replyTimeoutRef.current = null }
         // 本轮 LLM 输出结束，立即重置为 idle，避免残留 thinking 状态导致闪现加载气泡
         setCatState('idle')
         // 清除幽灵空 streaming 消息，将最后一条标记为完成
@@ -389,11 +427,35 @@ export function useWebSocket(sessionId: string | null) {
       // Ignore stale sockets closed after a newer socket has been created.
       if (wsRef.current !== ws) return
 
+      // 如果断连时仍在等待回复，注入错误提示气泡
+      const wasWaiting = waitingReply.current || !!streamingMsgId.current
+      if (wasWaiting && sessionId && !intentionalClose.current) {
+        const sid = sessionId
+        const msgs = useAppStore.getState().messagesBySession[sid] ?? []
+        // 查找正在 streaming 的 assistant 消息
+        const lastStreaming = [...msgs].reverse().find(m => m.role === 'assistant' && m.streaming)
+        if (lastStreaming && lastStreaming.content) {
+          // 有部分内容的 streaming 消息——标记完成保留内容
+          useAppStore.getState().setMessages(sid, msgs.map(m =>
+            m.id === lastStreaming.id ? { ...m, streaming: false } : m
+          ))
+        } else {
+          // 完全没收到内容——清理空 streaming 气泡并插入错误提示
+          const cleaned = msgs.filter(m => !(m.role === 'assistant' && m.streaming && !m.content))
+          useAppStore.getState().setMessages(sid, [
+            ...cleaned,
+            { id: uuidv4(), role: 'assistant' as const, content: '⚠️ 连接断开，未收到回复。请重新发送消息。' },
+          ])
+        }
+      }
+
       wsRef.current = null
       _ws = null
       wsUrlRef.current = null
       setWsStatus('disconnected')
       streamingMsgId.current = null
+      waitingReply.current = false
+      if (replyTimeoutRef.current) { clearTimeout(replyTimeoutRef.current); replyTimeoutRef.current = null }
       setCatState('idle')
       // Skip reconnect if this was an intentional close (e.g. session changed)
       if (intentionalClose.current) return
@@ -428,6 +490,7 @@ export function useWebSocket(sessionId: string | null) {
       intentionalClose.current = true
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
       if (pingTimer.current) clearInterval(pingTimer.current)
+      if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current)
       wsRef.current?.close()
       wsRef.current = null
       _ws = null
@@ -482,7 +545,12 @@ export function useWebSocket(sessionId: string | null) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ title: '临时会话' }),
             })
-            if (!res.ok) return
+            if (!res.ok) {
+              console.error('[WS] 创建临时会话失败:', res.status)
+              appendMessage(currentSessionId, { id: uuidv4(), role: 'assistant', content: `⚠️ 无法连接到服务器（${res.status}），请检查后端服务是否正常运行。` })
+              setCatState('idle')
+              return
+            }
             const s = await res.json()
             _ephemeralServerMap[currentSessionId] = s.id
           }
@@ -509,6 +577,8 @@ export function useWebSocket(sessionId: string | null) {
 
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             // WS already connected (subsequent messages), send directly
+            waitingReply.current = true
+            startReplyTimeout()
             wsRef.current.send(buildPayload())
           } else {
             // First message: queue pending and (re)connect
@@ -517,7 +587,11 @@ export function useWebSocket(sessionId: string | null) {
             intentionalClose.current = false
             connect()
           }
-        } catch { /* ignore */ }
+        } catch (err) {
+          console.error('[WS] sendMessage Branch A error:', err)
+          appendMessage(currentSessionId, { id: uuidv4(), role: 'assistant', content: '⚠️ 发送消息失败，请检查网络连接。' })
+          setCatState('idle')
+        }
         return
       }
 
@@ -541,7 +615,12 @@ export function useWebSocket(sessionId: string | null) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: '新对话' }),
           })
-          if (!res.ok) return
+          if (!res.ok) {
+            console.error('[WS] Branch B 创建会话失败:', res.status)
+            appendMessage(currentSessionId, { id: uuidv4(), role: 'assistant', content: `⚠️ 无法在服务器创建会话（${res.status}）。` })
+            setCatState('idle')
+            return
+          }
           const s = await res.json()
           useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
           const { securityConfig: sc } = useAppStore.getState()
@@ -550,7 +629,11 @@ export function useWebSocket(sessionId: string | null) {
           pendingMessage.current = { content, skillId, allowedTools }
           pendingLocalHistory.current = localHistory
           resetRound(currentSessionId)
-        } catch { /* ignore */ }
+        } catch (err) {
+          console.error('[WS] sendMessage Branch B error:', err)
+          appendMessage(currentSessionId, { id: uuidv4(), role: 'assistant', content: '⚠️ 发送消息失败，请检查网络连接。' })
+          setCatState('idle')
+        }
         return
       }
 
@@ -582,6 +665,8 @@ export function useWebSocket(sessionId: string | null) {
         _localHistorySentForSession.add(sessionId)
       }
 
+      waitingReply.current = true
+      startReplyTimeout()
       wsRef.current.send(JSON.stringify({
         event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools,
         ...(localHistoryPayload ? { local_history: localHistoryPayload } : {}),
