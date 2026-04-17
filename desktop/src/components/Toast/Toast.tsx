@@ -8,10 +8,11 @@ interface ToastProps {
 
 export default function Toast({ message, onClose }: ToastProps) {
   if (!message) return null
+  const isSuccess = message.startsWith('✓')
   return (
-    <div className={styles.toast}>
-      <span className={styles.icon}>⚠</span>
-      <span className={styles.msg}>{message}</span>
+    <div className={`${styles.toast} ${isSuccess ? styles.toastSuccess : ''}`}>
+      <span className={styles.icon}>{isSuccess ? '✓' : '⚠'}</span>
+      <span className={styles.msg}>{isSuccess ? message.slice(1).trim() : message}</span>
       <button className={styles.close} onClick={onClose}>✕</button>
     </div>
   )

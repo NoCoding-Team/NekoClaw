@@ -8,6 +8,8 @@ import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
 import { apiFetch } from '../../api/apiFetch'
+import { useToast } from '../../hooks/useToast'
+import Toast from '../Toast/Toast'
 
 /**
  * 将同一 agent 轮次（两条 user 消息之间）的消息合并为单一气泡，
@@ -120,7 +122,7 @@ export function ChatArea() {
   const [reloadKey, setReloadKey] = useState(0)
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
-  const [syncSuccess, setSyncSuccess] = useState(false)
+  const { toast, showToast, dismissToast } = useToast()
 
   // 同步完成后阻止 useEffect 从服务器重新加载消息（防止覆盖内存中的正确数据）
   const justSyncedIdRef = useRef<string | null>(null)
@@ -176,8 +178,7 @@ export function ChatArea() {
 
       // 6. 硬删除本地 SQLite 记录
       await db.deleteSession(activeSessionId)
-      setSyncSuccess(true)
-      setTimeout(() => setSyncSuccess(false), 3000)
+      showToast('✓ 同步成功，后续消息将保存到服务器')
     } catch (err: unknown) {
       setSyncError(err instanceof Error ? err.message : '同步失败')
       setTimeout(() => setSyncError(null), 4000)
@@ -376,7 +377,6 @@ export function ChatArea() {
               {isSyncing ? '同步中…' : syncError ? `⚠ ${syncError}` : '↑ 同步到服务器'}
             </button>
           )}
-          {syncSuccess && <span className={styles.syncSuccessLabel}>✓ 同步成功</span>}
           <button
             className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
             onClick={() => setShowAssets(v => !v)}
@@ -421,6 +421,7 @@ export function ChatArea() {
           </div>
         </div>
         )}
+        <Toast message={toast} onClose={dismissToast} />
       </div>
     )
   }
@@ -441,7 +442,6 @@ export function ChatArea() {
             {isSyncing ? '同步中…' : syncError ? `⚠ ${syncError}` : '↑ 同步到服务器'}
           </button>
         )}
-        {syncSuccess && <span className={styles.syncSuccessLabel}>✓ 同步成功</span>}
         <button
           className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
           onClick={() => setShowAssets(v => !v)}
@@ -484,6 +484,7 @@ export function ChatArea() {
           <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim() || catState === 'thinking'}>➤</button>
         </div>
       </div>
+      <Toast message={toast} onClose={dismissToast} />
     </div>
   )
 }
