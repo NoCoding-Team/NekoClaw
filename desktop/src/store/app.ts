@@ -87,6 +87,15 @@ export interface SecurityConfig {
   sandboxThreshold: 'off' | 'HIGH' | 'MEDIUM' | 'LOW' // 确认弹窗触发阀値
 }
 
+/** All known tool names — used as default toolWhitelist so every tool is enabled out-of-the-box. */
+export const ALL_TOOL_NAMES: string[] = [
+  'file_read', 'file_write', 'file_list', 'file_delete',
+  'shell_exec',
+  'web_search',
+  'browser_navigate', 'browser_screenshot', 'browser_click', 'browser_type',
+  'http_request',
+]
+
 export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   botControlPermission: true,
   fullAccessMode: false,
@@ -94,7 +103,7 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   loopGuardSensitivity: 'default',
   maxToolCallsPerRound: 40,
   commandWhitelist: [],
-  toolWhitelist: [],
+  toolWhitelist: [...ALL_TOOL_NAMES],
   execEnvironment: 'transparent',
   containerNetwork: 'none',
   sandboxThreshold: 'MEDIUM',
@@ -103,7 +112,14 @@ export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
 function loadSecurityConfig(): SecurityConfig {
   try {
     const raw = localStorage.getItem(STORAGE_SECURITY)
-    return raw ? { ...DEFAULT_SECURITY_CONFIG, ...JSON.parse(raw) } : DEFAULT_SECURITY_CONFIG
+    if (!raw) return DEFAULT_SECURITY_CONFIG
+    const saved = { ...DEFAULT_SECURITY_CONFIG, ...JSON.parse(raw) }
+    // Migration: old configs had toolWhitelist defaulting to []. If it's
+    // still empty and was never explicitly configured, populate with all tools.
+    if (Array.isArray(saved.toolWhitelist) && saved.toolWhitelist.length === 0) {
+      saved.toolWhitelist = [...ALL_TOOL_NAMES]
+    }
+    return saved
   } catch {
     return DEFAULT_SECURITY_CONFIG
   }

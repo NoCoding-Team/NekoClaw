@@ -183,25 +183,7 @@ export function useWebSocket(sessionId: string | null) {
               }
             })()
           }
-          // 两段式标题：仅在第一轮对话时触发
-          const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
-          const isFirstRound = allMsgs.filter((m) => m.role === 'user').length === 1
-          if (isFirstRound) {
-            const firstUser = allMsgs.find((m) => m.role === 'user')
-            const { serverUrl: sv, token: tk, updateSessionTitle } = useAppStore.getState()
-            if (tk && firstUser) {
-              // Stage 1: 立即截取前15字
-              const shortTitle = firstUser.content.slice(0, 15) + (firstUser.content.length > 15 ? '…' : '')
-              apiFetch(`${sv}/api/sessions/${sessionId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: shortTitle }),
-              }).catch(() => {})
-              updateSessionTitle(sessionId, shortTitle)
-              // Stage 2: 通知后端用 LLM 生成标题（如果后端支持可扩展，目前不实现以避免重复调用）
-              // WebSocket 模式下后端已有上下文，可以后续从后端推送 title_update 事件来实现
-            }
-          }
+          // 标题由后端 finalize 节点生成（title_update 事件），前端不再主动生成
         } else if (cleanedMsgs.length !== msgs.length) {
           // 无 streaming 消息，但幽灵气泡未清理，补一次 setMessages
           useAppStore.getState().setMessages(sid, cleanedMsgs)
@@ -290,7 +272,18 @@ export function useWebSocket(sessionId: string | null) {
           'LOW':    [],
         }
         const autoByThreshold = (THRESHOLD_AUTO[securityConfig.sandboxThreshold ?? 'MEDIUM'] ?? ['LOW']).includes(riskLevel)
-        const autoRun = securityConfig.fullAccessMode || inToolWhitelist || autoByThreshold
+
+        // shell_exec: also check commandWhitelist if configured
+        let blockedByCommandWL = false
+        if (toolName === 'shell_exec' && securityConfig.commandWhitelist.length > 0) {
+          const cmd = String(args.command ?? '')
+          const cmdBase = cmd.trim().split(/\s+/)[0]
+          blockedByCommandWL = !securityConfig.commandWhitelist.some(
+            (w) => cmdBase === w || cmd.trimStart().startsWith(w + ' ')
+          )
+        }
+
+        const autoRun = !blockedByCommandWL && (securityConfig.fullAccessMode || inToolWhitelist || autoByThreshold)
 
         if (autoRun) {
           if (inToolWhitelist) {
@@ -308,6 +301,17 @@ export function useWebSocket(sessionId: string | null) {
         })
       } else if (type === 'pong') {
         // heartbeat ok
+      } else if (type === 'title_update') {
+        const sid = evt.session_id as string
+        const title = evt.title as string
+        if (sid && title) {
+          useAppStore.getState().updateSessionTitle(sid, title)
+          // Also update local SQLite
+          const dbBridge = window.nekoBridge?.db
+          if (dbBridge) {
+            dbBridge.upsertSession(sid, title, Date.now()).catch(() => {})
+          }
+        }
       }
     }
 
@@ -371,8 +375,8 @@ export function useWebSocket(sessionId: string | null) {
         useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
         // pendingMessage 会在 onopen 中被发送（connect 会因 activeSessionId 变化而重新触发）
         const { securityConfig: sc } = useAppStore.getState()
-        // toolWhitelist 为空数组时表示「未配置白名单」，应传 null 让后端使用全部工具
-        const allowedTools = sc.toolWhitelist.length > 0 ? sc.toolWhitelist : null
+        // 始终传递实际白名单：[...] = 仅启用列表中的工具, [] = 无工具
+        const allowedTools = sc.toolWhitelist
         setCatState('thinking')
         pendingMessage.current = { content, skillId, allowedTools }
         pendingLocalHistory.current = localHistory
@@ -391,8 +395,8 @@ export function useWebSocket(sessionId: string | null) {
     })
     resetRound(sessionId!)
     const { securityConfig } = useAppStore.getState()
-    // toolWhitelist 为空数组时表示「未配置白名单」，应传 null 让后端使用全部工具
-    const allowedTools = securityConfig.toolWhitelist.length > 0 ? securityConfig.toolWhitelist : null
+    // 始终传递实际白名单：[...] = 仅启用列表中的工具, [] = 无工具
+    const allowedTools = securityConfig.toolWhitelist
 
     // Write user message to local SQLite
     const dbBridge = window.nekoBridge?.db
