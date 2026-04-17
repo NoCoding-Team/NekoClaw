@@ -512,9 +512,12 @@ export function ChatArea() {
 }
 
 function WsStatusPill({ status }: { status: string }) {
-  const label = { connected: '已连接', connecting: '连接中…', disconnected: '未连接' }[status] || '未知'
+  const token = useAppStore((s) => s.token)
+  // 有 token 即视为已连接服务器；仅在 WS 正在握手时显示"连接中"
+  const effective = status === 'connecting' ? 'connecting' : token ? 'connected' : 'disconnected'
+  const label = { connected: '已连接', connecting: '连接中…', disconnected: '未连接' }[effective] || '未知'
   return (
-    <div className={`${styles.wsPill} ${styles['ws_' + status]}`}>
+    <div className={`${styles.wsPill} ${styles['ws_' + effective]}`}>
       <span className={styles.wsDot} />
       {label}
     </div>
