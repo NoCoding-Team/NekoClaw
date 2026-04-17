@@ -396,20 +396,42 @@ export function useWebSocket(sessionId: string | null) {
           delete _callIdToMsgId[doneCallId]
         }
       } else if (type === 'tool_call') {
-        // Append tool call card then execute
+        // ── Auto-execute decision (computed FIRST, before card creation) ──
         const callId = evt.call_id as string
         const toolName = evt.tool as string
         const args = evt.args as Record<string, unknown>
         const riskLevel = (evt.risk_level as string) || 'LOW'
         const reason = evt.reason as string | undefined
 
+        const { securityConfig } = useAppStore.getState()
+        const inToolWhitelist = securityConfig.toolWhitelist.includes(toolName)
+        const THRESHOLD_AUTO: Record<string, string[]> = {
+          'off':    ['LOW', 'MEDIUM', 'HIGH'],
+          'HIGH':   ['LOW', 'MEDIUM'],
+          'MEDIUM': ['LOW'],
+          'LOW':    [],
+        }
+        const autoByThreshold = (THRESHOLD_AUTO[securityConfig.sandboxThreshold ?? 'MEDIUM'] ?? ['LOW']).includes(riskLevel)
+        let blockedByCommandWL = false
+        if (toolName === 'shell_exec' && securityConfig.commandWhitelist.length > 0) {
+          const cmd = String(args.command ?? '')
+          const cmdBase = cmd.trim().split(/\s+/)[0]
+          blockedByCommandWL = !securityConfig.commandWhitelist.some(
+            (w) => cmdBase === w || cmd.trimStart().startsWith(w + ' ')
+          )
+        }
+        const autoRun = !blockedByCommandWL && (securityConfig.fullAccessMode || autoByThreshold)
+
+        console.log('[WS] tool_call received:', { callId, toolName, riskLevel, autoRun, autoByThreshold, blockedByCommandWL, sessionId })
+
+        // ── Create card with correct initial status ──────────────────
         const tc: ToolCall = {
           callId,
           tool: toolName,
           args,
           riskLevel: riskLevel as any,
           reason,
-          status: 'pending',
+          status: autoRun ? 'executing' : 'pending',
         }
 
         const toolMsgIdCt = uuidv4()
@@ -425,8 +447,6 @@ export function useWebSocket(sessionId: string | null) {
         if (dbBridgeCt && sessionId) {
           dbBridgeCt.insertMessage({ id: toolMsgIdCt, sessionId, role: 'tool', content: '', toolCalls: JSON.stringify([tc]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
         }
-
-        const { securityConfig } = useAppStore.getState()
 
         // ── Loop guard ───────────────────────────────────────────────
         if (securityConfig.loopGuard) {
@@ -461,39 +481,7 @@ export function useWebSocket(sessionId: string | null) {
           return
         }
 
-        // ── Auto-execute decision ────────────────────────────────────
-        const inToolWhitelist = securityConfig.toolWhitelist.includes(toolName)
-        // Sandbox threshold: levels that auto-run without confirmation
-        const THRESHOLD_AUTO: Record<string, string[]> = {
-          'off':    ['LOW', 'MEDIUM', 'HIGH'],
-          'HIGH':   ['LOW', 'MEDIUM'],
-          'MEDIUM': ['LOW'],
-          'LOW':    [],
-        }
-        const autoByThreshold = (THRESHOLD_AUTO[securityConfig.sandboxThreshold ?? 'MEDIUM'] ?? ['LOW']).includes(riskLevel)
-
-        // shell_exec: also check commandWhitelist if configured
-        let blockedByCommandWL = false
-        if (toolName === 'shell_exec' && securityConfig.commandWhitelist.length > 0) {
-          const cmd = String(args.command ?? '')
-          const cmdBase = cmd.trim().split(/\s+/)[0]
-          blockedByCommandWL = !securityConfig.commandWhitelist.some(
-            (w) => cmdBase === w || cmd.trimStart().startsWith(w + ' ')
-          )
-        }
-
-        const autoRun = !blockedByCommandWL && (securityConfig.fullAccessMode || inToolWhitelist || autoByThreshold)
-
-        console.debug('[WS] tool_call auto-exec decision:', {
-          toolName, riskLevel, autoRun,
-          fullAccessMode: securityConfig.fullAccessMode,
-          inToolWhitelist,
-          sandboxThreshold: securityConfig.sandboxThreshold,
-          autoByThreshold,
-          blockedByCommandWL,
-          sessionId,
-        })
-
+        // ── Execute ──────────────────────────────────────────────────
         if (autoRun) {
           if (inToolWhitelist) {
             useAppStore.getState().incrementToolCallCount(toolName)
