@@ -149,7 +149,8 @@ export function useWebSocket(sessionId: string | null) {
         const sid = useAppStore.getState().activeSessionId!
         // 若 handleSend 已乐观写入该条消息（新对话场景），跳过重复追加
         const existingMsgs = useAppStore.getState().messagesBySession[sid] ?? []
-        if (!existingMsgs.some(m => m.role === 'user' && m.content === content)) {
+        const lastExisting = existingMsgs[existingMsgs.length - 1]
+        if (!(lastExisting?.role === 'user' && lastExisting.content === content)) {
           appendMessage(sid, { id: uuidv4(), role: 'user', content })
         }
         // Write user message to local SQLite for the new server session (skip for ephemeral — already written)
@@ -522,14 +523,25 @@ export function useWebSocket(sessionId: string | null) {
     }
   }, [token, sessionId, serverUrl]) // eslint-disable-line
 
-  // (Re)connect when deps change; do NOT close the socket in cleanup —
-  // connect() already handles close-old-if-switching internally.
+  // (Re)connect when deps change.
+  // When sessionId changes, connect is recreated and the old WS must be closed
+  // to prevent sendMessage from accidentally sending through a stale connection
+  // belonging to the previous session.
   useEffect(() => {
     connect()
     return () => {
-      // Only cancel pending reconnect timer so a stale timer doesn't fire
-      // for a previous session.  The socket itself stays alive.
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      // Close the old WS so wsRef.current doesn't point to a stale connection
+      // from a different session.  connect() for a new local session may return
+      // early (no ephemeral mapping yet), leaving wsRef.current dangling.
+      if (wsRef.current) {
+        intentionalClose.current = true
+        try { wsRef.current.close() } catch {}
+        wsRef.current = null
+        _ws = null
+        wsUrlRef.current = null
+        intentionalClose.current = false
+      }
     }
   }, [connect])
 
