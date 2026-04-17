@@ -190,14 +190,14 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
             traceback.print_exc()
             err_msg = f"⚠️ Agent 执行出错: {exc}"
             await send_event(ws, "llm_token", {"token": err_msg})
-            await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4())})
+            await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": False})
             await send_event(ws, "cat_state", {"state": "error"})
     except Exception as outer_exc:
         # 全局兜底：确保任何异常都向前端报告，不让消息"沉默丢失"
         traceback.print_exc()
         err_msg = f"⚠️ 消息处理出错: {outer_exc}"
         await send_event(ws, "llm_token", {"token": err_msg})
-        await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4())})
+        await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": False})
         await send_event(ws, "cat_state", {"state": "error"})
 
 

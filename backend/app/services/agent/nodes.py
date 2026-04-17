@@ -256,10 +256,11 @@ async def llm_call(state: AgentState) -> dict:
     except Exception as exc:
         err_msg = f"⚠️ LLM 调用失败: {exc}"
         await send_event(ws, "llm_token", {"token": err_msg})
-        await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4())})
+        await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": False})
         return {"messages": [AIMessage(content=err_msg)]}
 
-    await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4())})
+    has_tc = bool(getattr(ai_message, "tool_calls", None))
+    await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": has_tc})
     return {"messages": [ai_message]}
 
 

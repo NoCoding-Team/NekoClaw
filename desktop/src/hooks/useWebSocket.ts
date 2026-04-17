@@ -225,16 +225,32 @@ export function useWebSocket(sessionId: string | null) {
         updateLastAssistantToken(sessionId!, evt.token as string)
       } else if (type === 'llm_done') {
         const hadStreaming = !!streamingMsgId.current
+        const hasToolCalls = !!evt.has_tool_calls
         streamingMsgId.current = null
         waitingReply.current = false
         if (replyTimeoutRef.current) { clearTimeout(replyTimeoutRef.current); replyTimeoutRef.current = null }
-        // 本轮 LLM 输出结束，立即重置为 idle，避免残留 thinking 状态导致闪现加载气泡
-        setCatState('idle')
         // 清除幽灵空 streaming 消息，将最后一条标记为完成
         const sid = sessionId!
         const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const cleanedMsgs = msgs.filter(m => !(m.role === 'assistant' && m.streaming && !m.content))
         const last = cleanedMsgs[cleanedMsgs.length - 1]
+
+        // LLM 只返回了工具调用（无文本 token）：不报错、不设 idle，后续 tool_call 事件会处理
+        if (hasToolCalls) {
+          if (hadStreaming && last?.streaming) {
+            // 有文本 + 有工具：先把文本气泡标记为完成
+            useAppStore.getState().setMessages(sid, [
+              ...cleanedMsgs.slice(0, -1),
+              { ...last, streaming: false },
+            ])
+          } else if (cleanedMsgs.length !== msgs.length) {
+            useAppStore.getState().setMessages(sid, cleanedMsgs)
+          }
+          return
+        }
+
+        // 无工具调用，本轮 LLM 输出结束，重置为 idle
+        setCatState('idle')
 
         // 如果本轮完全没有收到 token 且没有 streaming 气泡，插入一条回退提示
         // （常见原因：后端 LLM 返回空内容、WS 中途重连丢失 token 等）
