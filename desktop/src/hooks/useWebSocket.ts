@@ -141,13 +141,15 @@ export function useWebSocket(sessionId: string | null) {
         updateLastAssistantToken(sessionId, evt.token as string)
       } else if (type === 'llm_done') {
         streamingMsgId.current = null
-        // Mark last assistant message as done
+        setCatState('idle')
+        // 清除幽灵空 streaming 消息，将最后一条标记为完成
         const msgs = useAppStore.getState().messagesBySession[sessionId] ?? []
-        const last = msgs[msgs.length - 1]
+        const cleanedMsgs = msgs.filter(m => !(m.role === 'assistant' && m.streaming && !m.content))
+        const last = cleanedMsgs[cleanedMsgs.length - 1]
         if (last?.streaming) {
           const finalContent = last.content
           useAppStore.getState().setMessages(sessionId, [
-            ...msgs.slice(0, -1),
+            ...cleanedMsgs.slice(0, -1),
             { ...last, streaming: false },
           ])
           // Write assistant message to local SQLite
@@ -196,8 +198,10 @@ export function useWebSocket(sessionId: string | null) {
               // WebSocket 模式下后端已有上下文，可以后续从后端推送 title_update 事件来实现
             }
           }
+        } else if (cleanedMsgs.length !== msgs.length) {
+          // 无 streaming 消息，但幽灵气泡未清理，补一次 setMessages
+          useAppStore.getState().setMessages(sessionId, cleanedMsgs)
         }
-      } else if (type === 'server_tool_call') {
         // Server-side tool: display card only, no local execution
         const tc: ToolCall = {
           callId: evt.call_id as string,
@@ -306,6 +310,10 @@ export function useWebSocket(sessionId: string | null) {
       wsRef.current = null
       _ws = null
       setWsStatus('disconnected')
+      streamingMsgId.current = null
+      setCatState('idle')
+      streamingMsgId.current = null
+      setCatState('idle')
       if (pingTimer.current) clearInterval(pingTimer.current)
       // Skip reconnect if this was an intentional close (e.g. session changed)
       if (intentionalClose.current) return
