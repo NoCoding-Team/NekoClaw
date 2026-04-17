@@ -80,7 +80,11 @@ export function useWebSocket(sessionId: string | null) {
         pendingMessage.current = null
         pendingLocalHistory.current = null
         const sid = useAppStore.getState().activeSessionId!
-        appendMessage(sid, { id: uuidv4(), role: 'user', content })
+        // 若 handleSend 已乐观写入该条消息（新对话场景），跳过重复追加
+        const existingMsgs = useAppStore.getState().messagesBySession[sid] ?? []
+        if (!existingMsgs.some(m => m.role === 'user' && m.content === content)) {
+          appendMessage(sid, { id: uuidv4(), role: 'user', content })
+        }
         // Write user message to local SQLite for the new server session
         const dbBridge = window.nekoBridge?.db
         if (dbBridge && sid) {

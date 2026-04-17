@@ -222,3 +222,17 @@ function ToolCallCard({ tc }: { tc: ToolCall }) {
     </div>
   )
 }
+
+/** AI 思考中气泡——三个跳动圆点 */
+export function ThinkingBubble() {
+  return (
+    <div className={styles.row}>
+      <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+      <div className={styles.thinkingBubble}>
+        <span className={styles.thinkingDot} />
+        <span className={styles.thinkingDot} />
+        <span className={styles.thinkingDot} />
+      </div>
+    </div>
+  )
+}

@@ -1,7 +1,8 @@
 import { useRef, useEffect, KeyboardEvent, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useAppStore, ChatMessage as ChatMsg, ToolCall, TurnSegment } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
-import { ChatMessage } from './ChatMessage'
+import { ChatMessage, ThinkingBubble } from './ChatMessage'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
 import { SkillSelector } from './SkillSelector'
@@ -97,6 +98,8 @@ export function ChatArea() {
     replaceSession,
     addSession,
     setActiveSession,
+    appendMessage,
+    setCatState,
   } = useAppStore()
 
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? []) : []
@@ -263,6 +266,13 @@ export function ChatArea() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
+  // 进入思考状态时滚动到底部，让三点气泡可见
+  useEffect(() => {
+    if (catState === 'thinking') {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [catState])
+
   // 当 activeSessionId 刚切换过来，且有待发消息时触发
   useEffect(() => {
     if (pendingMsgRef.current && activeSessionId) {
@@ -280,6 +290,9 @@ export function ChatArea() {
       const newId = `local-${Date.now()}`
       addSession({ id: newId, title: '新对话' })
       setActiveSession(newId)
+      // 立刻写入用户消息，避免欢迎屏闪烁；并进入思考态让三点气泡立即出现
+      appendMessage(newId, { id: uuidv4(), role: 'user', content: text })
+      setCatState('thinking')
       pendingMsgRef.current = text
       setInput('')
       return
@@ -435,6 +448,7 @@ export function ChatArea() {
         {groupToolMessages(messages).map((m) => (
           <ChatMessage key={m.id} message={m} />
         ))}
+        {catState === 'thinking' && !messages.some(m => m.streaming) && <ThinkingBubble />}
         <div ref={bottomRef} />
       </div>
       <div className={styles.inputArea}>
