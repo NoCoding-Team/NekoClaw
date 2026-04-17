@@ -127,8 +127,13 @@ export function useWebSocket(sessionId: string | null) {
         setCatState(evt.state as any)
       } else if (type === 'llm_thinking') {
         setCatState('thinking')
+        // 预先插入空 streaming 气泡，llm_token 到达时直接追加内容
+        const thinkingId = uuidv4()
+        streamingMsgId.current = thinkingId
+        appendMessage(sessionId, { id: thinkingId, role: 'assistant', content: '', streaming: true })
       } else if (type === 'llm_token') {
         if (!streamingMsgId.current) {
+          // 兜底：服务端未发 llm_thinking 时在此创建气泡
           const id = uuidv4()
           streamingMsgId.current = id
           appendMessage(sessionId, { id, role: 'assistant', content: '', streaming: true })

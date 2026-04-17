@@ -239,8 +239,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-}
-.thinkingDot {
+}/* 内联三点容器（在 aiBubble 内使用） */
+.thinkingDots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 0;
+}.thinkingDot {
   width: 7px;
   height: 7px;
   border-radius: 50%;

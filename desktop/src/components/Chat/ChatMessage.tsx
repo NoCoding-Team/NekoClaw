@@ -49,7 +49,7 @@ export function ChatMessage({ message }: Props) {
           ))}
           {message.streaming && !message.content?.trim() && (
             <div className={styles.toolResponse}>
-              <AiMarkdown content="▋" />
+              <ThinkingDots />
             </div>
           )}
         </div>
@@ -70,7 +70,10 @@ export function ChatMessage({ message }: Props) {
           </div>
           {(message.content || message.streaming) && (
             <div className={styles.toolResponse}>
-              <AiMarkdown content={message.content || (message.streaming ? '▋' : '')} />
+              {message.streaming && !message.content
+                ? <ThinkingDots />
+                : <AiMarkdown content={message.content || ''} />
+              }
             </div>
           )}
         </div>
@@ -99,7 +102,10 @@ export function ChatMessage({ message }: Props) {
     <div className={styles.row}>
       <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
       <div className={styles.aiBubble + ' selectable'}>
-        <AiMarkdown content={message.content || (message.streaming ? '▋' : '')} />
+        {message.streaming && !message.content
+          ? <ThinkingDots />
+          : <AiMarkdown content={message.content || (message.streaming ? '▋' : '')} />
+        }
       </div>
     </div>
   )
@@ -219,6 +225,17 @@ function ToolCallCard({ tc }: { tc: ToolCall }) {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** 内联三点动画（用于 AI 气泡内部） */
+function ThinkingDots() {
+  return (
+    <div className={styles.thinkingDots}>
+      <span className={styles.thinkingDot} />
+      <span className={styles.thinkingDot} />
+      <span className={styles.thinkingDot} />
     </div>
   )
 }
