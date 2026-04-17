@@ -230,6 +230,7 @@ async def generate_title(
             model_name = cfg.get("model", "")
             base_url = cfg.get("base_url")
             temperature = cfg.get("temperature", 0.7)
+            print(f"[generate-title] Using custom LLM: provider={provider}, model={model_name}")
 
             if provider == "anthropic":
                 from langchain_anthropic import ChatAnthropic  # type: ignore[import-untyped]
@@ -245,17 +246,21 @@ async def generate_title(
                 model = ChatOpenAI(**kwargs)  # type: ignore[call-arg]
         else:
             # Fallback: use the first available server-side LLM config
+            print("[generate-title] No custom LLM config, using server fallback")
             from app.services.agent.provider import get_chat_model
             from app.models.llm_config import LLMConfig
             async with AsyncSessionLocal() as db:
                 result = await db.execute(select(LLMConfig).limit(1))
                 llm_cfg = result.scalar_one_or_none()
             if not llm_cfg:
+                print("[generate-title] No server LLM config found")
                 return {"title": None, "error": "No LLM config available"}
             model = get_chat_model(llm_cfg)
 
         result = await model.ainvoke([_HM(content=prompt)])
         title = (result.content.strip() if isinstance(result.content, str) else str(result.content).strip())[:30]
+        print(f"[generate-title] Generated: {title!r}")
         return {"title": title or None}
     except Exception as exc:
+        import traceback; traceback.print_exc()
         return {"title": None, "error": str(exc)}

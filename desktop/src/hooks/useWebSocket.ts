@@ -213,44 +213,58 @@ export function useWebSocket(sessionId: string | null) {
       if (type === 'cat_state') {
         setCatState(evt.state as any)
         // 标题两段式 Stage 2：第一轮对话 finalize 后，调用 LLM 生成摘要标题
-        if (evt.state === 'success' && sessionId && !_titleGenerated.has(sessionId)) {
-          const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
-          const userMsgCount = allMsgs.filter(m => m.role === 'user').length
-          if (userMsgCount === 1) {
-            _titleGenerated.add(sessionId)
-            const firstUserMsg = allMsgs.find(m => m.role === 'user')
-            const lastAiMsg = [...allMsgs].reverse().find(m => m.role === 'assistant' && m.content)
-            if (firstUserMsg && lastAiMsg) {
-              const { serverUrl: sv, customLLMConfig } = useAppStore.getState()
-              const body: Record<string, unknown> = {
-                user_message: firstUserMsg.content,
-                ai_reply: lastAiMsg.content,
-              }
-              if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
-                body.custom_llm_config = {
-                  provider: customLLMConfig.provider,
-                  model: customLLMConfig.model,
-                  api_key: customLLMConfig.api_key,
-                  base_url: customLLMConfig.base_url || null,
-                  temperature: customLLMConfig.temperature,
-                }
-              }
-              apiFetch(`${sv}/api/sessions/generate-title`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
+        if (evt.state === 'success' && sessionId) {
+          if (_titleGenerated.has(sessionId)) {
+            console.log('[Title] Stage 2 跳过：已生成过标题', sessionId)
+          } else {
+            const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+            const userMsgCount = allMsgs.filter(m => m.role === 'user').length
+            console.log('[Title] Stage 2 检查:', { sessionId, userMsgCount, msgCount: allMsgs.length })
+            if (userMsgCount === 1) {
+              _titleGenerated.add(sessionId)
+              const firstUserMsg = allMsgs.find(m => m.role === 'user')
+              const lastAiMsg = [...allMsgs].reverse().find(m => m.role === 'assistant' && m.content && !m.streaming)
+              console.log('[Title] Stage 2 消息:', {
+                firstUser: firstUserMsg?.content?.slice(0, 30),
+                lastAi: lastAiMsg?.content?.slice(0, 30),
+                lastAiStreaming: lastAiMsg?.streaming,
               })
-                .then(r => r.json())
-                .then(data => {
-                  if (data.title) {
-                    useAppStore.getState().updateSessionTitle(sessionId!, data.title)
-                    const dbBridge = window.nekoBridge?.db
-                    if (dbBridge) {
-                      dbBridge.upsertSession(sessionId!, data.title, Date.now()).catch(() => {})
-                    }
+              if (firstUserMsg && lastAiMsg) {
+                const { serverUrl: sv, customLLMConfig } = useAppStore.getState()
+                const body: Record<string, unknown> = {
+                  user_message: firstUserMsg.content,
+                  ai_reply: lastAiMsg.content,
+                }
+                if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
+                  body.custom_llm_config = {
+                    provider: customLLMConfig.provider,
+                    model: customLLMConfig.model,
+                    api_key: customLLMConfig.api_key,
+                    base_url: customLLMConfig.base_url || null,
+                    temperature: customLLMConfig.temperature,
                   }
+                }
+                console.log('[Title] Stage 2 发起请求:', `${sv}/api/sessions/generate-title`, { hasCustomLLM: !!body.custom_llm_config })
+                apiFetch(`${sv}/api/sessions/generate-title`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(body),
                 })
-                .catch(() => {}) // Stage 2 失败不影响功能
+                  .then(async (r) => {
+                    const data = await r.json()
+                    console.log('[Title] Stage 2 响应:', { status: r.status, data })
+                    if (data.title) {
+                      useAppStore.getState().updateSessionTitle(sessionId!, data.title)
+                      const dbBridge = window.nekoBridge?.db
+                      if (dbBridge) {
+                        dbBridge.upsertSession(sessionId!, data.title, Date.now()).catch(() => {})
+                      }
+                    }
+                  })
+                  .catch((err) => console.warn('[Title] Stage 2 请求失败:', err))
+              } else {
+                console.warn('[Title] Stage 2 跳过：缺少用户/AI 消息', { hasUser: !!firstUserMsg, hasAi: !!lastAiMsg })
+              }
             }
           }
         }
