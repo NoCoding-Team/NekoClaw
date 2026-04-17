@@ -136,6 +136,7 @@ async def _heartbeat(ws: WebSocket, session_id: str):
 
 async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSocket):
     """Process incoming user message: persist, run LangGraph agent."""
+    import traceback
     from app.services.agent import run_agent
 
     content = data.get("content", "")
@@ -163,14 +164,21 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
     await send_event(ws, "cat_state", {"state": "thinking"})
     await send_event(ws, "llm_thinking", {})
 
-    await run_agent(
-        session_id=session_id,
-        user_id=user_id,
-        skill_id=skill_id,
-        ws=ws,
-        allowed_tools_override=allowed_tools,
-        custom_llm_config=custom_llm_config,
-    )
+    try:
+        await run_agent(
+            session_id=session_id,
+            user_id=user_id,
+            skill_id=skill_id,
+            ws=ws,
+            allowed_tools_override=allowed_tools,
+            custom_llm_config=custom_llm_config,
+        )
+    except Exception as exc:
+        traceback.print_exc()
+        err_msg = f"⚠️ Agent 执行出错: {exc}"
+        await send_event(ws, "llm_token", {"token": err_msg})
+        await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4())})
+        await send_event(ws, "cat_state", {"state": "error"})
 
 
 async def get_pending_tool_future(call_id: str) -> asyncio.Future:

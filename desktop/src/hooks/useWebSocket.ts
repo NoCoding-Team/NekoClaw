@@ -123,6 +123,11 @@ export function useWebSocket(sessionId: string | null) {
       }
       const type = evt.event as string
 
+      // Debug logging — 帮助排查消息流
+      if (type !== 'pong' && type !== 'ping') {
+        console.debug('[WS]', type, type === 'llm_token' ? `"${(evt.token as string)?.slice(0, 30)}"` : JSON.stringify(evt).slice(0, 120))
+      }
+
       if (type === 'cat_state') {
         setCatState(evt.state as any)
       } else if (type === 'llm_thinking') {
@@ -133,19 +138,20 @@ export function useWebSocket(sessionId: string | null) {
           // 首个 token 到达时创建气泡（工具卡已在其前，此时 append 就是最后一条）
           const id = uuidv4()
           streamingMsgId.current = id
-          appendMessage(sessionId, { id, role: 'assistant', content: '', streaming: true })
+          appendMessage(sessionId!, { id, role: 'assistant', content: '', streaming: true })
         }
-        updateLastAssistantToken(sessionId, evt.token as string)
+        updateLastAssistantToken(sessionId!, evt.token as string)
       } else if (type === 'llm_done') {
         streamingMsgId.current = null
         // 不在此设 catState='idle'——差包场景下 llm_done 会多次触发，由后端 cat_state 事件统一控制
         // 清除幽灵空 streaming 消息，将最后一条标记为完成
-        const msgs = useAppStore.getState().messagesBySession[sessionId] ?? []
+        const sid = sessionId!
+        const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         const cleanedMsgs = msgs.filter(m => !(m.role === 'assistant' && m.streaming && !m.content))
         const last = cleanedMsgs[cleanedMsgs.length - 1]
         if (last?.streaming) {
           const finalContent = last.content
-          useAppStore.getState().setMessages(sessionId, [
+          useAppStore.getState().setMessages(sid, [
             ...cleanedMsgs.slice(0, -1),
             { ...last, streaming: false },
           ])
@@ -197,7 +203,7 @@ export function useWebSocket(sessionId: string | null) {
           }
         } else if (cleanedMsgs.length !== msgs.length) {
           // 无 streaming 消息，但幽灵气泡未清理，补一次 setMessages
-          useAppStore.getState().setMessages(sessionId, cleanedMsgs)
+          useAppStore.getState().setMessages(sid, cleanedMsgs)
         }
       } else if (type === 'server_tool_call') {
         // Server-side tool: display card only, no local execution
@@ -208,9 +214,9 @@ export function useWebSocket(sessionId: string | null) {
           riskLevel: ((evt.risk_level as string) || 'LOW') as any,
           status: 'executing',
         }
-        appendMessage(sessionId, { id: uuidv4(), role: 'tool', content: '', toolCalls: [tc] })
+        appendMessage(sessionId!, { id: uuidv4(), role: 'tool', content: '', toolCalls: [tc] })
       } else if (type === 'server_tool_done') {
-        updateToolCallStatus(sessionId, evt.call_id as string, {
+        updateToolCallStatus(sessionId!, evt.call_id as string, {
           status: 'done',
           result: (evt.result as string) || '',
         })
@@ -364,7 +370,8 @@ export function useWebSocket(sessionId: string | null) {
         useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
         // pendingMessage 会在 onopen 中被发送（connect 会因 activeSessionId 变化而重新触发）
         const { securityConfig: sc } = useAppStore.getState()
-        const allowedTools = sc.toolWhitelist   // 空数组 = 无工具，原样传递
+        // toolWhitelist 为空数组时表示「未配置白名单」，应传 null 让后端使用全部工具
+        const allowedTools = sc.toolWhitelist.length > 0 ? sc.toolWhitelist : null
         setCatState('thinking')
         pendingMessage.current = { content, skillId, allowedTools }
         pendingLocalHistory.current = localHistory
@@ -383,7 +390,8 @@ export function useWebSocket(sessionId: string | null) {
     })
     resetRound(sessionId!)
     const { securityConfig } = useAppStore.getState()
-    const allowedTools = securityConfig.toolWhitelist   // 空数组 = 无工具，原样传递
+    // toolWhitelist 为空数组时表示「未配置白名单」，应传 null 让后端使用全部工具
+    const allowedTools = securityConfig.toolWhitelist.length > 0 ? securityConfig.toolWhitelist : null
 
     // Write user message to local SQLite
     const dbBridge = window.nekoBridge?.db
