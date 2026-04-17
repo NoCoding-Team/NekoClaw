@@ -446,9 +446,13 @@ export function useWebSocket(sessionId: string | null) {
               .map(m => ({ role: m.role, content: m.content }))
           }
 
-          // Optimistic UI
+          // Optimistic UI — skip if handleSend already appended this user message
+          const existingMsgs = useAppStore.getState().messagesBySession[currentSessionId] ?? []
+          const alreadyAppended = existingMsgs.some(m => m.role === 'user' && m.content === content)
           const userMsgId = uuidv4()
-          appendMessage(currentSessionId, { id: userMsgId, role: 'user', content })
+          if (!alreadyAppended) {
+            appendMessage(currentSessionId, { id: userMsgId, role: 'user', content })
+          }
           resetRound(currentSessionId)
 
           // Write to local SQLite
