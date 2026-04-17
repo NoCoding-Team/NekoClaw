@@ -12,8 +12,11 @@ import { apiFetch } from '../../api/apiFetch'
 /**
  * 将同一 agent 轮次（两条 user 消息之间）的消息合并为单一气泡，
  * 按时间顺序保留所有文本和工具段落：文本 → 工具 → 文本 → 工具 → …
+ *
+ * @param agentBusy  当 catState 为 thinking/working 时传 true，
+ *                   让最后一个含工具的轮次显示内嵌加载动画。
  */
-function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
+function groupToolMessages(msgs: ChatMsg[], agentBusy = false): ChatMsg[] {
   const result: ChatMsg[] = []
   let i = 0
 
@@ -62,7 +65,14 @@ function groupToolMessages(msgs: ChatMsg[]): ChatMsg[] {
 
     // 最后一条 assistant 可能正在 streaming（content 还是空的）
     const lastAssistant = [...turnMsgs].reverse().find(m => m.role === 'assistant')
-    const isStreaming = lastAssistant?.streaming
+    let isStreaming = lastAssistant?.streaming
+
+    // 若本 turn 是最后一个且 agent 仍在忙（thinking/working），
+    // 标记为 streaming 以在气泡内部显示加载动画，而非单独一行
+    const isLastTurn = i >= msgs.length
+    if (isLastTurn && agentBusy && !lastAssistant?.content?.trim()) {
+      isStreaming = true
+    }
 
     result.push({
       id: turnMsgs[0].id,
@@ -445,10 +455,19 @@ export function ChatArea() {
       </div>
       {showAssets && <AssetsPanel onClose={() => setShowAssets(false)} />}
       <div className={styles.messages}>
-        {groupToolMessages(messages).map((m) => (
-          <ChatMessage key={m.id} message={m} />
-        ))}
-        {(catState === 'thinking' || catState === 'working') && !messages.some(m => m.streaming) && !messages.some(m => m.role === 'tool' && m.toolCalls?.some(tc => tc.status === 'pending' || tc.status === 'executing')) && <ThinkingBubble />}
+        {(() => {
+          const agentBusy = catState === 'thinking' || catState === 'working'
+          const grouped = groupToolMessages(messages, agentBusy)
+          const lastHasTools = grouped.length > 0 && (grouped[grouped.length - 1].toolCalls?.length ?? 0) > 0
+          return (
+            <>
+              {grouped.map((m) => (
+                <ChatMessage key={m.id} message={m} />
+              ))}
+              {agentBusy && !messages.some(m => m.streaming) && !lastHasTools && <ThinkingBubble />}
+            </>
+          )
+        })()}
         <div ref={bottomRef} />
       </div>
       <div className={styles.inputArea}>
