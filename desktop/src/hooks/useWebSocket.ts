@@ -24,6 +24,8 @@ const _ephemeralServerMap: Record<string, string> = {}
 // Per-round tool call tracking for loop guard & call limit
 const _roundToolCount: Record<string, number> = {}         // sessionId → count in current round
 const _recentTools: Record<string, string[]> = {}          // sessionId → recent tool names (window)
+// 跟踪 callId → 本地 SQLite 消息 ID 的映射，用于工具执行完毕后更新持久化状态
+const _callIdToMsgId: Record<string, string> = {}
 
 function resetRound(sessionId: string) {
   _roundToolCount[sessionId] = 0
@@ -317,12 +319,34 @@ export function useWebSocket(sessionId: string | null) {
           riskLevel: ((evt.risk_level as string) || 'LOW') as any,
           status: 'executing',
         }
-        appendMessage(sessionId!, { id: uuidv4(), role: 'tool', content: '', toolCalls: [tc] })
+        const toolMsgId = uuidv4()
+        _callIdToMsgId[evt.call_id as string] = toolMsgId
+        appendMessage(sessionId!, { id: toolMsgId, role: 'tool', content: '', toolCalls: [tc] })
+        // 持久化工具调用消息到本地 SQLite
+        const dbBridgeStc = window.nekoBridge?.db
+        if (dbBridgeStc && sessionId) {
+          dbBridgeStc.insertMessage({ id: toolMsgId, sessionId, role: 'tool', content: '', toolCalls: JSON.stringify([tc]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
+        }
       } else if (type === 'server_tool_done') {
-        updateToolCallStatus(sessionId!, evt.call_id as string, {
+        const doneCallId = evt.call_id as string
+        updateToolCallStatus(sessionId!, doneCallId, {
           status: 'done',
           result: (evt.result as string) || '',
         })
+        // 更新本地 SQLite 中的工具调用状态
+        const doneMsgId = _callIdToMsgId[doneCallId]
+        if (doneMsgId) {
+          const dbBridgeDone = window.nekoBridge?.db
+          if (dbBridgeDone) {
+            // 从 store 中获取更新后的 toolCalls
+            const allMsgs = useAppStore.getState().messagesBySession[sessionId!] ?? []
+            const toolMsg = allMsgs.find(m => m.id === doneMsgId)
+            if (toolMsg?.toolCalls) {
+              dbBridgeDone.updateMessageToolCalls?.(doneMsgId, JSON.stringify(toolMsg.toolCalls)).catch(() => {})
+            }
+          }
+          delete _callIdToMsgId[doneCallId]
+        }
       } else if (type === 'tool_call') {
         // Append tool call card then execute
         const callId = evt.call_id as string
@@ -340,12 +364,19 @@ export function useWebSocket(sessionId: string | null) {
           status: 'pending',
         }
 
+        const toolMsgIdCt = uuidv4()
+        _callIdToMsgId[callId] = toolMsgIdCt
         appendMessage(sessionId, {
-          id: uuidv4(),
+          id: toolMsgIdCt,
           role: 'tool',
           content: '',
           toolCalls: [tc],
         })
+        // 持久化工具调用消息到本地 SQLite
+        const dbBridgeCt = window.nekoBridge?.db
+        if (dbBridgeCt && sessionId) {
+          dbBridgeCt.insertMessage({ id: toolMsgIdCt, sessionId, role: 'tool', content: '', toolCalls: JSON.stringify([tc]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
+        }
 
         const { securityConfig } = useAppStore.getState()
 
@@ -409,7 +440,7 @@ export function useWebSocket(sessionId: string | null) {
           if (inToolWhitelist) {
             useAppStore.getState().incrementToolCallCount(toolName)
           }
-          await _executeAndReply(ws, sessionId, tc, callId)
+          await _executeAndReply(ws, sessionId, tc, callId, toolMsgIdCt)
         }
         // For MEDIUM/HIGH (not whitelisted, not full-access): SandboxConfirmDialog handles it
       } else if (type === 'tool_denied') {
@@ -715,14 +746,25 @@ async function _executeAndReply(
   ws: WebSocket,
   sessionId: string,
   tc: ToolCall,
-  callId: string
+  callId: string,
+  toolMsgId?: string,
 ) {
   useAppStore.getState().updateToolCallStatus(sessionId, callId, { status: 'executing' })
   const result = await executeLocalTool(tc.tool, tc.args)
+  const finalStatus = result.error ? 'error' : 'done'
+  const resultStr = JSON.stringify(result)
   useAppStore.getState().updateToolCallStatus(sessionId, callId, {
-    status: result.error ? 'error' : 'done',
-    result: JSON.stringify(result),
+    status: finalStatus,
+    result: resultStr,
   })
+  // 更新本地 SQLite 中的工具调用状态
+  if (toolMsgId) {
+    const dbBridge = window.nekoBridge?.db
+    if (dbBridge) {
+      const updatedTc = { ...tc, status: finalStatus, result: resultStr }
+      dbBridge.updateMessageToolCalls?.(toolMsgId, JSON.stringify([updatedTc])).catch(() => {})
+    }
+  }
   ws.send(JSON.stringify({ event: 'tool_result', call_id: callId, result }))
 }
 

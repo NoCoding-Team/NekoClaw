@@ -77,6 +77,12 @@ function dbDeleteSession(sessionId: string): void {
   db.prepare('DELETE FROM local_sessions WHERE id = ?').run(sessionId)
 }
 
+function dbUpdateMessageToolCalls(id: string, toolCalls: string): void {
+  getDb().prepare(
+    'UPDATE local_messages SET tool_calls = ? WHERE id = ?'
+  ).run(toolCalls, id)
+}
+
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
 // Set app name and identity so Windows taskbar shows "NekoClaw" instead of "Electron"
@@ -365,6 +371,11 @@ ipcMain.handle('db:markSynced', (_e, sessionId: string) => {
 
 ipcMain.handle('db:deleteSession', (_e, sessionId: string) => {
   try { dbDeleteSession(sessionId); return { success: true } }
+  catch (err) { return { error: String(err) } }
+})
+
+ipcMain.handle('db:updateMessageToolCalls', (_e, id: string, toolCalls: string) => {
+  try { dbUpdateMessageToolCalls(id, toolCalls); return { success: true } }
   catch (err) { return { error: String(err) } }
 })
 

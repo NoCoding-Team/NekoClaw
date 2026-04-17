@@ -67,6 +67,9 @@ export const nekoBridge = {
     deleteSession: (sessionId: string): Promise<{ success?: boolean; error?: string }> =>
       ipcRenderer.invoke('db:deleteSession', sessionId),
 
+    updateMessageToolCalls: (id: string, toolCalls: string): Promise<{ success?: boolean; error?: string }> =>
+      ipcRenderer.invoke('db:updateMessageToolCalls', id, toolCalls),
+
     readLegacyLocalMemories: (): Promise<{
       entries: Array<{ id: string; category: string; content: string; created_at: string }>
     }> => ipcRenderer.invoke('db:readLegacyLocalMemories'),
