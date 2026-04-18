@@ -418,57 +418,50 @@ function GeneralTab() {
       </div>
 
       {/* 知识库目录 */}
-      <div className={styles.secRow}>
-        <div className={styles.secRowLeft}>
+      <div className={styles.settingsBlock}>
+        <div className={styles.settingsBlockHeader}>
           <div className={styles.secRowTitle}>知识库目录</div>
-          <div className={styles.secRowDesc}>
-            指定一个本地目录，其中的 .md / .txt / .pdf 文件将被索引，供 Agent 搜索。
-          </div>
+          <div className={styles.secRowDesc}>指定一个本地目录，其中的 .md / .txt / .pdf 文件将被索引，供 Agent 搜索。</div>
         </div>
-      </div>
-      <div style={{ display: 'flex', gap: '8px', padding: '0 0 12px' }}>
         <input
-          className={styles.input}
+          className={styles.formInput}
           value={knowledgeDir}
           onChange={e => setKnowledgeDir(e.target.value)}
           onBlur={handleKnowledgeDirChange}
           placeholder="例如 C:\Users\me\Documents\knowledge"
-          style={{ flex: 1 }}
         />
       </div>
 
       {/* Embedding 配置 */}
-      <div className={styles.secRow}>
-        <div className={styles.secRowLeft}>
+      <div className={styles.settingsBlock}>
+        <div className={styles.settingsBlockHeader}>
           <div className={styles.secRowTitle}>Embedding 模型</div>
-          <div className={styles.secRowDesc}>
-            配置向量嵌入模型，用于知识库语义检索。留空则仅使用关键词检索。
-          </div>
+          <div className={styles.secRowDesc}>配置向量嵌入模型，用于记忆语义检索。留空则仅使用关键词检索。</div>
         </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 12px' }}>
-        <input
-          className={styles.input}
-          value={embBaseUrl}
-          onChange={e => setEmbBaseUrl(e.target.value)}
-          onBlur={handleEmbeddingSave}
-          placeholder="API Base URL（如 https://api.openai.com/v1）"
-        />
-        <input
-          className={styles.input}
-          value={embModel}
-          onChange={e => setEmbModel(e.target.value)}
-          onBlur={handleEmbeddingSave}
-          placeholder="模型名称（如 text-embedding-3-small）"
-        />
-        <input
-          className={styles.input}
-          type="password"
-          value={embApiKey}
-          onChange={e => setEmbApiKey(e.target.value)}
-          onBlur={handleEmbeddingSave}
-          placeholder="API Key"
-        />
+        <div className={styles.settingsBlockInputs}>
+          <input
+            className={styles.formInput}
+            value={embBaseUrl}
+            onChange={e => setEmbBaseUrl(e.target.value)}
+            onBlur={handleEmbeddingSave}
+            placeholder="API Base URL（如 https://api.openai.com/v1）"
+          />
+          <input
+            className={styles.formInput}
+            value={embModel}
+            onChange={e => setEmbModel(e.target.value)}
+            onBlur={handleEmbeddingSave}
+            placeholder="模型名称（如 text-embedding-3-small）"
+          />
+          <input
+            className={styles.formInput}
+            type="password"
+            value={embApiKey}
+            onChange={e => setEmbApiKey(e.target.value)}
+            onBlur={handleEmbeddingSave}
+            placeholder="API Key"
+          />
+        </div>
       </div>
     </div>
   )

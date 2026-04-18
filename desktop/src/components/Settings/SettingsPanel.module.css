@@ -687,6 +687,26 @@
 .secRowTitle { font-size: 14px; font-weight: 500; color: var(--text-primary); }
 .secRowDesc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
 
+/* Settings block (title + desc + inputs as one unit) */
+.settingsBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settingsBlock:last-child { border-bottom: none; }
+.settingsBlockHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.settingsBlockInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 /* Toggle button */
 .toggle {
   width: 40px;
