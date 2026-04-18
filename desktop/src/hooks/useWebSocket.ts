@@ -356,26 +356,11 @@ export function useWebSocket(sessionId: string | null) {
             dbBridge.insertMessage({ id: uuidv4(), sessionId, role: 'assistant', content: finalContent, toolCalls: null, tokenCount: finalContent.length, createdAt: Date.now() }).catch(() => {})
           }
           // 自动批量同步（当 syncEnabled=true 时）
-          const { syncEnabled, serverUrl: svSync, token: tkSync } = useAppStore.getState()
+          // 后端 agent 已经持久化了本次消息，只需标记本地 SQLite 为已同步，
+          // 避免再次 POST 到 /messages/batch 造成重复写入。
+          const { syncEnabled, token: tkSync } = useAppStore.getState()
           if (syncEnabled && tkSync && dbBridge) {
-            ;(async () => {
-              try {
-                const unsynced = await dbBridge.getMessages(sessionId)
-                const batch = unsynced
-                  .filter((m) => m.synced === 0 && (m.role === 'user' || m.role === 'assistant'))
-                  .map((m) => ({ role: m.role, content: m.content }))
-                if (batch.length > 0) {
-                  await apiFetch(`${svSync}/api/sessions/${sessionId}/messages/batch`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(batch),
-                  })
-                  await dbBridge.markSynced(sessionId)
-                }
-              } catch {
-                // silently retain synced=0 for retry next time
-              }
-            })()
+            dbBridge.markSynced(sessionId).catch(() => {})
           }
           // Stage 2 标题生成由 cat_state:success 处理器触发
         } else if (hadStreaming && cleanedMsgs.length !== msgs.length) {
