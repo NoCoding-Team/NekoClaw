@@ -360,16 +360,43 @@ function ModelCenterTab() {
 function GeneralTab() {
   const { syncEnabled, setSyncEnabled } = useAppStore()
   const [knowledgeDir, setKnowledgeDir] = useState('')
+  const [embBaseUrl, setEmbBaseUrl] = useState('')
+  const [embModel, setEmbModel] = useState('')
+  const [embApiKey, setEmbApiKey] = useState('')
 
   useEffect(() => {
     window.nekoBridge.knowledge.getDir().then(r => {
       if (r.dir) setKnowledgeDir(r.dir)
     })
+    // Load saved embedding config from localStorage
+    const saved = localStorage.getItem('embeddingConfig')
+    if (saved) {
+      try {
+        const cfg = JSON.parse(saved)
+        setEmbBaseUrl(cfg.baseUrl || '')
+        setEmbModel(cfg.model || '')
+        setEmbApiKey(cfg.apiKey || '')
+      } catch { /* ignore */ }
+    }
   }, [])
 
   const handleKnowledgeDirChange = async () => {
     const dir = knowledgeDir.trim() || null
     await window.nekoBridge.knowledge.setDir(dir)
+  }
+
+  const handleEmbeddingSave = async () => {
+    const baseUrl = embBaseUrl.trim()
+    const model = embModel.trim()
+    const apiKey = embApiKey.trim()
+    if (baseUrl && model && apiKey) {
+      const cfg = { baseUrl, model, apiKey }
+      await window.nekoBridge.knowledge.setEmbeddingConfig(cfg)
+      localStorage.setItem('embeddingConfig', JSON.stringify(cfg))
+    } else if (!baseUrl && !model && !apiKey) {
+      await window.nekoBridge.knowledge.setEmbeddingConfig(null)
+      localStorage.removeItem('embeddingConfig')
+    }
   }
 
   return (
@@ -407,6 +434,40 @@ function GeneralTab() {
           onBlur={handleKnowledgeDirChange}
           placeholder="例如 C:\Users\me\Documents\knowledge"
           style={{ flex: 1 }}
+        />
+      </div>
+
+      {/* Embedding 配置 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>Embedding 模型</div>
+          <div className={styles.secRowDesc}>
+            配置向量嵌入模型，用于知识库语义检索。留空则仅使用关键词检索。
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 0 12px' }}>
+        <input
+          className={styles.input}
+          value={embBaseUrl}
+          onChange={e => setEmbBaseUrl(e.target.value)}
+          onBlur={handleEmbeddingSave}
+          placeholder="API Base URL（如 https://api.openai.com/v1）"
+        />
+        <input
+          className={styles.input}
+          value={embModel}
+          onChange={e => setEmbModel(e.target.value)}
+          onBlur={handleEmbeddingSave}
+          placeholder="模型名称（如 text-embedding-3-small）"
+        />
+        <input
+          className={styles.input}
+          type="password"
+          value={embApiKey}
+          onChange={e => setEmbApiKey(e.target.value)}
+          onBlur={handleEmbeddingSave}
+          placeholder="API Key"
         />
       </div>
     </div>

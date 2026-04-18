@@ -142,6 +142,14 @@ export function useWebSocket(sessionId: string | null) {
       pingTimer.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ event: 'ping' }))
       }, 30_000)
+      // Restore embedding config for knowledge module
+      try {
+        const embCfg = localStorage.getItem('embeddingConfig')
+        if (embCfg) {
+          const parsed = JSON.parse(embCfg)
+          window.nekoBridge?.knowledge?.setEmbeddingConfig(parsed).catch(() => {})
+        }
+      } catch { /* ignore */ }
       // 发送带入的待发消息（local- 会话 第一条消息）
       if (pendingMessage.current) {
         const { content, skillId, allowedTools, ephemeral: eph, localHistory: lh } = pendingMessage.current

@@ -56,6 +56,6 @@
 
 ## 7. Embedding 配置体系
 
-- [ ] 7.1 服务端新增默认 embedding 模型配置项（config.py / .env）
-- [ ] 7.2 前端设置面板新增 embedding 模型自定义配置（provider + model + API key）
-- [ ] 7.3 实现 embedding 配置解析优先级：用户自定义 → 服务端默认 → 未配置报错
+- [x] 7.1 服务端新增默认 embedding 模型配置项（config.py / .env）
+- [x] 7.2 前端设置面板新增 embedding 模型自定义配置（provider + model + API key）
+- [x] 7.3 实现 embedding 配置解析优先级：用户自定义 → 服务端默认 → 未配置报错

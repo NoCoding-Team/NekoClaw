@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     LLM_API_KEY_ENCRYPTION_KEY: str
     TAVILY_API_KEY: str = ""
     MEMORY_FILES_DIR: str = "./data/memory"
+    # Embedding 默认配置（可通过 .env 覆盖）
+    EMBEDDING_BASE_URL: str = ""
+    EMBEDDING_MODEL: str = ""
+    EMBEDDING_API_KEY: str = ""
     # 桌面 Electron 应用从 file:// 加载时 Origin 为 null，使用 * 放行所有来源
     # 生产环境可在 .env 中设置为具体域名，如 https://yourdomain.com
     CORS_ORIGINS: str = "*"

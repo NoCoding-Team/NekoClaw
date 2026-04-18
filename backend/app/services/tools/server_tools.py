@@ -184,7 +184,16 @@ async def execute_search_knowledge_base(args: dict[str, Any], user_id: str | Non
             "message": "未配置知识库，请在设置中添加知识库目录或上传文件",
         }, ensure_ascii=False)
 
-    results = await search_knowledge(user_id, query, top_k=top_k)
+    # Resolve embedding config: server default
+    embedding_config = None
+    if settings.EMBEDDING_BASE_URL and settings.EMBEDDING_MODEL and settings.EMBEDDING_API_KEY:
+        embedding_config = {
+            "base_url": settings.EMBEDDING_BASE_URL,
+            "model": settings.EMBEDDING_MODEL,
+            "api_key": settings.EMBEDDING_API_KEY,
+        }
+
+    results = await search_knowledge(user_id, query, top_k=top_k, embedding_config=embedding_config)
 
     if not results:
         return json.dumps({
