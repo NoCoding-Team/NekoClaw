@@ -826,6 +826,10 @@ export function useWebSocket(sessionId: string | null) {
           }
           const s = await res.json()
           useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
+          // 清理本地 SQLite 里的 local-xxx 临时记录，防止重启后再次出现在侧边栏
+          if (dbBridge) {
+            dbBridge.deleteSession(currentSessionId).catch(() => {})
+          }
           // Stage 1: 立即截断标题
           const stage1TitleB = content.slice(0, 15) + (content.length > 15 ? '…' : '')
           useAppStore.getState().updateSessionTitle(s.id, stage1TitleB)
