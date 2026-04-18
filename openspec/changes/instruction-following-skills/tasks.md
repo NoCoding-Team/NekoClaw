@@ -37,11 +37,11 @@
 
 ## 6. 内置 SKILL.md 文件
 
-- [ ] 6.1 创建 `backend/skills/` 目录结构
-- [ ] 6.2 编写 `backend/skills/get-weather/SKILL.md`（天气查询：fetch_url）
-- [ ] 6.3 编写 `backend/skills/summarize-webpage/SKILL.md`（网页总结：fetch_url）
-- [ ] 6.4 编写 `backend/skills/chart-analysis/SKILL.md`（图表分析：python_repl）
-- [ ] 6.5 编写 `backend/skills/code-review/SKILL.md`（代码审查：file_read）
+- [x] 6.1 创建 `backend/skills/` 目录结构
+- [x] 6.2 编写 `backend/skills/get-weather/SKILL.md`（天气查询：fetch_url）
+- [x] 6.3 编写 `backend/skills/summarize-webpage/SKILL.md`（网页总结：fetch_url）
+- [x] 6.4 编写 `backend/skills/chart-analysis/SKILL.md`（图表分析：python_repl）
+- [x] 6.5 编写 `backend/skills/code-review/SKILL.md`（代码审查：file_read）
 
 ## 7. 前端：移除 Skill 相关 UI
 
