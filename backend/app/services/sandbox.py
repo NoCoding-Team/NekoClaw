@@ -122,4 +122,7 @@ def analyze_risk(tool_name: str, args: dict[str, Any]) -> tuple[str, str]:
             return "HIGH", f"Code contains potentially dangerous call: {dangerous.group()}"
         return "MEDIUM", "Python code execution in sandboxed container"
 
+    elif tool_name == "search_knowledge_base":
+        return "LOW", ""
+
     return "LOW", ""

@@ -53,6 +53,22 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "search_knowledge_base",
+        "executor": "server",
+        "description": (
+            "搜索知识库，返回与查询最相关的文档片段。"
+            "当需要从用户的知识库中查找信息时使用此工具。"
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "搜索查询文本"},
+                "top_k": {"type": "integer", "default": 5, "description": "返回结果数量"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
         "name": "http_request",
         "executor": "client",
         "description": "发送自定义 HTTP 请求。仅在需要自定义请求方法、Header、Body 或调用 REST API 时使用。",

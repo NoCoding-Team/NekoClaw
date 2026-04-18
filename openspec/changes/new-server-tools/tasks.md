@@ -41,11 +41,11 @@
 
 ## 5. search_knowledge_base — 云端检索（服务端）
 
-- [ ] 5.1 服务端实现文件上传 API（存储到 `storage/{user_id}/knowledge/`）
-- [ ] 5.2 服务端容器内实现索引构建（复用分块 + embedding 逻辑）
-- [ ] 5.3 服务端实现混合检索函数
-- [ ] 5.4 在 `definitions.py` 注册 `search_knowledge_base` 工具定义（executor: server）
-- [ ] 5.5 在 `server_tools.py` 实现 `execute_search_knowledge_base`
+- [x] 5.1 服务端实现文件上传 API（存储到 `storage/{user_id}/knowledge/`）
+- [x] 5.2 服务端容器内实现索引构建（复用分块 + embedding 逻辑）
+- [x] 5.3 服务端实现混合检索函数
+- [x] 5.4 在 `definitions.py` 注册 `search_knowledge_base` 工具定义（executor: server）
+- [x] 5.5 在 `server_tools.py` 实现 `execute_search_knowledge_base`
 
 ## 6. search_knowledge_base — 动态路由
 

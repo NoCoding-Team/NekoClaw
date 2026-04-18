@@ -166,6 +166,35 @@ async def execute_python_repl(args: dict[str, Any]) -> str:
     }, ensure_ascii=False)
 
 
+async def execute_search_knowledge_base(args: dict[str, Any], user_id: str | None = None) -> str:
+    if not user_id:
+        return json.dumps({"error": "user_id required"})
+
+    query = args.get("query", "").strip()
+    if not query:
+        return json.dumps({"error": "query must not be empty"})
+
+    top_k = args.get("top_k", 5)
+
+    from app.services.knowledge import search_knowledge, has_index
+
+    if not has_index(user_id):
+        return json.dumps({
+            "results": [],
+            "message": "未配置知识库，请在设置中添加知识库目录或上传文件",
+        }, ensure_ascii=False)
+
+    results = await search_knowledge(user_id, query, top_k=top_k)
+
+    if not results:
+        return json.dumps({
+            "results": [],
+            "message": "未找到相关内容",
+        }, ensure_ascii=False)
+
+    return json.dumps({"results": results}, ensure_ascii=False)
+
+
 async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str | None = None) -> str:
     if tool_name == "web_search":
         return await execute_web_search(args)
@@ -173,6 +202,8 @@ async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str
         return await execute_fetch_url(args)
     elif tool_name == "python_repl":
         return await execute_python_repl(args)
+    elif tool_name == "search_knowledge_base":
+        return await execute_search_knowledge_base(args, user_id)
     elif tool_name == "http_request":
         return await execute_http_request(args)
     elif tool_name == "memory_write":
