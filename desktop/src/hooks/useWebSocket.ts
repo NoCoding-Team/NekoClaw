@@ -267,6 +267,15 @@ export function useWebSocket(sessionId: string | null) {
                       if (dbBridge) {
                         dbBridge.upsertSession(sessionId!, data.title, Date.now()).catch(() => {})
                       }
+                      // Sync title to server DB (session may start as "新对话")
+                      const { serverUrl: svPatch, token: tkPatch } = useAppStore.getState()
+                      if (tkPatch && sessionId && !sessionId.startsWith('local-')) {
+                        apiFetch(`${svPatch}/api/sessions/${sessionId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ title: data.title }),
+                        }).catch(() => {})
+                      }
                     }
                   })
                   .catch((err) => console.warn('[Title] Stage 2 请求失败:', err))
