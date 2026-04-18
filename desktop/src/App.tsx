@@ -4,7 +4,6 @@ import { ChatArea } from './components/Chat/ChatArea'
 import { useAppStore } from './store/app'
 import styles from './App.module.css'
 import ScheduledTasksPanel from './components/ScheduledTasks/ScheduledTasksPanel'
-import SkillsPanel from './components/Skills/SkillsPanel'
 import MemoryPanel from './components/Memory/MemoryPanel'
 import { SettingsPanel } from './components/Settings/SettingsPanel'
 import { PersonalizationPanel } from './components/Settings/PersonalizationPanel'
@@ -96,12 +95,12 @@ export default function App() {
           }
           return
         }
-        const data: Array<{ id: string; title: string; skill_id: string | null }> = await res.json()
+        const data: Array<{ id: string; title: string }> = await res.json()
         // 过滤掉为 WS 传输创建的临时服务端会话
         const ephIds = getEphemeralServerIds()
         const serverSessions = data
           .filter((s) => !ephIds.has(s.id) && s.title !== '临时会话')
-          .map((s) => ({ id: s.id, title: s.title, skillId: s.skill_id ?? undefined }))
+          .map((s) => ({ id: s.id, title: s.title }))
         // local-* 会话排在前面（最近使用），server 会话紧随其后
         const allSessions = [...localOnlySessions, ...serverSessions]
         if (allSessions.length > 0) {
@@ -166,7 +165,6 @@ export default function App() {
 function MainContent() {
   const { sidebarTab } = useAppStore()
   if (sidebarTab === 'tasks')           return <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>
-  if (sidebarTab === 'skills')          return <PanelView title="技能库"><WipPlaceholder name="技能库" icon="🛠️" /></PanelView>
   if (sidebarTab === 'memory')          return <PanelView title="记忆库"><MemoryPanel /></PanelView>
   if (sidebarTab === 'personalization') return <PersonalizationPanel />
   if (sidebarTab === 'abilities')       return <PanelView title="能力"><AbilitiesPanel /></PanelView>

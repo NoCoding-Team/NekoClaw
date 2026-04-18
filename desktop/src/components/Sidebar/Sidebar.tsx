@@ -3,11 +3,10 @@ import styles from './Sidebar.module.css'
 import { useAppStore } from '../../store/app'
 import { apiFetch } from '../../api/apiFetch'
 
-type Tab = 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings' | 'abilities'
+type Tab = 'sessions' | 'tasks' | 'memory' | 'personalization' | 'settings' | 'abilities'
 
 const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
   { id: 'tasks',           icon: '⏰', label: '定时任务'   },
-  { id: 'skills',          icon: '🛠️', label: '技能库'     },
   { id: 'memory',          icon: '🧠', label: '记忆'       },
   { id: 'personalization', icon: '🎨', label: '个性化设置' },
   { id: 'abilities',       icon: '⚡', label: '能力'       },

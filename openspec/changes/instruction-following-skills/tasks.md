@@ -45,10 +45,10 @@
 
 ## 7. 前端：移除 Skill 相关 UI
 
-- [ ] 7.1 移除 `desktop/src/components/Skills/` 目录（如存在 Skill 选择器组件）
-- [ ] 7.2 从 Chat 输入区域移除 Skill 选择器的引用和渲染
-- [ ] 7.3 从 Zustand store 中移除 skill 相关状态和 action
-- [ ] 7.4 从 WebSocket 消息发送逻辑中移除 `skill_id` 字段
+- [x] 7.1 移除 `desktop/src/components/Skills/` 目录（如存在 Skill 选择器组件）
+- [x] 7.2 从 Chat 输入区域移除 Skill 选择器的引用和渲染
+- [x] 7.3 从 Zustand store 中移除 skill 相关状态和 action
+- [x] 7.4 从 WebSocket 消息发送逻辑中移除 `skill_id` 字段
 
 ## 8. 数据库迁移
 

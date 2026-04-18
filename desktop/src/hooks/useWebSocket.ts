@@ -68,7 +68,6 @@ export function useWebSocket(sessionId: string | null) {
   /** 待发的第一条消息（local- 会话 materialized 后在 onopen 中发送） */
   const pendingMessage = useRef<{
     content: string
-    skillId?: string | null
     allowedTools?: string[] | null
     ephemeral?: boolean
     localHistory?: Array<{ role: string; content: string }>
@@ -152,7 +151,7 @@ export function useWebSocket(sessionId: string | null) {
       } catch { /* ignore */ }
       // 发送带入的待发消息（local- 会话 第一条消息）
       if (pendingMessage.current) {
-        const { content, skillId, allowedTools, ephemeral: eph, localHistory: lh } = pendingMessage.current
+        const { content, allowedTools, ephemeral: eph, localHistory: lh } = pendingMessage.current
         const localHistory = lh ?? pendingLocalHistory.current
         pendingMessage.current = null
         pendingLocalHistory.current = null
@@ -176,7 +175,7 @@ export function useWebSocket(sessionId: string | null) {
         waitingReply.current = true
         startReplyTimeout()
         ws.send(JSON.stringify({
-          event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools ?? null,
+          event: 'message', content, allowed_tools: allowedTools ?? null,
           ...(eph ? { ephemeral: true } : {}),
           ...(localHistory?.length ? { local_history: localHistory } : {}),
           ...((() => {
@@ -691,7 +690,7 @@ export function useWebSocket(sessionId: string | null) {
   }, [])
 
   const sendMessage = useCallback(
-    async (content: string, skillId?: string | null) => {
+    async (content: string) => {
       const currentSessionId = useAppStore.getState().activeSessionId
       if (!currentSessionId) return
 
@@ -764,7 +763,7 @@ export function useWebSocket(sessionId: string | null) {
           // Build message payload
           const buildPayload = (): string => {
             const payload: Record<string, unknown> = {
-              event: 'message', content, skill_id: skillId ?? null,
+              event: 'message', content,
               allowed_tools: allowedTools, ephemeral: true, local_history: localHistory,
             }
             const { customLLMConfig } = useAppStore.getState()
@@ -785,7 +784,7 @@ export function useWebSocket(sessionId: string | null) {
             wsRef.current.send(buildPayload())
           } else {
             // First message: queue pending and (re)connect
-            pendingMessage.current = { content, skillId, allowedTools, ephemeral: true, localHistory }
+            pendingMessage.current = { content, allowedTools, ephemeral: true, localHistory }
             if (wsRef.current) { intentionalClose.current = true; wsRef.current.close() }
             intentionalClose.current = false
             connect()
@@ -836,7 +835,7 @@ export function useWebSocket(sessionId: string | null) {
           const { securityConfig: sc } = useAppStore.getState()
           const allowedTools = sc.toolWhitelist
           setCatState('thinking')
-          pendingMessage.current = { content, skillId, allowedTools }
+          pendingMessage.current = { content, allowedTools }
           pendingLocalHistory.current = localHistory
           resetRound(currentSessionId)
         } catch (err) {
@@ -884,7 +883,7 @@ export function useWebSocket(sessionId: string | null) {
       waitingReply.current = true
       startReplyTimeout()
       wsRef.current.send(JSON.stringify({
-        event: 'message', content, skill_id: skillId ?? null, allowed_tools: allowedTools,
+        event: 'message', content, allowed_tools: allowedTools,
         ...(localHistoryPayload ? { local_history: localHistoryPayload } : {}),
         ...((() => {
           const { customLLMConfig } = useAppStore.getState()

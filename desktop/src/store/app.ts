@@ -197,7 +197,6 @@ export interface ToolCall {
 export interface Session {
   id: string
   title: string
-  skillId?: string
 }
 
 export interface AppState {
@@ -249,7 +248,7 @@ export interface AppState {
   setWsStatus: (s: 'disconnected' | 'connecting' | 'connected') => void
 
   // Sidebar
-  sidebarTab: 'sessions' | 'tasks' | 'skills' | 'memory' | 'personalization' | 'settings' | 'abilities'
+  sidebarTab: 'sessions' | 'tasks' | 'memory' | 'personalization' | 'settings' | 'abilities'
   setSidebarTab: (tab: AppState['sidebarTab']) => void
 
   // Settings modal
@@ -399,9 +398,6 @@ export const useAppStore = create<AppState>((set) => ({
 
   settingsOpen: false,
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
-
-  activeSkillId: null,
-  setActiveSkillId: (activeSkillId) => set({ activeSkillId }),
 
   personalizationConfig: loadPersonalizationConfig(),
   setPersonalizationConfig: (cfg) => {

@@ -5,7 +5,6 @@ import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage, ThinkingBubble } from './ChatMessage'
 import { useWebSocket, getEphemeralServerId, clearEphemeralMapping } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
-import { SkillSelector } from './SkillSelector'
 import { AssetsPanel } from './AssetsPanel'
 import { apiFetch } from '../../api/apiFetch'
 import { useToast } from '../../hooks/useToast'
@@ -115,7 +114,6 @@ export function ChatArea() {
     messagesBySession,
     catState,
     wsStatus,
-    activeSkillId,
     serverUrl,
     token,
     setMessages,
@@ -160,7 +158,7 @@ export function ChatArea() {
         body: JSON.stringify({ title: sessionTitle }),
       })
       if (!createRes.ok) throw new Error(`创建会话失败 ${createRes.status}`)
-      const serverSession: { id: string; title: string; skill_id: string | null } = await createRes.json()
+      const serverSession: { id: string; title: string } = await createRes.json()
 
       // 3. 逐条上传消息（保证服务端 created_at 严格递增，避免批量上传时时间戳相同导致乱序）
       for (const m of msgs) {
@@ -182,7 +180,7 @@ export function ChatArea() {
       const currentMsgs = useAppStore.getState().messagesBySession[activeSessionId] ?? []
       // 设置 ref 阻止 useEffect 在 activeSessionId 切换时从服务器重新加载
       justSyncedIdRef.current = serverSession.id
-      replaceSession(activeSessionId, { id: serverSession.id, title: serverSession.title, skillId: serverSession.skill_id ?? undefined })
+      replaceSession(activeSessionId, { id: serverSession.id, title: serverSession.title })
       // 兜底：确保消息一定在 store 里（防止 replaceSession 内部取到空数组）
       if (currentMsgs.length > 0) {
         setMessages(serverSession.id, currentMsgs)
@@ -309,7 +307,7 @@ export function ChatArea() {
     if (pendingMsgRef.current && activeSessionId) {
       const text = pendingMsgRef.current
       pendingMsgRef.current = null
-      sendMessage(text, activeSkillId)
+      sendMessage(text)
     }
   }, [activeSessionId])
 
@@ -330,7 +328,7 @@ export function ChatArea() {
       setInput('')
       return
     }
-    sendMessage(text, activeSkillId)
+    sendMessage(text)
     setInput('')
   }
 
@@ -428,7 +426,6 @@ export function ChatArea() {
           <CatAvatar state={catState} size={100} />
           <h2 className={styles.welcomeGreeting}>嗯，有什么需要我帮忙的？</h2>
           <div className={styles.welcomeInput}>
-            <div className={styles.welcomeToolbar}><SkillSelector /></div>
             <div className={styles.inputRow}>
               <textarea
                 className={styles.textarea}
@@ -493,7 +490,6 @@ export function ChatArea() {
         <div ref={bottomRef} />
       </div>
       <div className={styles.inputArea}>
-        <div className={styles.inputToolbar}><SkillSelector /></div>
         <div className={styles.inputRow}>
           <textarea
             className={styles.textarea}
