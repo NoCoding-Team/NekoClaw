@@ -31,9 +31,9 @@
 
 ## 5. 后端：System Prompt 改造
 
-- [ ] 5.1 在 `backend/app/services/agent/context.py` 中新增 `_SKILL_SYSTEM_RULES` 常量（技能系统使用规则文本）
-- [ ] 5.2 修改 `build_system_prompt()` 函数：接收 `allowed_tools` 参数，调用 `build_available_skills_prompt()` 生成技能快照并拼接到系统提示中
-- [ ] 5.3 修改 prepare 节点中 `build_system_prompt` 的调用，传入 `allowed_tools`（来自 state）
+- [x] 5.1 在 `backend/app/services/agent/context.py` 中新增 `_SKILL_SYSTEM_RULES` 常量（技能系统使用规则文本）
+- [x] 5.2 修改 `build_system_prompt()` 函数：接收 `allowed_tools` 参数，调用 `build_available_skills_prompt()` 生成技能快照并拼接到系统提示中
+- [x] 5.3 修改 prepare 节点中 `build_system_prompt` 的调用，传入 `allowed_tools`（来自 state）
 
 ## 6. 内置 SKILL.md 文件
 

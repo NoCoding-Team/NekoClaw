@@ -71,6 +71,20 @@ _TOOL_RULES = (
 
 _DEFAULT_PERSONA = "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。"
 
+_SKILL_SYSTEM_RULES = (
+    "## 技能系统使用规则\n"
+    "你拥有一组可用技能（listed in <available_skills>）。技能是教你完成特定任务的操作指南。\n\n"
+    "### 使用流程\n"
+    "1. **意图匹配**：根据用户请求，从 <available_skills> 中识别最匹配的技能（参考 name、description、triggers）。\n"
+    "2. **读取技能**：调用 `read_skill(skill=\"<name>\")` 获取完整的 SKILL.md 内容。\n"
+    "3. **按步骤执行**：严格遵循 SKILL.md 中描述的步骤，使用指定的工具完成任务。\n"
+    "4. **汇总结果**：所有步骤完成后，用自然语言向用户汇总结果。\n\n"
+    "### 注意事项\n"
+    "- 如果没有匹配的技能，直接用你的知识回答用户，不需要勉强匹配。\n"
+    "- 不要编造不存在的技能名称。\n"
+    "- 如果 SKILL.md 中引用了附属资源文件，用 `read_skill(skill=\"<name>\", file=\"<path>\")` 读取。\n"
+)
+
 # ── Token estimation ────────────────────────────────────────────────────────
 
 
@@ -177,12 +191,16 @@ def to_lc_message(m: Any) -> BaseMessage:
 # ── System prompt construction ─────────────────────────────────────────────
 
 
-async def build_system_prompt(user_id: str, skill: Any | None) -> str:
-    """Build the system prompt including tool rules and injected memories."""
-    if skill:
-        base = skill.system_prompt
-    else:
-        base = _DEFAULT_PERSONA + "\n\n" + _TOOL_RULES
+async def build_system_prompt(user_id: str, allowed_tools: list[str] | None) -> str:
+    """Build the system prompt including tool rules, skill catalog, and injected memories."""
+    from app.services.skill_loader import build_available_skills_prompt
+
+    base = _DEFAULT_PERSONA + "\n\n" + _TOOL_RULES
+
+    # Inject skill catalog and rules
+    skills_prompt = build_available_skills_prompt(allowed_tools)
+    if skills_prompt:
+        base += "\n\n" + _SKILL_SYSTEM_RULES + "\n" + skills_prompt
 
     memory_context = await _load_memory(user_id)
     if memory_context:
