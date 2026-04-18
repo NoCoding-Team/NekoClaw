@@ -232,6 +232,19 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["selector", "text"],
         },
     },
+    {
+        "name": "read_skill",
+        "executor": "server",
+        "description": "Read an agent skill document or its resource files. Use this to load a SKILL.md when you identify a matching skill from available_skills.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "skill": {"type": "string", "description": "Skill name (e.g. 'get-weather')"},
+                "file": {"type": "string", "description": "Optional sub-file path. Defaults to SKILL.md"},
+            },
+            "required": ["skill"],
+        },
+    },
 ]
 
 TOOL_MAP: dict[str, dict] = {t["name"]: t for t in TOOL_DEFINITIONS}

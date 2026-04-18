@@ -25,9 +25,9 @@
 
 ## 4. 后端：read_skill 服务端工具
 
-- [ ] 4.1 在 `backend/app/services/tools/definitions.py` 的 TOOL_DEFINITIONS 中添加 `read_skill` 工具定义（参数 skill: string 必须, file: string 可选）
-- [ ] 4.2 在 `backend/app/services/tools/server_tools.py` 中实现 `read_skill` 的执行逻辑，调用 `skill_loader.read_skill_content()`
-- [ ] 4.3 添加安全校验：skill 名称正则 `[a-z0-9_-]+`、file 路径禁止 `..`、绝对路径必须在 skills/<name>/ 下
+- [x] 4.1 在 `backend/app/services/tools/definitions.py` 的 TOOL_DEFINITIONS 中添加 `read_skill` 工具定义（参数 skill: string 必须, file: string 可选）
+- [x] 4.2 在 `backend/app/services/tools/server_tools.py` 中实现 `read_skill` 的执行逻辑，调用 `skill_loader.read_skill_content()`
+- [x] 4.3 添加安全校验：skill 名称正则 `[a-z0-9_-]+`、file 路径禁止 `..`、绝对路径必须在 skills/<name>/ 下
 
 ## 5. 后端：System Prompt 改造
 
