@@ -21,3 +21,4 @@ langchain-google-genai>=2.0,<3.0
 langgraph>=0.2,<0.3
 beautifulsoup4>=4.12,<5.0
 html2text>=2024.2,<2025.0
+docker>=7.0,<8.0

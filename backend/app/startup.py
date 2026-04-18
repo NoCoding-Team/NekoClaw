@@ -137,3 +137,7 @@ async def _seed_builtin_skills():
 async def on_startup():
     await create_tables()
     await _seed_builtin_skills()
+    # Async Docker check + sandbox image preparation
+    from app.services.tools.container import check_docker, ensure_sandbox_image
+    if await check_docker():
+        await ensure_sandbox_image()

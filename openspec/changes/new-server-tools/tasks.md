@@ -9,16 +9,16 @@
 
 ## 2. python_repl 工具（服务端 + 容器隔离）
 
-- [ ] 2.1 后端 requirements.txt 新增 `docker` SDK 依赖
-- [ ] 2.2 创建 Python 沙盒 Dockerfile（基础镜像 + numpy/pandas/matplotlib/scipy/sympy）
-- [ ] 2.3 实现容器执行模块 `backend/app/services/tools/container.py`：Docker SDK 创建临时容器、挂载代码、收集 stdout/stderr、超时 30s 销毁
-- [ ] 2.4 容器安全限制：`--network=none`、`--memory=256m`、`--cpus=0.5`、`--read-only`（/tmp 可写）
-- [ ] 2.5 在 `definitions.py` 注册 `python_repl` 工具定义（executor: server）
-- [ ] 2.6 在 `server_tools.py` 实现 `execute_python_repl`：调用 container 模块执行代码
-- [ ] 2.7 在 `sandbox.py` 为 `python_repl` 添加风险规则：静态分析代码内容，含 os.system/subprocess 等标 HIGH，默认 MEDIUM
-- [ ] 2.8 启动时异步检测 Docker 可用性 + 预拉取沙盒镜像
-- [ ] 2.9 Docker 不可用时禁用工具并返回明确错误
-- [ ] 2.10 前端 AbilitiesPanel 注册 python_repl 展示（服务端执行标签）
+- [x] 2.1 后端 requirements.txt 新增 `docker` SDK 依赖
+- [x] 2.2 创建 Python 沙盒 Dockerfile（基础镜像 + numpy/pandas/matplotlib/scipy/sympy）
+- [x] 2.3 实现容器执行模块 `backend/app/services/tools/container.py`：Docker SDK 创建临时容器、挂载代码、收集 stdout/stderr、超时 30s 销毁
+- [x] 2.4 容器安全限制：`--network=none`、`--memory=256m`、`--cpus=0.5`、`--read-only`（/tmp 可写）
+- [x] 2.5 在 `definitions.py` 注册 `python_repl` 工具定义（executor: server）
+- [x] 2.6 在 `server_tools.py` 实现 `execute_python_repl`：调用 container 模块执行代码
+- [x] 2.7 在 `sandbox.py` 为 `python_repl` 添加风险规则：静态分析代码内容，含 os.system/subprocess 等标 HIGH，默认 MEDIUM
+- [x] 2.8 启动时异步检测 Docker 可用性 + 预拉取沙盒镜像
+- [x] 2.9 Docker 不可用时禁用工具并返回明确错误
+- [x] 2.10 前端 AbilitiesPanel 注册 python_repl 展示（服务端执行标签）
 
 ## 3. 服务端工具统一容器化
 

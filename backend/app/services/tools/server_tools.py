@@ -134,11 +134,45 @@ async def execute_fetch_url(args: dict[str, Any]) -> str:
         return json.dumps({"error": str(e)})
 
 
+async def execute_python_repl(args: dict[str, Any]) -> str:
+    code = args.get("code", "")
+    if not code.strip():
+        return json.dumps({"error": "code is required"})
+
+    from app.services.tools.container import check_docker, ensure_sandbox_image, run_python_in_container
+
+    if not await check_docker():
+        return json.dumps({"error": "Docker is not available. python_repl requires Docker to run."})
+
+    if not await ensure_sandbox_image():
+        return json.dumps({"error": "Sandbox image is not ready. Please try again later."})
+
+    result = await run_python_in_container(code, timeout=30)
+
+    if result["error"]:
+        return json.dumps({"error": result["error"]})
+
+    output_parts = []
+    if result["stdout"]:
+        output_parts.append(result["stdout"])
+    if result["stderr"]:
+        output_parts.append(f"[stderr]\n{result['stderr']}")
+    if result["exit_code"] != 0:
+        output_parts.append(f"[exit_code: {result['exit_code']}]")
+
+    return json.dumps({
+        "output": "\n".join(output_parts) if output_parts else "(no output)",
+        "exit_code": result["exit_code"],
+    }, ensure_ascii=False)
+
+
 async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str | None = None) -> str:
     if tool_name == "web_search":
         return await execute_web_search(args)
     elif tool_name == "fetch_url":
         return await execute_fetch_url(args)
+    elif tool_name == "python_repl":
+        return await execute_python_repl(args)
     elif tool_name == "http_request":
         return await execute_http_request(args)
     elif tool_name == "memory_write":

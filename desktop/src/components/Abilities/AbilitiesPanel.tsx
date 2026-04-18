@@ -31,6 +31,15 @@ const ABILITIES: Ability[] = [
     tools: ['shell_exec'],
   },
   {
+    id: 'python',
+    icon: '🐍',
+    name: 'Python 执行',
+    desc: '在安全沙盒容器中运行 Python 代码，预装 numpy、pandas、matplotlib 等科学计算库',
+    executor: 'server',
+    executorLabel: '服务端执行',
+    tools: ['python_repl'],
+  },
+  {
     id: 'search',
     icon: '🌐',
     name: '网页搜索',

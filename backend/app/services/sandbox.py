@@ -110,4 +110,16 @@ def analyze_risk(tool_name: str, args: dict[str, Any]) -> tuple[str, str]:
     elif tool_name == "fetch_url":
         return "LOW", ""
 
+    elif tool_name == "python_repl":
+        code = args.get("code", "")
+        # Static analysis: flag dangerous patterns
+        import re as _re
+        dangerous = _re.search(
+            r"\b(os\.system|subprocess|exec|eval|__import__|open\s*\(|shutil\.rmtree)\b",
+            code,
+        )
+        if dangerous:
+            return "HIGH", f"Code contains potentially dangerous call: {dangerous.group()}"
+        return "MEDIUM", "Python code execution in sandboxed container"
+
     return "LOW", ""

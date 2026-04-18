@@ -36,6 +36,23 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "python_repl",
+        "executor": "server",
+        "description": (
+            "在安全沙盒容器中执行 Python 代码。"
+            "适用于数据计算、数学运算、文本处理、生成图表（matplotlib）等场景。"
+            "预装库：numpy、pandas、matplotlib、scipy、sympy。"
+            "无网络访问。"
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string", "description": "要执行的 Python 代码"},
+            },
+            "required": ["code"],
+        },
+    },
+    {
         "name": "http_request",
         "executor": "client",
         "description": "发送自定义 HTTP 请求。仅在需要自定义请求方法、Header、Body 或调用 REST API 时使用。",
