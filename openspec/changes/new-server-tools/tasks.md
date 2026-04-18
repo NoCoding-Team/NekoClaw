@@ -22,9 +22,9 @@
 
 ## 3. 服务端工具统一容器化
 
-- [ ] 3.1 重构 `server_tools.py` 的 `execute_server_tool` 分发逻辑，所有服务端工具通过容器执行模块运行
-- [ ] 3.2 为 web_search、http_request、memory_* 等已有服务端工具适配容器执行
-- [ ] 3.3 确保前端「执行环境」设置不影响服务端工具行为
+- [x] 3.1 重构 `server_tools.py` 的 `execute_server_tool` 分发逻辑，所有服务端工具通过容器执行模块运行
+- [x] 3.2 为 web_search、http_request、memory_* 等已有服务端工具适配容器执行
+- [x] 3.3 确保前端「执行环境」设置不影响服务端工具行为
 
 ## 4. search_knowledge_base — 本地检索引擎（客户端）
 
