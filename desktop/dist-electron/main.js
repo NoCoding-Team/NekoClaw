@@ -25,13 +25,14 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 const electron = require("electron");
 const path = require("path");
-const fs = require("fs/promises");
+const fs$1 = require("fs/promises");
 const os = require("os");
 const require$$0$1 = require("events");
 const require$$0 = require("node:crypto");
 const require$$1 = require("child_process");
 const require$$3 = require("stream");
 const require$$5 = require("url");
+const fs = require("fs");
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
 }
@@ -1393,6 +1394,339 @@ function requireNodeCron() {
 }
 var nodeCronExports = requireNodeCron();
 const cron = /* @__PURE__ */ getDefaultExportFromCjs(nodeCronExports);
+const CHUNK_TOKENS = 512;
+const CHUNK_OVERLAP = 128;
+const APPROX_CHARS_PER_TOKEN = 4;
+const CHUNK_CHARS = CHUNK_TOKENS * APPROX_CHARS_PER_TOKEN;
+const OVERLAP_CHARS = CHUNK_OVERLAP * APPROX_CHARS_PER_TOKEN;
+const SUPPORTED_EXTS = /* @__PURE__ */ new Set([".md", ".txt", ".pdf"]);
+let _kdb = null;
+let _knowledgeDir = null;
+let _embeddingConfig$1 = null;
+let _watcher = null;
+let _vecEnabled = false;
+function getKnowledgeDb() {
+  if (_kdb) return _kdb;
+  const BetterSqlite3 = require("better-sqlite3");
+  const dbPath = path.join(electron.app.getPath("userData"), "knowledge.db");
+  _kdb = new BetterSqlite3(dbPath);
+  _kdb.pragma("journal_mode = WAL");
+  try {
+    const sqliteVec = require("sqlite-vec");
+    sqliteVec.load(_kdb);
+    _vecEnabled = true;
+  } catch {
+    console.warn("[knowledge] sqlite-vec not available, vector search disabled");
+    _vecEnabled = false;
+  }
+  _kdb.exec(`
+    CREATE TABLE IF NOT EXISTS kb_chunks (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_path   TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      content     TEXT NOT NULL,
+      embedding   BLOB,
+      mtime       INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(file_path, chunk_index)
+    );
+    CREATE INDEX IF NOT EXISTS idx_kb_chunks_file ON kb_chunks(file_path);
+  `);
+  _kdb.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS kb_fts USING fts5(
+      content,
+      content_rowid='id',
+      content='kb_chunks'
+    );
+  `);
+  _kdb.exec(`
+    CREATE TRIGGER IF NOT EXISTS kb_fts_ai AFTER INSERT ON kb_chunks BEGIN
+      INSERT INTO kb_fts(rowid, content) VALUES (new.id, new.content);
+    END;
+    CREATE TRIGGER IF NOT EXISTS kb_fts_ad AFTER DELETE ON kb_chunks BEGIN
+      INSERT INTO kb_fts(kb_fts, rowid, content) VALUES('delete', old.id, old.content);
+    END;
+    CREATE TRIGGER IF NOT EXISTS kb_fts_au AFTER UPDATE ON kb_chunks BEGIN
+      INSERT INTO kb_fts(kb_fts, rowid, content) VALUES('delete', old.id, old.content);
+      INSERT INTO kb_fts(rowid, content) VALUES (new.id, new.content);
+    END;
+  `);
+  if (_vecEnabled) {
+    try {
+      _kdb.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS kb_vec USING vec0(
+          chunk_id INTEGER PRIMARY KEY,
+          embedding float[1536]
+        );
+      `);
+    } catch (e) {
+      console.warn("[knowledge] Failed to create vec table:", e);
+      _vecEnabled = false;
+    }
+  }
+  return _kdb;
+}
+async function parseFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".md" || ext === ".txt") {
+    return await fs$1.readFile(filePath, "utf-8");
+  }
+  if (ext === ".pdf") {
+    try {
+      const pdfParse = require("pdf-parse");
+      const buffer = await fs$1.readFile(filePath);
+      const data = await (pdfParse.default ?? pdfParse)(buffer);
+      return data.text;
+    } catch (e) {
+      console.warn(`[knowledge] Failed to parse PDF: ${filePath}`, e);
+      return "";
+    }
+  }
+  return "";
+}
+function chunkText$1(text) {
+  if (!text.trim()) return [];
+  const paragraphs = text.split(/\n{2,}/).filter((p) => p.trim());
+  const chunks = [];
+  let buffer = "";
+  for (const para of paragraphs) {
+    if (buffer.length + para.length > CHUNK_CHARS && buffer.length > 0) {
+      chunks.push(buffer.trim());
+      buffer = buffer.slice(-OVERLAP_CHARS) + "\n\n" + para;
+    } else {
+      buffer = buffer ? buffer + "\n\n" + para : para;
+    }
+  }
+  if (buffer.trim()) {
+    chunks.push(buffer.trim());
+  }
+  if (chunks.length === 0 && text.length > 0) {
+    for (let i = 0; i < text.length; i += CHUNK_CHARS - OVERLAP_CHARS) {
+      chunks.push(text.slice(i, i + CHUNK_CHARS).trim());
+    }
+  }
+  return chunks.filter((c) => c.length > 0);
+}
+async function getEmbedding(texts) {
+  if (!_embeddingConfig$1) {
+    throw new Error("未配置 embedding 模型");
+  }
+  const { baseUrl, model, apiKey } = _embeddingConfig$1;
+  const response = await fetch(`${baseUrl}/embeddings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({ model, input: texts })
+  });
+  if (!response.ok) {
+    throw new Error(`Embedding API error: ${response.status} ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.data.map((d) => new Float32Array(d.embedding));
+}
+async function indexFile(filePath) {
+  const db = getKnowledgeDb();
+  const stat = fs.statSync(filePath);
+  const mtime = stat.mtimeMs;
+  const existing = db.prepare(
+    "SELECT mtime FROM kb_chunks WHERE file_path = ? LIMIT 1"
+  ).get(filePath);
+  if (existing && existing.mtime >= mtime) {
+    return;
+  }
+  const text = await parseFile(filePath);
+  if (!text.trim()) return;
+  const chunks = chunkText$1(text);
+  db.prepare("DELETE FROM kb_chunks WHERE file_path = ?").run(filePath);
+  if (_vecEnabled) {
+    db.prepare("DELETE FROM kb_vec WHERE chunk_id IN (SELECT id FROM kb_chunks WHERE file_path = ?)").run(filePath);
+  }
+  const insertChunk = db.prepare(
+    "INSERT INTO kb_chunks (file_path, chunk_index, content, mtime) VALUES (?, ?, ?, ?)"
+  );
+  const insertMany = db.transaction((items) => {
+    for (const item of items) {
+      insertChunk.run(filePath, item.index, item.content, mtime);
+    }
+  });
+  insertMany(chunks.map((content, index) => ({ index, content })));
+  if (_embeddingConfig$1 && _vecEnabled) {
+    try {
+      const embeddings = await getEmbedding(chunks);
+      const rows = db.prepare(
+        "SELECT id, chunk_index FROM kb_chunks WHERE file_path = ? ORDER BY chunk_index"
+      ).all(filePath);
+      const insertVec = db.prepare(
+        "INSERT OR REPLACE INTO kb_vec (chunk_id, embedding) VALUES (?, ?)"
+      );
+      const insertVecMany = db.transaction((pairs) => {
+        for (const pair of pairs) {
+          insertVec.run(pair.id, Buffer.from(pair.embedding.buffer));
+        }
+      });
+      insertVecMany(rows.map((row, i) => ({
+        id: row.id,
+        embedding: embeddings[i]
+      })));
+    } catch (e) {
+      console.warn(`[knowledge] Embedding failed for ${filePath}:`, e);
+    }
+  }
+}
+async function removeFileIndex(filePath) {
+  const db = getKnowledgeDb();
+  if (_vecEnabled) {
+    db.prepare(
+      "DELETE FROM kb_vec WHERE chunk_id IN (SELECT id FROM kb_chunks WHERE file_path = ?)"
+    ).run(filePath);
+  }
+  db.prepare("DELETE FROM kb_chunks WHERE file_path = ?").run(filePath);
+}
+async function buildFullIndex() {
+  if (!_knowledgeDir) return;
+  const dir = _knowledgeDir;
+  if (!fs.existsSync(dir)) {
+    await fs$1.mkdir(dir, { recursive: true });
+    return;
+  }
+  const files = await collectFiles(dir);
+  for (const file of files) {
+    try {
+      await indexFile(file);
+    } catch (e) {
+      console.warn(`[knowledge] Failed to index: ${file}`, e);
+    }
+  }
+}
+async function collectFiles(dir) {
+  const results = [];
+  const entries = await fs$1.readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...await collectFiles(fullPath));
+    } else if (SUPPORTED_EXTS.has(path.extname(entry.name).toLowerCase())) {
+      results.push(fullPath);
+    }
+  }
+  return results;
+}
+async function startWatcher() {
+  if (_watcher) {
+    await _watcher.close();
+    _watcher = null;
+  }
+  if (!_knowledgeDir || !fs.existsSync(_knowledgeDir)) return;
+  const chokidar = await Promise.resolve().then(() => require("./index-DqT_5sZV.js"));
+  _watcher = chokidar.watch(_knowledgeDir, {
+    persistent: true,
+    ignoreInitial: true,
+    awaitWriteFinish: { stabilityThreshold: 500 }
+  });
+  const isSupported = (p) => SUPPORTED_EXTS.has(path.extname(p).toLowerCase());
+  _watcher.on("add", (p) => {
+    if (isSupported(p)) indexFile(p).catch((e) => console.warn("[knowledge] watch add error:", e));
+  });
+  _watcher.on("change", (p) => {
+    if (isSupported(p)) indexFile(p).catch((e) => console.warn("[knowledge] watch change error:", e));
+  });
+  _watcher.on("unlink", (p) => {
+    if (isSupported(p)) removeFileIndex(p).catch((e) => console.warn("[knowledge] watch unlink error:", e));
+  });
+}
+async function searchKnowledge(query, topK = 5) {
+  const db = getKnowledgeDb();
+  const ftsResults = db.prepare(`
+    SELECT kb_chunks.id, kb_chunks.file_path, kb_chunks.chunk_index, kb_chunks.content,
+           bm25(kb_fts) AS score
+    FROM kb_fts
+    JOIN kb_chunks ON kb_chunks.id = kb_fts.rowid
+    WHERE kb_fts MATCH ?
+    ORDER BY score ASC
+    LIMIT ?
+  `).all(query, topK * 2);
+  let vecResults = [];
+  if (_vecEnabled && _embeddingConfig$1) {
+    try {
+      const [queryVec] = await getEmbedding([query]);
+      vecResults = db.prepare(`
+        SELECT chunk_id, distance
+        FROM kb_vec
+        WHERE embedding MATCH ?
+        ORDER BY distance ASC
+        LIMIT ?
+      `).all(Buffer.from(queryVec.buffer), topK * 2);
+    } catch {
+    }
+  }
+  const scoreMap = /* @__PURE__ */ new Map();
+  for (const r of ftsResults) {
+    scoreMap.set(r.id, {
+      filePath: r.file_path,
+      chunkIndex: r.chunk_index,
+      content: r.content,
+      score: -r.score
+      // BM25 returns negative scores in FTS5 (lower = better)
+    });
+  }
+  if (vecResults.length > 0) {
+    for (const v of vecResults) {
+      const existing = scoreMap.get(v.chunk_id);
+      if (existing) {
+        existing.score += 1 - v.distance;
+      } else {
+        const chunk = db.prepare(
+          "SELECT file_path, chunk_index, content FROM kb_chunks WHERE id = ?"
+        ).get(v.chunk_id);
+        if (chunk) {
+          scoreMap.set(v.chunk_id, {
+            filePath: chunk.file_path,
+            chunkIndex: chunk.chunk_index,
+            content: chunk.content,
+            score: 1 - v.distance
+          });
+        }
+      }
+    }
+  }
+  return Array.from(scoreMap.values()).sort((a, b) => b.score - a.score).slice(0, topK);
+}
+function hasIndex() {
+  try {
+    const db = getKnowledgeDb();
+    const row = db.prepare("SELECT COUNT(*) as cnt FROM kb_chunks").get();
+    return row.cnt > 0;
+  } catch {
+    return false;
+  }
+}
+function setEmbeddingConfig(config) {
+  _embeddingConfig$1 = config;
+}
+async function setKnowledgeDir(dir) {
+  _knowledgeDir = dir;
+  if (dir) {
+    await buildFullIndex();
+    await startWatcher();
+  } else if (_watcher) {
+    await _watcher.close();
+    _watcher = null;
+  }
+}
+function getKnowledgeDir() {
+  return _knowledgeDir;
+}
+async function shutdownKnowledge() {
+  if (_watcher) {
+    await _watcher.close();
+    _watcher = null;
+  }
+  if (_kdb) {
+    _kdb.close();
+    _kdb = null;
+  }
+}
 let _db = null;
 function getDb() {
   if (_db) return _db;
@@ -1468,7 +1802,7 @@ function getOpLogPath() {
 async function appendOpLog(entry) {
   try {
     const line = JSON.stringify({ ...entry, ts: (/* @__PURE__ */ new Date()).toISOString() }) + "\n";
-    await fs.appendFile(getOpLogPath(), line, "utf-8");
+    await fs$1.appendFile(getOpLogPath(), line, "utf-8");
   } catch {
   }
 }
@@ -1585,7 +1919,7 @@ electron.ipcMain.handle("scheduler:validate-cron", (_e, expr) => {
 });
 electron.ipcMain.handle("file:read", async (_e, filePath) => {
   try {
-    const content = await fs.readFile(filePath, "utf-8");
+    const content = await fs$1.readFile(filePath, "utf-8");
     return { content };
   } catch (err) {
     return { error: String(err) };
@@ -1593,8 +1927,8 @@ electron.ipcMain.handle("file:read", async (_e, filePath) => {
 });
 electron.ipcMain.handle("file:write", async (_e, filePath, content) => {
   try {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, content, "utf-8");
+    await fs$1.mkdir(path.dirname(filePath), { recursive: true });
+    await fs$1.writeFile(filePath, content, "utf-8");
     appendOpLog({ type: "file_write", path: filePath });
     return { success: true };
   } catch (err) {
@@ -1603,7 +1937,7 @@ electron.ipcMain.handle("file:write", async (_e, filePath, content) => {
 });
 electron.ipcMain.handle("file:list", async (_e, dirPath) => {
   try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const entries = await fs$1.readdir(dirPath, { withFileTypes: true });
     return {
       entries: entries.map((e) => ({
         name: e.name,
@@ -1617,7 +1951,7 @@ electron.ipcMain.handle("file:list", async (_e, dirPath) => {
 });
 electron.ipcMain.handle("file:delete", async (_e, filePath) => {
   try {
-    await fs.unlink(filePath);
+    await fs$1.unlink(filePath);
     appendOpLog({ type: "file_delete", path: filePath });
     return { success: true };
   } catch (err) {
@@ -1802,7 +2136,7 @@ const MemoryService = {
   async read(relPath) {
     const fullPath = validateMemoryPath(relPath);
     try {
-      return await fs.readFile(fullPath, "utf-8");
+      return await fs$1.readFile(fullPath, "utf-8");
     } catch {
       return "";
     }
@@ -1810,13 +2144,13 @@ const MemoryService = {
   async write(relPath, content) {
     const fullPath = validateMemoryPath(relPath);
     const sanitized = content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
-    await fs.mkdir(path.dirname(fullPath), { recursive: true });
-    await fs.writeFile(fullPath, sanitized, "utf-8");
+    await fs$1.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs$1.writeFile(fullPath, sanitized, "utf-8");
     appendOpLog({ type: "memory_write", path: relPath });
   },
   async delete(relPath) {
     const fullPath = validateMemoryPath(relPath);
-    await fs.unlink(fullPath);
+    await fs$1.unlink(fullPath);
     try {
       const db = getDb();
       db.prepare("DELETE FROM memory_embeddings WHERE file_path = ?").run(relPath);
@@ -1829,7 +2163,7 @@ const MemoryService = {
     async function walk(dir, prefix) {
       let entries;
       try {
-        entries = await fs.readdir(dir, { withFileTypes: true });
+        entries = await fs$1.readdir(dir, { withFileTypes: true });
       } catch {
         return;
       }
@@ -1838,7 +2172,7 @@ const MemoryService = {
         if (e.isDirectory()) {
           await walk(path.join(dir, e.name), rel);
         } else if (e.name.endsWith(".md")) {
-          const stat = await fs.stat(path.join(dir, e.name));
+          const stat = await fs$1.stat(path.join(dir, e.name));
           results.push({ name: e.name, path: rel, mtime: stat.mtimeMs });
         }
       }
@@ -2032,11 +2366,11 @@ electron.ipcMain.handle("db:readLegacyLocalMemories", async () => {
   try {
     const filePath = path.join(electron.app.getPath("userData"), "neko_local_memories.json");
     try {
-      await fs.access(filePath);
+      await fs$1.access(filePath);
     } catch {
       return { entries: [] };
     }
-    const raw = await fs.readFile(filePath, "utf-8");
+    const raw = await fs$1.readFile(filePath, "utf-8");
     const entries = JSON.parse(raw);
     return { entries: Array.isArray(entries) ? entries : [] };
   } catch {
@@ -2046,7 +2380,7 @@ electron.ipcMain.handle("db:readLegacyLocalMemories", async () => {
 electron.ipcMain.handle("db:deleteLegacyLocalMemories", async () => {
   try {
     const filePath = path.join(electron.app.getPath("userData"), "neko_local_memories.json");
-    await fs.unlink(filePath);
+    await fs$1.unlink(filePath);
     return { success: true };
   } catch {
     return { success: true };
@@ -2142,5 +2476,33 @@ electron.app.on("before-quit", () => {
   var _a;
   (_a = _browserContext == null ? void 0 : _browserContext.browser()) == null ? void 0 : _a.close().catch(() => {
   });
+  shutdownKnowledge().catch(() => {
+  });
+});
+electron.ipcMain.handle("knowledge:hasIndex", () => {
+  return { hasIndex: hasIndex() };
+});
+electron.ipcMain.handle("knowledge:search", async (_e, query, topK) => {
+  try {
+    const results = await searchKnowledge(query, topK ?? 5);
+    return { results };
+  } catch (err) {
+    return { error: String(err), results: [] };
+  }
+});
+electron.ipcMain.handle("knowledge:setDir", async (_e, dir) => {
+  try {
+    await setKnowledgeDir(dir);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("knowledge:getDir", () => {
+  return { dir: getKnowledgeDir() };
+});
+electron.ipcMain.handle("knowledge:setEmbeddingConfig", (_e, config) => {
+  setEmbeddingConfig(config);
+  return { success: true };
 });
 //# sourceMappingURL=main.js.map

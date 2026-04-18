@@ -6,9 +6,10 @@ interface Ability {
   icon: string
   name: string
   desc: string
-  executor: 'client' | 'server'
+  executor: 'client' | 'server' | 'memory'
   executorLabel: string
   tools: string[]
+  alwaysOn?: boolean
 }
 
 const ABILITIES: Ability[] = [
@@ -77,12 +78,13 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'knowledge',
-    icon: '📚',
-    name: '知识库检索',
-    desc: '搜索知识库中的文档内容，支持本地优先检索 + 云端回退，返回最相关的文档片段',
-    executor: 'server',
-    executorLabel: '动态路由',
+    icon: '🧠',
+    name: '记忆检索',
+    desc: '从个人知识库与记忆文件中检索相关片段，本地优先 + 云端回退，让 Agent 始终记得你的重要内容',
+    executor: 'memory',
+    executorLabel: '记忆系统',
     tools: ['search_knowledge_base'],
+    alwaysOn: true,
   },
 ]
 
@@ -90,7 +92,7 @@ export default function AbilitiesPanel() {
   const { securityConfig, setSecurityConfig } = useAppStore()
 
   const isEnabled = (ability: Ability) =>
-    ability.tools.every(t => securityConfig.toolWhitelist.includes(t))
+    ability.alwaysOn || ability.tools.every(t => securityConfig.toolWhitelist.includes(t))
 
   const isSomeEnabled = (ability: Ability) =>
     ability.tools.some(t => securityConfig.toolWhitelist.includes(t))
@@ -128,7 +130,7 @@ export default function AbilitiesPanel() {
               <div className={styles.cardBody}>
                 <div className={styles.cardHead}>
                   <span className={styles.cardName}>{ability.name}</span>
-                  <span className={`${styles.executorBadge} ${ability.executor === 'client' ? styles.badgeClient : styles.badgeServer}`}>
+                  <span className={`${styles.executorBadge} ${ability.executor === 'client' ? styles.badgeClient : ability.executor === 'memory' ? styles.badgeMemory : styles.badgeServer}`}>
                     {ability.executorLabel}
                   </span>
                 </div>
@@ -143,16 +145,22 @@ export default function AbilitiesPanel() {
               </div>
 
               <div className={styles.cardRight}>
-                <span className={styles.autoLabel}>{enabled ? '已开启' : partial ? '部分' : '未开启'}</span>
-                <button
-                  role="switch"
-                  aria-checked={enabled}
-                  className={`${styles.toggle} ${enabled ? styles.toggleOn : ''}`}
-                  onClick={() => toggleAbility(ability)}
-                  title={enabled ? '关闭此能力' : '开启此能力'}
-                >
-                  <span className={styles.toggleThumb} />
-                </button>
+                {ability.alwaysOn ? (
+                  <span className={styles.alwaysOnLabel}>常驻</span>
+                ) : (
+                  <>
+                    <span className={styles.autoLabel}>{enabled ? '已开启' : partial ? '部分' : '未开启'}</span>
+                    <button
+                      role="switch"
+                      aria-checked={enabled}
+                      className={`${styles.toggle} ${enabled ? styles.toggleOn : ''}`}
+                      onClick={() => toggleAbility(ability)}
+                      title={enabled ? '关闭此能力' : '开启此能力'}
+                    >
+                      <span className={styles.toggleThumb} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )
