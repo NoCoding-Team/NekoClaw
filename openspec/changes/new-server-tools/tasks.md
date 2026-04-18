@@ -1,11 +1,11 @@
 ## 1. fetch_url 工具（服务端）
 
-- [ ] 1.1 后端 requirements.txt 新增 `beautifulsoup4`、`html2text` 依赖
-- [ ] 1.2 在 `definitions.py` 注册 `fetch_url` 工具定义（executor: server），同时收窄 `http_request` description
-- [ ] 1.3 在 `server_tools.py` 实现 `execute_fetch_url`：httpx GET → SSRF 检查（复用已有逻辑）→ BeautifulSoup 解析 → html2text 转 Markdown → 截断 4000 字符
-- [ ] 1.4 处理非 HTML 响应（JSON/text 直接截断，二进制返回不支持提示）
-- [ ] 1.5 在 `sandbox.py` 为 `fetch_url` 添加风险规则（默认 LOW）
-- [ ] 1.6 前端 AbilitiesPanel 注册 fetch_url 展示（服务端执行标签）
+- [x] 1.1 后端 requirements.txt 新增 `beautifulsoup4`、`html2text` 依赖
+- [x] 1.2 在 `definitions.py` 注册 `fetch_url` 工具定义（executor: server），同时收窄 `http_request` description
+- [x] 1.3 在 `server_tools.py` 实现 `execute_fetch_url`：httpx GET → SSRF 检查（复用已有逻辑）→ BeautifulSoup 解析 → html2text 转 Markdown → 截断 4000 字符
+- [x] 1.4 处理非 HTML 响应（JSON/text 直接截断，二进制返回不支持提示）
+- [x] 1.5 在 `sandbox.py` 为 `fetch_url` 添加风险规则（默认 LOW）
+- [x] 1.6 前端 AbilitiesPanel 注册 fetch_url 展示（服务端执行标签）
 
 ## 2. python_repl 工具（服务端 + 容器隔离）
 

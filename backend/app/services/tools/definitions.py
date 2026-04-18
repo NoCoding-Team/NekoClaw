@@ -21,9 +21,24 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "fetch_url",
+        "executor": "server",
+        "description": (
+            "获取网页内容，返回清洗后的 Markdown 纯文本。"
+            "当需要获取任何 URL 的内容时，优先使用此工具。"
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "要获取的网页 URL"},
+            },
+            "required": ["url"],
+        },
+    },
+    {
         "name": "http_request",
         "executor": "client",
-        "description": "Make an HTTP request to an external URL.",
+        "description": "发送自定义 HTTP 请求。仅在需要自定义请求方法、Header、Body 或调用 REST API 时使用。",
         "parameters": {
             "type": "object",
             "properties": {

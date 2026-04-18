@@ -14,6 +14,25 @@ import httpx
 from app.core.config import settings
 
 
+# ── SSRF prevention ────────────────────────────────────────────────────────
+
+def _check_ssrf(url: str) -> str | None:
+    """Return error string if URL targets private/loopback, else None."""
+    import ipaddress
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    hostname = parsed.hostname or ""
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if addr.is_private or addr.is_loopback or addr.is_link_local:
+            return "SSRF: requests to private/loopback addresses are blocked"
+    except ValueError:
+        pass
+    if hostname in ("localhost", "127.0.0.1", "::1"):
+        return "SSRF: requests to localhost are blocked"
+    return None
+
+
 async def execute_web_search(args: dict[str, Any]) -> str:
     query = args["query"]
     max_results = args.get("max_results", 5)
@@ -40,19 +59,9 @@ async def execute_http_request(args: dict[str, Any]) -> str:
     headers = args.get("headers", {})
     body = args.get("body", "")
 
-    # SSRF prevention: block private/loopback addresses
-    import ipaddress
-    import urllib.parse
-    parsed = urllib.parse.urlparse(url)
-    hostname = parsed.hostname or ""
-    try:
-        addr = ipaddress.ip_address(hostname)
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
-            return json.dumps({"error": "SSRF: requests to private/loopback addresses are blocked"})
-    except ValueError:
-        pass  # hostname, not an IP — allow (DNS will resolve)
-    if hostname in ("localhost", "127.0.0.1", "::1"):
-        return json.dumps({"error": "SSRF: requests to localhost are blocked"})
+    ssrf_err = _check_ssrf(url)
+    if ssrf_err:
+        return json.dumps({"error": ssrf_err})
 
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
@@ -71,9 +80,65 @@ async def execute_http_request(args: dict[str, Any]) -> str:
         return json.dumps({"error": str(e)})
 
 
+async def execute_fetch_url(args: dict[str, Any]) -> str:
+    url = args.get("url", "")
+    if not url:
+        return json.dumps({"error": "url is required"})
+
+    ssrf_err = _check_ssrf(url)
+    if ssrf_err:
+        return json.dumps({"error": ssrf_err})
+
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            response = await client.get(url, headers={"User-Agent": "NekoClaw/1.0"})
+
+        content_type = response.headers.get("content-type", "")
+
+        # Binary content — not supported
+        if any(t in content_type for t in ("application/pdf", "image/", "audio/", "video/", "application/octet-stream")):
+            return json.dumps({"error": f"Unsupported content type: {content_type.split(';')[0]}"})
+
+        # Non-HTML (JSON, plain text, etc.) — return raw truncated
+        if "text/html" not in content_type:
+            return json.dumps({
+                "url": str(response.url),
+                "content_type": content_type.split(";")[0].strip(),
+                "body": response.text[:4000],
+            }, ensure_ascii=False)
+
+        # HTML — clean to Markdown
+        from bs4 import BeautifulSoup
+        import html2text
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        # Remove noise elements
+        for tag in soup.find_all(["script", "style", "nav", "footer", "header", "noscript", "iframe"]):
+            tag.decompose()
+
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        h.ignore_images = True
+        h.body_width = 0  # no line wrapping
+        markdown = h.handle(str(soup))
+
+        return json.dumps({
+            "url": str(response.url),
+            "title": soup.title.string.strip() if soup.title and soup.title.string else "",
+            "body": markdown[:4000],
+        }, ensure_ascii=False)
+
+    except httpx.TimeoutException:
+        return json.dumps({"error": f"Request timed out after 15s: {url}"})
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str | None = None) -> str:
     if tool_name == "web_search":
         return await execute_web_search(args)
+    elif tool_name == "fetch_url":
+        return await execute_fetch_url(args)
     elif tool_name == "http_request":
         return await execute_http_request(args)
     elif tool_name == "memory_write":
