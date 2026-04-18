@@ -43,7 +43,6 @@ _graph = _build_graph()
 async def run_agent(
     session_id: str,
     user_id: str,
-    skill_id: str | None,
     ws: Any,
     allowed_tools_override: list[str] | None = None,
     custom_llm_config: dict | None = None,
@@ -60,10 +59,8 @@ async def run_agent(
         "user_id": user_id,
         "ws": ws,
         "llm_config": None,
-        "skill": None,
         "context_limit": 128000,
         "user_turn_count": 0,
-        "skill_id": skill_id,
         "allowed_tools": allowed_tools_override,
         "custom_llm_config": custom_llm_config,
         "ephemeral": ephemeral,

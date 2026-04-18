@@ -151,7 +151,6 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
 
     try:
         content = data.get("content", "")
-        skill_id = data.get("skill_id")
         allowed_tools: list[str] | None = data.get("allowed_tools")  # None=all, []=none, [...]= specified list
         custom_llm_config: dict | None = data.get("custom_llm_config")  # optional user-supplied LLM config
         ephemeral: bool = bool(data.get("ephemeral", False))
@@ -186,7 +185,6 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
             await run_agent(
                 session_id=session_id,
                 user_id=user_id,
-                skill_id=skill_id,
                 ws=ws,
                 allowed_tools_override=allowed_tools,
                 custom_llm_config=custom_llm_config,

@@ -19,7 +19,6 @@ from app.models.base import AsyncSessionLocal
 from app.models.message import Message
 from app.models.llm_config import LLMConfig
 from app.models.session import Session
-from app.models.skill import Skill
 from app.services.agent.callbacks import WebSocketStreamHandler
 from app.services.agent.context import (
     COMPRESS_RATIO,
@@ -100,7 +99,6 @@ async def prepare(state: AgentState) -> dict:
     """Load session data, build initial messages, run memory refresh if due."""
     session_id = state["session_id"]
     user_id = state["user_id"]
-    input_skill_id = state.get("skill_id")
     custom_llm_cfg = state.get("custom_llm_config")
     ephemeral = state.get("ephemeral", False)
     local_history = state.get("local_history")  # [{role, content}, ...]
@@ -108,12 +106,6 @@ async def prepare(state: AgentState) -> dict:
     async with AsyncSessionLocal() as db:
         # Session
         session = await db.get(Session, session_id)
-        active_skill_id = input_skill_id or (session.skill_id if session else None)
-
-        # Skill
-        skill = None
-        if active_skill_id:
-            skill = await db.get(Skill, active_skill_id)
 
         # LLM config: custom (from client) > user-owned default > global default
         llm_config = None
@@ -166,7 +158,8 @@ async def prepare(state: AgentState) -> dict:
     context_limit = llm_config.context_limit if llm_config else 128000
 
     # Build messages for LangGraph state
-    system_prompt = await build_system_prompt(user_id, skill)
+    allowed_tools = state.get("allowed_tools")
+    system_prompt = await build_system_prompt(user_id, allowed_tools)
     messages = [SystemMessage(content=system_prompt)]
 
     if ephemeral and local_history:
@@ -202,7 +195,6 @@ async def prepare(state: AgentState) -> dict:
     return {
         "messages": messages,
         "llm_config": llm_config,
-        "skill": skill,
         "context_limit": context_limit,
         "user_turn_count": user_turn_count,
     }
@@ -240,8 +232,7 @@ async def llm_call(state: AgentState) -> dict:
             messages = system_msgs + non_system[-20:]
 
     # Resolve tools
-    skill = state["skill"]
-    allowed = skill.allowed_tools if skill else state.get("allowed_tools")
+    allowed = state.get("allowed_tools")
     tools = get_tools(allowed, ws, state["user_id"])
 
     # Build model

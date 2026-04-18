@@ -10,10 +10,10 @@
 
 ## 2. 后端：AgentState 和 prepare 节点改造
 
-- [ ] 2.1 从 `backend/app/services/agent/state.py` 的 AgentState 中移除 `skill`、`skill_id` 字段
-- [ ] 2.2 从 `backend/app/services/agent/nodes.py` 的 prepare 节点中移除 Skill 加载逻辑（DB 查询 Skill、读取 skill.system_prompt）
-- [ ] 2.3 从 `backend/app/services/agent/nodes.py` 中移除 `from app.models.skill import Skill` 及相关引用
-- [ ] 2.4 从 `backend/app/api/ws.py` WebSocket message 处理中移除 `skill_id` 参数传递
+- [x] 2.1 从 `backend/app/services/agent/state.py` 的 AgentState 中移除 `skill`、`skill_id` 字段
+- [x] 2.2 从 `backend/app/services/agent/nodes.py` 的 prepare 节点中移除 Skill 加载逻辑（DB 查询 Skill、读取 skill.system_prompt）
+- [x] 2.3 从 `backend/app/services/agent/nodes.py` 中移除 `from app.models.skill import Skill` 及相关引用
+- [x] 2.4 从 `backend/app/api/ws.py` WebSocket message 处理中移除 `skill_id` 参数传递
 
 ## 3. 后端：skill_loader 模块
 
