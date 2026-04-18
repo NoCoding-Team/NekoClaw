@@ -17,11 +17,11 @@
 
 ## 3. 后端：skill_loader 模块
 
-- [ ] 3.1 创建 `backend/app/services/skill_loader.py`，实现 `SkillMeta` 数据类（name, description, triggers, requires_tools, author, version, path）
-- [ ] 3.2 实现 `scan_skills(skills_dir)` 函数：遍历目录、解析 YAML Frontmatter、校验 requires_tools、缓存结果
-- [ ] 3.3 实现 `build_available_skills_prompt(allowed_tools)` 函数：根据 allowed_tools 过滤 Skill，生成 `<available_skills>` XML 字符串
-- [ ] 3.4 实现 `read_skill_content(skill_name, file)` 函数：安全校验 + 读取文件内容
-- [ ] 3.5 在 `backend/app/startup.py` 的 `on_startup` 中调用 `scan_skills()` 初始化缓存
+- [x] 3.1 创建 `backend/app/services/skill_loader.py`，实现 `SkillMeta` 数据类（name, description, triggers, requires_tools, author, version, path）
+- [x] 3.2 实现 `scan_skills(skills_dir)` 函数：遍历目录、解析 YAML Frontmatter、校验 requires_tools、缓存结果
+- [x] 3.3 实现 `build_available_skills_prompt(allowed_tools)` 函数：根据 allowed_tools 过滤 Skill，生成 `<available_skills>` XML 字符串
+- [x] 3.4 实现 `read_skill_content(skill_name, file)` 函数：安全校验 + 读取文件内容
+- [x] 3.5 在 `backend/app/startup.py` 的 `on_startup` 中调用 `scan_skills()` 初始化缓存
 
 ## 4. 后端：read_skill 服务端工具
 
