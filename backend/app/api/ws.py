@@ -112,6 +112,13 @@ async def websocket_session(session_id: str, websocket: WebSocket):
                     if not future.done():
                         future.set_result(data)
 
+            elif event == "check_local_index_result":
+                call_id = data.get("call_id")
+                if call_id and call_id in _pending_tool_calls:
+                    future = _pending_tool_calls.pop(call_id)
+                    if not future.done():
+                        future.set_result(data)
+
     except (WebSocketDisconnect, asyncio.TimeoutError):
         pass
     finally:

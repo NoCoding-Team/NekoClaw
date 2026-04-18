@@ -75,6 +75,15 @@ const ABILITIES: Ability[] = [
     executorLabel: '本机执行',
     tools: ['http_request'],
   },
+  {
+    id: 'knowledge',
+    icon: '📚',
+    name: '知识库检索',
+    desc: '搜索知识库中的文档内容，支持本地优先检索 + 云端回退，返回最相关的文档片段',
+    executor: 'server',
+    executorLabel: '动态路由',
+    tools: ['search_knowledge_base'],
+  },
 ]
 
 export default function AbilitiesPanel() {

@@ -49,10 +49,10 @@
 
 ## 6. search_knowledge_base — 动态路由
 
-- [ ] 6.1 `tools_node` 新增动态 executor 路由：收到 search_knowledge_base 调用时，先向客户端查询 `check_local_index`
-- [ ] 6.2 实现本地优先 + 云端 fallback 逻辑：本地有结果直接返回，本地无结果 fallback 到服务端
-- [ ] 6.3 前端 WebSocket handler 处理 `check_local_index` 事件并回复
-- [ ] 6.4 前端 AbilitiesPanel 注册 search_knowledge_base 展示（动态路由标签）
+- [x] 6.1 `tools_node` 新增动态 executor 路由：收到 search_knowledge_base 调用时，先向客户端查询 `check_local_index`
+- [x] 6.2 实现本地优先 + 云端 fallback 逻辑：本地有结果直接返回，本地无结果 fallback 到服务端
+- [x] 6.3 前端 WebSocket handler 处理 `check_local_index` 事件并回复
+- [x] 6.4 前端 AbilitiesPanel 注册 search_knowledge_base 展示（动态路由标签）
 
 ## 7. Embedding 配置体系
 

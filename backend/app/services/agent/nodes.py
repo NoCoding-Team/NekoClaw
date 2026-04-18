@@ -264,6 +264,60 @@ async def llm_call(state: AgentState) -> dict:
     return {"messages": [ai_message]}
 
 
+KNOWLEDGE_CHECK_TIMEOUT = 10  # seconds for local index check
+
+
+async def _route_knowledge_search(
+    ws: Any, call_id: str, args: dict, user_id: str, risk_level: str,
+) -> str:
+    """Dynamic routing: local-first + cloud fallback for search_knowledge_base."""
+    query = args.get("query", "")
+    top_k = args.get("top_k", 5)
+
+    await send_event(ws, "server_tool_call", {
+        "call_id": call_id,
+        "tool": "search_knowledge_base",
+        "args": args,
+        "risk_level": risk_level,
+    })
+    await send_event(ws, "cat_state", {"state": "working"})
+
+    # Step 1: Ask client if it has a local index + search results
+    check_id = f"kbcheck_{uuid.uuid4().hex[:12]}"
+    await send_event(ws, "check_local_index", {
+        "call_id": check_id,
+        "query": query,
+        "top_k": top_k,
+    })
+
+    local_results = None
+    try:
+        future = await get_pending_tool_future(check_id)
+        response = await asyncio.wait_for(future, timeout=KNOWLEDGE_CHECK_TIMEOUT)
+        has_index = response.get("has_index", False)
+        if has_index:
+            results = response.get("results", [])
+            if results:
+                local_results = results
+    except (asyncio.TimeoutError, Exception):
+        pass  # Client didn't respond in time or error — fall through to cloud
+
+    if local_results:
+        result_content = _truncate_tool_result(
+            json.dumps({"results": local_results}, ensure_ascii=False)
+        )
+    else:
+        # Fallback to cloud knowledge search
+        raw_result = await execute_server_tool("search_knowledge_base", args, user_id)
+        result_content = _truncate_tool_result(raw_result)
+
+    await send_event(ws, "server_tool_done", {
+        "call_id": call_id,
+        "result": result_content[:300],
+    })
+    return result_content
+
+
 async def tools_node(state: AgentState) -> dict:
     """Execute tool calls from the last AIMessage, bridge client tools via WS."""
     from langchain_core.messages import ToolMessage
@@ -314,19 +368,25 @@ async def tools_node(state: AgentState) -> dict:
 
         # ── Server tool ────────────────────────────────────────────────
         if tool_def["executor"] == "server":
-            await send_event(ws, "server_tool_call", {
-                "call_id": call_id,
-                "tool": tool_name,
-                "args": args,
-                "risk_level": risk_level,
-            })
-            await send_event(ws, "cat_state", {"state": "working"})
-            raw_result = await execute_server_tool(tool_name, args, user_id)
-            result_content = _truncate_tool_result(raw_result)
-            await send_event(ws, "server_tool_done", {
-                "call_id": call_id,
-                "result": result_content[:300],
-            })
+            # Dynamic routing for search_knowledge_base: local-first → cloud fallback
+            if tool_name == "search_knowledge_base":
+                result_content = await _route_knowledge_search(
+                    ws, call_id, args, user_id, risk_level,
+                )
+            else:
+                await send_event(ws, "server_tool_call", {
+                    "call_id": call_id,
+                    "tool": tool_name,
+                    "args": args,
+                    "risk_level": risk_level,
+                })
+                await send_event(ws, "cat_state", {"state": "working"})
+                raw_result = await execute_server_tool(tool_name, args, user_id)
+                result_content = _truncate_tool_result(raw_result)
+                await send_event(ws, "server_tool_done", {
+                    "call_id": call_id,
+                    "result": result_content[:300],
+                })
 
         # ── Client tool (WebSocket bridge) ─────────────────────────────
         else:

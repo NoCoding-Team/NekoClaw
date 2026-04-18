@@ -409,6 +409,29 @@ export function useWebSocket(sessionId: string | null) {
           }
           delete _callIdToMsgId[doneCallId]
         }
+      } else if (type === 'check_local_index') {
+        // Dynamic routing: server asks if client has local knowledge index
+        const checkCallId = evt.call_id as string
+        const query = evt.query as string
+        const topK = (evt.top_k as number) || 5
+        ;(async () => {
+          try {
+            const indexStatus = await window.nekoBridge.knowledge.hasIndex()
+            if (!indexStatus.hasIndex) {
+              ws.send(JSON.stringify({ event: 'check_local_index_result', call_id: checkCallId, has_index: false, results: [] }))
+              return
+            }
+            const searchResult = await window.nekoBridge.knowledge.search(query, topK)
+            ws.send(JSON.stringify({
+              event: 'check_local_index_result',
+              call_id: checkCallId,
+              has_index: true,
+              results: searchResult.results ?? [],
+            }))
+          } catch {
+            ws.send(JSON.stringify({ event: 'check_local_index_result', call_id: checkCallId, has_index: false, results: [] }))
+          }
+        })()
       } else if (type === 'tool_call') {
         // ── Auto-execute decision (computed FIRST, before card creation) ──
         const callId = evt.call_id as string
