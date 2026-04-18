@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, ForeignKey, Text
+from sqlalchemy import String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel

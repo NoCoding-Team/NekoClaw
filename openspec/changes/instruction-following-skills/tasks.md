@@ -57,8 +57,8 @@
 
 ## 9. 验证与清理
 
-- [ ] 9.1 启动后端确认 scan_skills 正常加载所有内置 SKILL.md
+- [x] 9.1 启动后端确认 scan_skills 正常加载所有内置 SKILL.md
 - [ ] 9.2 通过 WebSocket 发送消息，确认 System Prompt 中包含 `<available_skills>` 块
 - [ ] 9.3 测试 Agent 对天气类请求自动调用 read_skill → fetch_url 的完整链路
-- [ ] 9.4 测试 read_skill 路径遍历防护（`..` 和非法字符）
-- [ ] 9.5 测试 allowed_tools 过滤——禁用 fetch_url 后确认 get-weather 不出现在可用技能中
+- [x] 9.4 测试 read_skill 路径遍历防护（`..` 和非法字符）
+- [x] 9.5 测试 allowed_tools 过滤——禁用 fetch_url 后确认 get-weather 不出现在可用技能中

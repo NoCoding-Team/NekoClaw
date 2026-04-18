@@ -255,10 +255,6 @@ export interface AppState {
   settingsOpen: boolean
   setSettingsOpen: (v: boolean) => void
 
-  // Selected skill
-  activeSkillId: string | null
-  setActiveSkillId: (id: string | null) => void
-
   // Personalization config
   personalizationConfig: PersonalizationConfig | null
   setPersonalizationConfig: (cfg: PersonalizationConfig) => void
