@@ -33,6 +33,10 @@ const nekoBridge = {
     click: (opts) => electron.ipcRenderer.invoke("browser:click", opts),
     type: (selector, text) => electron.ipcRenderer.invoke("browser:type", selector, text)
   },
+  net: {
+    webSearch: (query, maxResults, apiKey) => electron.ipcRenderer.invoke("net:webSearch", query, maxResults, apiKey),
+    httpRequest: (opts) => electron.ipcRenderer.invoke("net:httpRequest", opts)
+  },
   memory: {
     read: (path) => electron.ipcRenderer.invoke("memory:read", path),
     write: (path, content) => electron.ipcRenderer.invoke("memory:write", path, content),
@@ -48,6 +52,7 @@ const nekoBridge = {
     insertMessage: (msg) => electron.ipcRenderer.invoke("db:insertMessage", msg),
     markSynced: (sessionId) => electron.ipcRenderer.invoke("db:markSynced", sessionId),
     deleteSession: (sessionId) => electron.ipcRenderer.invoke("db:deleteSession", sessionId),
+    updateMessageToolCalls: (id, toolCalls) => electron.ipcRenderer.invoke("db:updateMessageToolCalls", id, toolCalls),
     readLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:readLegacyLocalMemories"),
     deleteLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:deleteLegacyLocalMemories")
   },

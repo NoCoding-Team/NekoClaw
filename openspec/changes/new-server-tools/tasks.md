@@ -28,16 +28,16 @@
 
 ## 4. search_knowledge_base — 本地检索引擎（客户端）
 
-- [ ] 4.1 前端依赖安装：`better-sqlite3`、`sqlite-vec`、`pdf-parse`、`chokidar`
-- [ ] 4.2 Electron 主进程实现知识库索引模块：SQLite 初始化（FTS5 表 + sqlite-vec 表）
-- [ ] 4.3 实现文件解析器：pdf-parse（PDF）、fs（MD/TXT），不支持的类型跳过并警告
-- [ ] 4.4 实现文本分块逻辑：段落优先 + 512 tokens 窗口 + 128 overlap
-- [ ] 4.5 实现 Embedding 调用模块：优先用户自定义配置 → 服务端默认配置 → 未配置报错
-- [ ] 4.6 实现首次全量索引构建：扫描 knowledge/ 目录 → 解析 → 分块 → embedding → 写入 SQLite
-- [ ] 4.7 实现 chokidar watch 增量更新：文件新增/修改/删除 → 增量更新对应 chunks
-- [ ] 4.8 实现混合检索函数：FTS5 BM25 查询 + sqlite-vec 向量查询 → 合并排序 → 返回 top-K
-- [ ] 4.9 注册 IPC handler：`knowledge:search`、`knowledge:hasIndex`，暴露为 `nekoBridge.knowledge.*`
-- [ ] 4.10 前端设置面板新增知识库目录配置项
+- [x] 4.1 前端依赖安装：`better-sqlite3`、`sqlite-vec`、`pdf-parse`、`chokidar`
+- [x] 4.2 Electron 主进程实现知识库索引模块：SQLite 初始化（FTS5 表 + sqlite-vec 表）
+- [x] 4.3 实现文件解析器：pdf-parse（PDF）、fs（MD/TXT），不支持的类型跳过并警告
+- [x] 4.4 实现文本分块逻辑：段落优先 + 512 tokens 窗口 + 128 overlap
+- [x] 4.5 实现 Embedding 调用模块：优先用户自定义配置 → 服务端默认配置 → 未配置报错
+- [x] 4.6 实现首次全量索引构建：扫描 knowledge/ 目录 → 解析 → 分块 → embedding → 写入 SQLite
+- [x] 4.7 实现 chokidar watch 增量更新：文件新增/修改/删除 → 增量更新对应 chunks
+- [x] 4.8 实现混合检索函数：FTS5 BM25 查询 + sqlite-vec 向量查询 → 合并排序 → 返回 top-K
+- [x] 4.9 注册 IPC handler：`knowledge:search`、`knowledge:hasIndex`，暴露为 `nekoBridge.knowledge.*`
+- [x] 4.10 前端设置面板新增知识库目录配置项
 
 ## 5. search_knowledge_base — 云端检索（服务端）
 

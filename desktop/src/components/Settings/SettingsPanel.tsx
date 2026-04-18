@@ -359,6 +359,19 @@ function ModelCenterTab() {
 // ── GeneralTab ─────────────────────────────────────────────────────────────────
 function GeneralTab() {
   const { syncEnabled, setSyncEnabled } = useAppStore()
+  const [knowledgeDir, setKnowledgeDir] = useState('')
+
+  useEffect(() => {
+    window.nekoBridge.knowledge.getDir().then(r => {
+      if (r.dir) setKnowledgeDir(r.dir)
+    })
+  }, [])
+
+  const handleKnowledgeDirChange = async () => {
+    const dir = knowledgeDir.trim() || null
+    await window.nekoBridge.knowledge.setDir(dir)
+  }
+
   return (
     <div>
       {/* 本地优先 / 云同步 */}
@@ -374,6 +387,26 @@ function GeneralTab() {
           onClick={() => setSyncEnabled(!syncEnabled)}
           aria-checked={syncEnabled}
           role="switch"
+        />
+      </div>
+
+      {/* 知识库目录 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>知识库目录</div>
+          <div className={styles.secRowDesc}>
+            指定一个本地目录，其中的 .md / .txt / .pdf 文件将被索引，供 Agent 搜索。
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', padding: '0 0 12px' }}>
+        <input
+          className={styles.input}
+          value={knowledgeDir}
+          onChange={e => setKnowledgeDir(e.target.value)}
+          onBlur={handleKnowledgeDirChange}
+          placeholder="例如 C:\Users\me\Documents\knowledge"
+          style={{ flex: 1 }}
         />
       </div>
     </div>

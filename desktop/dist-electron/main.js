@@ -1450,6 +1450,11 @@ function dbDeleteSession(sessionId) {
   db.prepare("DELETE FROM local_messages WHERE session_id = ?").run(sessionId);
   db.prepare("DELETE FROM local_sessions WHERE id = ?").run(sessionId);
 }
+function dbUpdateMessageToolCalls(id, toolCalls) {
+  getDb().prepare(
+    "UPDATE local_messages SET tool_calls = ? WHERE id = ?"
+  ).run(toolCalls, id);
+}
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 electron.app.setName("NekoClaw");
 if (process.platform === "win32") {
@@ -1667,6 +1672,64 @@ electron.ipcMain.handle("shell:openExternal", async (_e, url) => {
     await electron.shell.openExternal(url);
   }
 });
+electron.ipcMain.handle("net:webSearch", async (_e, query, maxResults, apiKey) => {
+  if (!apiKey) return { error: "Tavily API Key 未配置，请在能力面板中设置" };
+  try {
+    const res = await electron.net.fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey, query, max_results: maxResults || 5 })
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: data.detail || `API error: ${res.status}` };
+    const results = (data.results || []).map((r) => ({
+      title: r.title,
+      url: r.url,
+      content: r.content
+    }));
+    return { results: JSON.stringify(results) };
+  } catch (e) {
+    return { error: e.message };
+  }
+});
+electron.ipcMain.handle("net:httpRequest", async (_e, opts) => {
+  try {
+    const parsed = new URL(opts.url);
+    const hostname = parsed.hostname;
+    if (["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(hostname)) {
+      return { error: "SSRF: requests to localhost are blocked" };
+    }
+    const parts = hostname.split(".");
+    if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) {
+      const first = parseInt(parts[0]);
+      if (first === 10 || first === 172 && parseInt(parts[1]) >= 16 && parseInt(parts[1]) <= 31 || first === 192 && parts[1] === "168") {
+        return { error: "SSRF: requests to private addresses are blocked" };
+      }
+    }
+  } catch {
+    return { error: "Invalid URL" };
+  }
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3e4);
+    const isBodyMethod = !["GET", "HEAD"].includes(opts.method.toUpperCase());
+    const res = await electron.net.fetch(opts.url, {
+      method: opts.method,
+      headers: opts.headers,
+      body: isBodyMethod && opts.body ? opts.body : void 0,
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    const body = await res.text();
+    const headers = {};
+    res.headers.forEach((v, k) => {
+      headers[k] = v;
+    });
+    return { status_code: res.status, headers, body: body.slice(0, 1e4) };
+  } catch (e) {
+    return { error: e.message };
+  }
+});
 electron.ipcMain.handle("app:getDataPath", () => electron.app.getPath("userData"));
 electron.ipcMain.handle("log:getPath", () => getOpLogPath());
 electron.ipcMain.handle("db:getSessions", (_e, opts = {}) => {
@@ -1710,6 +1773,14 @@ electron.ipcMain.handle("db:markSynced", (_e, sessionId) => {
 electron.ipcMain.handle("db:deleteSession", (_e, sessionId) => {
   try {
     dbDeleteSession(sessionId);
+    return { success: true };
+  } catch (err) {
+    return { error: String(err) };
+  }
+});
+electron.ipcMain.handle("db:updateMessageToolCalls", (_e, id, toolCalls) => {
+  try {
+    dbUpdateMessageToolCalls(id, toolCalls);
     return { success: true };
   } catch (err) {
     return { error: String(err) };

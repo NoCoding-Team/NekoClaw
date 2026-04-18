@@ -99,6 +99,20 @@ export const nekoBridge = {
       return () => { ipcRenderer.removeListener('scheduler:fired', handler) }
     },
   },
+  knowledge: {
+    hasIndex: (): Promise<{ hasIndex: boolean }> =>
+      ipcRenderer.invoke('knowledge:hasIndex'),
+    search: (query: string, topK?: number): Promise<{
+      results: Array<{ filePath: string; chunkIndex: number; content: string; score: number }>
+      error?: string
+    }> => ipcRenderer.invoke('knowledge:search', query, topK),
+    setDir: (dir: string | null): Promise<{ success?: boolean; error?: string }> =>
+      ipcRenderer.invoke('knowledge:setDir', dir),
+    getDir: (): Promise<{ dir: string | null }> =>
+      ipcRenderer.invoke('knowledge:getDir'),
+    setEmbeddingConfig: (config: { baseUrl: string; model: string; apiKey: string } | null): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('knowledge:setEmbeddingConfig', config),
+  },
 }
 
 contextBridge.exposeInMainWorld('nekoBridge', nekoBridge)
