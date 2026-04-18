@@ -74,6 +74,18 @@ async def create_tables():
                 """
             )
         )
+        # Migration: drop sessions.skill_id FK and column (Skill system replaced by SKILL.md files)
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE sessions DROP COLUMN IF EXISTS skill_id"
+            )
+        )
+        # Migration: drop legacy skills table
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "DROP TABLE IF EXISTS skills"
+            )
+        )
 
 
 async def on_startup():

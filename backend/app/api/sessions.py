@@ -38,7 +38,6 @@ async def create_session(
         id=str(uuid.uuid4()),
         user_id=current_user.id,
         title=body.title,
-        skill_id=body.skill_id,
     )
     db.add(session)
     await db.commit()

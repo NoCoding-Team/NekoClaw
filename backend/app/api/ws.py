@@ -14,7 +14,7 @@ Event Types (server → client):
   pong                - {}
 
 Event Types (client → server):
-  message        - {content: str, skill_id?: str}
+  message        - {content: str}
   tool_result    - {call_id: str, result: any, error?: str}
   ping           - {}
 """

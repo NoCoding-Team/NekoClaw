@@ -52,8 +52,8 @@
 
 ## 8. 数据库迁移
 
-- [ ] 8.1 删除 `sessions` 表的 `skill_id` 列
-- [ ] 8.2 删除 `skills` 表
+- [x] 8.1 删除 `sessions` 表的 `skill_id` 列
+- [x] 8.2 删除 `skills` 表
 
 ## 9. 验证与清理
 
