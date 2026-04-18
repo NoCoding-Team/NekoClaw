@@ -648,9 +648,25 @@ export function useWebSocket(sessionId: string | null) {
   // to prevent sendMessage from accidentally sending through a stale connection
   // belonging to the previous session.
   useEffect(() => {
+    // Capture the current sessionId so the cleanup can reference the OLD session
+    // (the cleanup runs when connect changes, i.e. when sessionId changes)
+    const capturedSessionId = sessionId
     connect()
     return () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      // Eagerly delete the ephemeral server session on session switch.
+      // We do this here rather than in ws.onclose to avoid a race condition:
+      // intentionalClose.current is reset synchronously before onclose fires.
+      if (capturedSessionId?.startsWith('local-')) {
+        const ephServerId = _ephemeralServerMap[capturedSessionId]
+        if (ephServerId) {
+          const { serverUrl: sv, token: tk } = useAppStore.getState()
+          if (tk) {
+            apiFetch(`${sv}/api/sessions/${ephServerId}`, { method: 'DELETE' }).catch(() => {})
+          }
+          delete _ephemeralServerMap[capturedSessionId]
+        }
+      }
       // Close the old WS so wsRef.current doesn't point to a stale connection
       // from a different session.  connect() for a new local session may return
       // early (no ephemeral mapping yet), leaving wsRef.current dangling.
@@ -663,7 +679,7 @@ export function useWebSocket(sessionId: string | null) {
         intentionalClose.current = false
       }
     }
-  }, [connect])
+  }, [connect]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close the socket only when the component truly unmounts
   // (e.g. user navigates away from chat panel).
@@ -816,6 +832,9 @@ export function useWebSocket(sessionId: string | null) {
           }
           const s = await res.json()
           useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
+          // Stage 1: 立即截断标题
+          const stage1TitleB = content.slice(0, 15) + (content.length > 15 ? '…' : '')
+          useAppStore.getState().updateSessionTitle(s.id, stage1TitleB)
           const { securityConfig: sc } = useAppStore.getState()
           const allowedTools = sc.toolWhitelist
           setCatState('thinking')
@@ -835,8 +854,14 @@ export function useWebSocket(sessionId: string | null) {
       setCatState('thinking')
       const userMsgId = uuidv4()
       appendMessage(sessionId!, { id: userMsgId, role: 'user', content })
-      resetRound(sessionId!)
-      const { securityConfig } = useAppStore.getState()
+      resetRound(sessionId!)      // Stage 1: 立即截断标题（第一条用户消息时）
+      {
+        const msgsNow = useAppStore.getState().messagesBySession[sessionId!] ?? []
+        if (msgsNow.filter(m => m.role === 'user').length === 1) {
+          const stage1TitleC = content.slice(0, 15) + (content.length > 15 ? '…' : '')
+          useAppStore.getState().updateSessionTitle(sessionId!, stage1TitleC)
+        }
+      }      const { securityConfig } = useAppStore.getState()
       const allowedTools = securityConfig.toolWhitelist
 
       // Write user message to local SQLite
