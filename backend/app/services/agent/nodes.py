@@ -155,11 +155,11 @@ async def prepare(state: AgentState) -> dict:
         else:
             history = []
 
-    context_limit = llm_config.context_limit if llm_config else 128000
+        context_limit = llm_config.context_limit if llm_config else 128000
 
-    # Build messages for LangGraph state
-    allowed_tools = state.get("allowed_tools")
-    system_prompt = await build_system_prompt(user_id, allowed_tools)
+        # Build messages for LangGraph state
+        allowed_tools = state.get("allowed_tools")
+        system_prompt = await build_system_prompt(user_id, allowed_tools, db)
     messages = [SystemMessage(content=system_prompt)]
 
     if ephemeral and local_history:

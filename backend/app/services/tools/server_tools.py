@@ -206,12 +206,12 @@ async def execute_search_knowledge_base(args: dict[str, Any], user_id: str | Non
 
 # ── Skill reader tool ──────────────────────────────────────────────────────
 
-async def execute_read_skill(args: dict[str, Any]) -> str:
+async def execute_read_skill(args: dict[str, Any], user_id: str | None = None) -> str:
     from app.services.skill_loader import read_skill_content
     skill = args.get("skill", "")
     file = args.get("file", "SKILL.md")
     try:
-        content = read_skill_content(skill, file)
+        content = read_skill_content(skill, file, user_id=user_id)
         return content
     except (ValueError, FileNotFoundError) as exc:
         return json.dumps({"error": str(exc)})
@@ -235,7 +235,7 @@ async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str
     elif tool_name == "memory_search":
         return await execute_memory_search(args, user_id)
     elif tool_name == "read_skill":
-        return await execute_read_skill(args)
+        return await execute_read_skill(args, user_id)
     # Legacy DB-based tools (backward compatibility)
     elif tool_name == "save_memory":
         return await execute_save_memory(args, user_id)

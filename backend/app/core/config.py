@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     LLM_API_KEY_ENCRYPTION_KEY: str
     TAVILY_API_KEY: str = ""
     MEMORY_FILES_DIR: str = "./data/memory"
+    SKILLS_FILES_DIR: str = "./data/skills"
     # Embedding 默认配置（可通过 .env 覆盖）
     EMBEDDING_BASE_URL: str = ""
     EMBEDDING_MODEL: str = ""

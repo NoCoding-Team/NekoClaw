@@ -1,6 +1,6 @@
 import uuid
 from app.models.base import engine, Base, AsyncSessionLocal
-from app.models import user, session, message, llm_config, memory, scheduled_task  # noqa: F401 - ensure all models are registered
+from app.models import user, session, message, llm_config, memory, scheduled_task, skill_config  # noqa: F401 - ensure all models are registered
 
 
 async def create_tables():

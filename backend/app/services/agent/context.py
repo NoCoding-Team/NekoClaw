@@ -191,14 +191,17 @@ def to_lc_message(m: Any) -> BaseMessage:
 # ── System prompt construction ─────────────────────────────────────────────
 
 
-async def build_system_prompt(user_id: str, allowed_tools: list[str] | None) -> str:
+async def build_system_prompt(user_id: str, allowed_tools: list[str] | None, db: Any = None) -> str:
     """Build the system prompt including tool rules, skill catalog, and injected memories."""
     from app.services.skill_loader import build_available_skills_prompt
 
     base = _DEFAULT_PERSONA + "\n\n" + _TOOL_RULES
 
-    # Inject skill catalog and rules
-    skills_prompt = build_available_skills_prompt(allowed_tools)
+    # Inject skill catalog and rules (per-user filtering when db available)
+    if db:
+        skills_prompt = await build_available_skills_prompt(user_id, allowed_tools, db)
+    else:
+        skills_prompt = ""
     if skills_prompt:
         base += "\n\n" + _SKILL_SYSTEM_RULES + "\n" + skills_prompt
 
