@@ -248,7 +248,7 @@ export interface AppState {
   setWsStatus: (s: 'disconnected' | 'connecting' | 'connected') => void
 
   // Sidebar
-  sidebarTab: 'sessions' | 'tasks' | 'memory' | 'personalization' | 'settings' | 'abilities'
+  sidebarTab: 'sessions' | 'tasks' | 'memory' | 'personalization' | 'settings' | 'abilities' | 'skills'
   setSidebarTab: (tab: AppState['sidebarTab']) => void
 
   // Settings modal
