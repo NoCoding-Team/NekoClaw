@@ -115,6 +115,16 @@
   font-weight: 500;
 }
 
+.fileItemStub {
+  opacity: 0.45;
+}
+.fileItemStub:hover {
+  opacity: 0.75;
+}
+.fileItemStub.fileItemActive {
+  opacity: 1;
+}
+
 .fileIcon {
   font-size: 14px;
   flex-shrink: 0;

@@ -17,6 +17,7 @@ interface DbMemory {
   created_at: string
 }
 
+const PINNED_FILES = ['SOUL.md', 'USER.md', 'IDENTITY.md', 'AGENTS.md', 'MEMORY.md']
 const PIN_ORDER: Record<string, number> = {
   'SOUL.md': 0, 'USER.md': 1, 'IDENTITY.md': 2, 'AGENTS.md': 3, 'MEMORY.md': 4,
 }
@@ -50,10 +51,15 @@ export default function MemoryPanel() {
       const resp = await apiFetch(`${serverUrl}/api/memory/files`)
       if (!resp.ok) { setFiles([]); return }
       const result = await resp.json() as Array<{ name: string; modifiedAt?: number }>
-      const items: MemoryFile[] = result.map((f) => ({
-        name: f.name,
-        modifiedAt: f.modifiedAt ?? 0,
-      }))
+      const serverNames = new Set(result.map(f => f.name))
+      // Always include pinned stubs even if they don't exist on server yet
+      const stubs: MemoryFile[] = PINNED_FILES
+        .filter(n => !serverNames.has(n))
+        .map(n => ({ name: n, modifiedAt: 0 }))
+      const items: MemoryFile[] = [
+        ...result.map((f) => ({ name: f.name, modifiedAt: f.modifiedAt ?? 0 })),
+        ...stubs,
+      ]
       items.sort((a, b) => {
         const pa = PIN_ORDER[a.name] ?? 999
         const pb = PIN_ORDER[b.name] ?? 999
@@ -105,12 +111,30 @@ export default function MemoryPanel() {
     }
   }, [token, serverUrl])
 
-  const handleSelectFile = useCallback((name: string) => {
-    setEditing(false)
+  const handleSelectFile = useCallback(async (name: string) => {
     setSelectedFile(name)
     setSelectedDbMemory(null)
-    readFile(name)
-  }, [readFile])
+    setEditing(false)
+    if (!token || !serverUrl) return
+    try {
+      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(name)}`)
+      if (resp.status === 404) {
+        // File doesn't exist yet — open blank editor so user can create it
+        const defaultContent = `# ${name.replace('.md', '')}\n\n`
+        setFileContent(defaultContent)
+        setEditBuffer(defaultContent)
+        setEditing(true)
+      } else if (resp.ok) {
+        const data = await resp.json() as { content?: string }
+        setFileContent(data.content ?? '')
+        setEditing(false)
+      } else {
+        setFileContent('')
+      }
+    } catch {
+      setFileContent('')
+    }
+  }, [token, serverUrl])
 
   // ── Delete MD file ───────────────────────────────────────────
   const deleteFile = useCallback(async (e: React.MouseEvent, name: string) => {
@@ -269,30 +293,37 @@ export default function MemoryPanel() {
   const dateFiles   = files.filter(f => isDateFile(f.name))
   const otherFiles  = files.filter(f => !(f.name in PIN_ORDER) && !isDateFile(f.name))
 
-  const renderFileItem = (f: MemoryFile) => (
-    <div
-      key={f.name}
-      className={`${styles.fileItem} ${selectedFile === f.name ? styles.fileItemActive : ''}`}
-      onClick={() => handleSelectFile(f.name)}
-    >
-      <span className={styles.fileIcon}>{fileIcon(f.name)}</span>
-      <div className={styles.fileInfo}>
-        <span className={styles.fileName}>
-          {isDateFile(f.name) ? f.name.replace('.md', '') : f.name}
-        </span>
-        {f.modifiedAt > 0 && (
-          <span className={styles.fileMeta}>
-            {new Date(f.modifiedAt * 1000).toLocaleDateString('zh-CN')}
+  const renderFileItem = (f: MemoryFile) => {
+    const isStub = f.modifiedAt === 0 && PINNED_FILES.includes(f.name)
+    return (
+      <div
+        key={f.name}
+        className={`${styles.fileItem} ${isStub ? styles.fileItemStub : ''} ${selectedFile === f.name ? styles.fileItemActive : ''}`}
+        onClick={() => handleSelectFile(f.name)}
+      >
+        <span className={styles.fileIcon}>{fileIcon(f.name)}</span>
+        <div className={styles.fileInfo}>
+          <span className={styles.fileName}>
+            {isDateFile(f.name) ? f.name.replace('.md', '') : f.name}
           </span>
+          {f.modifiedAt > 0 ? (
+            <span className={styles.fileMeta}>
+              {new Date(f.modifiedAt * 1000).toLocaleDateString('zh-CN')}
+            </span>
+          ) : isStub ? (
+            <span className={styles.fileMeta}>点击创建</span>
+          ) : null}
+        </div>
+        {!isStub && (
+          <button
+            className={styles.deleteBtn}
+            onClick={(e) => deleteFile(e, f.name)}
+            title="删除"
+          >✕</button>
         )}
       </div>
-      <button
-        className={styles.deleteBtn}
-        onClick={(e) => deleteFile(e, f.name)}
-        title="删除"
-      >✕</button>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className={styles.panel}>
@@ -322,7 +353,7 @@ export default function MemoryPanel() {
             <div className={styles.sidebar}>
               {loading ? (
                 <div className={styles.sidebarMsg}>加载中…</div>
-              ) : files.length === 0 && dbMemories.length === 0 ? (
+              ) : files.length === 0 && dbMemories.length === 0 && !serverConnected ? (
                 <div className={styles.emptyState}>
                   <div className={styles.emptyEmoji}>🌱</div>
                   <div className={styles.emptyText}>暂无记忆文件</div>
