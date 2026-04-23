@@ -610,7 +610,6 @@ function SecurityTab() {
           {cfg.toolWhitelist.map((tag) => (
             <span key={tag} className={styles.tag}>
               {tag}
-              {toolCallCounts[tag] ? <span className={styles.tagCount}>{toolCallCounts[tag]}</span> : null}
               <button className={styles.tagRemove} onClick={() => removeTag('toolWhitelist', tag)}>×</button>
             </span>
           ))}
