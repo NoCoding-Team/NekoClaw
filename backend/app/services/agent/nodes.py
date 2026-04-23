@@ -238,7 +238,7 @@ async def llm_call(state: AgentState) -> dict:
     # Stream with WebSocket callback — manual retry with friendly progress messages
     handler = WebSocketStreamHandler(ws)
     _MAX_ATTEMPTS = 3
-    _RETRY_MSG = "网络波动，正在重试中，请小主人稍等片刻☆*: .｡. o(≧▽≦)o .｡.:*☆"
+    _RETRY_MSG = "网络波动，正在重试中，请小主人稍等片刻☆*: .｡. o(≧▽≦)o .｡.:*☆\n"
     ai_message = None
     last_exc: Exception | None = None
     for attempt in range(_MAX_ATTEMPTS):
@@ -256,7 +256,7 @@ async def llm_call(state: AgentState) -> dict:
                 await send_event(ws, "llm_token", {"token": _RETRY_MSG})
 
     if last_exc is not None:
-        err_msg = "小主人，我已经很努力很努力的重试了，但还是失败了，真的非常抱歉(;´༎ຶД༎ຶ`)"
+        err_msg = "小主人，我已经很努力很努力的重试了，但还是失败了，真的非常抱歉(;´༎ຶД༎ຶ`)\n"
         await send_event(ws, "llm_token", {"token": err_msg})
         await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": False})
         return {"messages": [AIMessage(content=err_msg)]}
