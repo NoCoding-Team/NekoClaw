@@ -166,7 +166,7 @@ async def execute_python_repl(args: dict[str, Any]) -> str:
     }, ensure_ascii=False)
 
 
-async def execute_search_knowledge_base(args: dict[str, Any], user_id: str | None = None) -> str:
+async def execute_search_memory(args: dict[str, Any], user_id: str | None = None) -> str:
     if not user_id:
         return json.dumps({"error": "user_id required"})
 
@@ -176,29 +176,14 @@ async def execute_search_knowledge_base(args: dict[str, Any], user_id: str | Non
 
     top_k = args.get("top_k", 5)
 
-    from app.services.knowledge import search_knowledge, has_index
+    from app.services.memory_search import search_memory
 
-    if not has_index(user_id):
-        return json.dumps({
-            "results": [],
-            "message": "未配置知识库，请在设置中添加知识库目录或上传文件",
-        }, ensure_ascii=False)
-
-    # Resolve embedding config: server default
-    embedding_config = None
-    if settings.EMBEDDING_BASE_URL and settings.EMBEDDING_MODEL and settings.EMBEDDING_API_KEY:
-        embedding_config = {
-            "base_url": settings.EMBEDDING_BASE_URL,
-            "model": settings.EMBEDDING_MODEL,
-            "api_key": settings.EMBEDDING_API_KEY,
-        }
-
-    results = await search_knowledge(user_id, query, top_k=top_k, embedding_config=embedding_config)
+    results = await search_memory(user_id, query, top_k=top_k)
 
     if not results:
         return json.dumps({
             "results": [],
-            "message": "未找到相关内容",
+            "message": "未找到相关记忆",
         }, ensure_ascii=False)
 
     return json.dumps({"results": results}, ensure_ascii=False)
@@ -224,8 +209,8 @@ async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str
         return await execute_fetch_url(args)
     elif tool_name == "python_repl":
         return await execute_python_repl(args)
-    elif tool_name == "search_knowledge_base":
-        return await execute_search_knowledge_base(args, user_id)
+    elif tool_name == "search_memory":
+        return await execute_search_memory(args, user_id)
     elif tool_name == "http_request":
         return await execute_http_request(args)
     elif tool_name == "memory_write":
@@ -276,11 +261,11 @@ async def execute_memory_write(args: dict[str, Any], user_id: str | None) -> str
         with open(fpath, 'w', encoding='utf-8') as f:
             f.write(content)
 
-        # Rebuild memory RAG index when MEMORY.md is updated
-        if path == "MEMORY.md":
+        # Rebuild memory RAG index for MEMORY.md and daily notes
+        if path == "MEMORY.md" or re.match(r"^\d{4}-\d{2}-\d{2}\.md$", path):
             try:
-                from app.services.memory_index import rebuild_memory_index
-                await rebuild_memory_index(user_id)
+                from app.services.memory_search import rebuild_memory_index
+                await rebuild_memory_index(user_id, path)
             except Exception:
                 pass  # Non-critical: index rebuild failure should not block write
 
@@ -308,26 +293,14 @@ async def execute_memory_search(args: dict[str, Any], user_id: str | None) -> st
     if not user_id:
         return json.dumps({"error": "user_id required"})
     try:
-        query = str(args.get("query", "")).lower()
+        query = str(args.get("query", "")).strip()
         if not query:
             return json.dumps({"error": "query must not be empty"})
-        d = _user_memory_dir(user_id)
-        results = []
-        for fname in os.listdir(d):
-            if not fname.endswith('.md'):
-                continue
-            fpath = os.path.join(d, fname)
-            with open(fpath, 'r', encoding='utf-8') as f:
-                content = f.read()
-            lines = content.split('\n')
-            for i, line in enumerate(lines):
-                if query in line.lower():
-                    start = max(0, i - 1)
-                    end = min(len(lines), i + 2)
-                    results.append({"path": fname, "snippet": '\n'.join(lines[start:end])})
-                    break
+
+        from app.services.memory_search import search_memory
+        results = await search_memory(user_id, query, top_k=10)
         return json.dumps({"ok": True, "results": results}, ensure_ascii=False)
-    except OSError as e:
+    except Exception as e:
         return json.dumps({"error": str(e)})
 
 

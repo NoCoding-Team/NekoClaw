@@ -328,16 +328,9 @@ async def _load_memory(user_id: str, query_hint: str = "") -> str:
             if len(content) > 4000 and query_hint:
                 # RAG mode: search memory index for relevant chunks
                 try:
-                    from app.services.memory_index import search_memory_index
+                    from app.services.memory_search import search_memory as _search_mem
 
-                    embedding_config = None
-                    if settings.EMBEDDING_BASE_URL and settings.EMBEDDING_MODEL and settings.EMBEDDING_API_KEY:
-                        embedding_config = {
-                            "base_url": settings.EMBEDDING_BASE_URL,
-                            "model": settings.EMBEDDING_MODEL,
-                            "api_key": settings.EMBEDDING_API_KEY,
-                        }
-                    results = await search_memory_index(user_id, query_hint, top_k=10, embedding_config=embedding_config)
+                    results = await _search_mem(user_id, query_hint, top_k=10)
                     if results:
                         rag_text = "\n\n".join(r["content"] for r in results)
                         if len(rag_text) > 4000:

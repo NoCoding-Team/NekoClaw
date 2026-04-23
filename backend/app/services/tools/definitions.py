@@ -53,11 +53,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "search_knowledge_base",
+        "name": "search_memory",
         "executor": "server",
         "description": (
-            "搜索知识库，返回与查询最相关的文档片段。"
-            "当需要从用户的知识库中查找信息时使用此工具。"
+            "搜索记忆库，返回与查询最相关的记忆片段。"
+            "当需要从用户的长期记忆和每日笔记中查找信息时使用此工具。"
         ),
         "parameters": {
             "type": "object",

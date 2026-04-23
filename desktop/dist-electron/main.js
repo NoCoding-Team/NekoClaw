@@ -1790,6 +1790,7 @@ function dbUpdateMessageToolCalls(id, toolCalls) {
   ).run(toolCalls, id);
 }
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
+electron.app.setPath("userData", path.join(os.homedir(), ".nekoclaw"));
 electron.app.setName("NekoClaw");
 if (process.platform === "win32") {
   electron.app.setAppUserModelId("com.nekoclaw.desktop");
