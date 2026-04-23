@@ -1,17 +1,28 @@
+import logging
 import uuid
 from app.models.base import engine, Base, AsyncSessionLocal
 from app.models import user, session, message, llm_config, memory, scheduled_task, skill_config  # noqa: F401 - ensure all models are registered
+
+logger = logging.getLogger(__name__)
 
 
 async def create_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Enable pgvector extension (required for memory vector search)
-        await conn.execute(
-            __import__("sqlalchemy").text(
-                "CREATE EXTENSION IF NOT EXISTS vector"
+        # Warn and continue if pgvector is not installed on the PG server
+        try:
+            await conn.execute(
+                __import__("sqlalchemy").text(
+                    "CREATE EXTENSION IF NOT EXISTS vector"
+                )
             )
-        )
+        except Exception as e:
+            logger.warning(
+                "pgvector extension not available — vector search disabled. "
+                "Install postgresql-<ver>-pgvector on the PG host to enable it. "
+                f"Error: {e}"
+            )
     # 对已有数据库做字段补全迁移（ADD COLUMN IF NOT EXISTS，PostgreSQL 支持）
     async with engine.begin() as conn:
         await conn.execute(
