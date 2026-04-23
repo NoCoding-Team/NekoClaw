@@ -256,7 +256,7 @@ async def llm_call(state: AgentState) -> dict:
                 await send_event(ws, "llm_token", {"token": _RETRY_MSG})
 
     if last_exc is not None:
-        err_msg = _RETRY_MSG
+        err_msg = "小主人，我已经很努力很努力的重试了，但还是失败了，真的非常抱歉(;´༎ຶД༎ຶ`)"
         await send_event(ws, "llm_token", {"token": err_msg})
         await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": False})
         return {"messages": [AIMessage(content=err_msg)]}
