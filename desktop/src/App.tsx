@@ -127,12 +127,19 @@ export default function App() {
 
 function MainContent() {
   const { sidebarTab } = useAppStore()
-  if (sidebarTab === 'tasks')           return <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>
-  if (sidebarTab === 'memory')          return <PanelView title="记忆库"><MemoryPanel /></PanelView>
-  if (sidebarTab === 'personalization') return <PersonalizationPanel />
-  if (sidebarTab === 'abilities')       return <PanelView title="能力"><AbilitiesPanel /></PanelView>
-  if (sidebarTab === 'skills')          return <PanelView title="技能库"><SkillsPanel /></PanelView>
-  return <ChatArea />
+  // ChatArea 始终挂载（保持 WebSocket 连接），切到其他 tab 时用 CSS 隐藏
+  return (
+    <>
+      <div style={{ display: sidebarTab === 'sessions' ? 'contents' : 'none' }}>
+        <ChatArea />
+      </div>
+      {sidebarTab === 'tasks'           && <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>}
+      {sidebarTab === 'memory'          && <PanelView title="记忆库"><MemoryPanel /></PanelView>}
+      {sidebarTab === 'personalization' && <PersonalizationPanel />}
+      {sidebarTab === 'abilities'       && <PanelView title="能力"><AbilitiesPanel /></PanelView>}
+      {sidebarTab === 'skills'          && <PanelView title="技能库"><SkillsPanel /></PanelView>}
+    </>
+  )
 }
 
 function PanelView({ title, children }: { title: string; children: React.ReactNode }) {
