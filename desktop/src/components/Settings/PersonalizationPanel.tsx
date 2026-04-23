@@ -126,18 +126,18 @@ export function PersonalizationPanel() {
       await Promise.allSettled([
         apiFetch(`${serverUrl}/api/memory/files/USER.md`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: userContent }),
+          headers: { 'Content-Type': 'text/plain' },
+          body: userContent,
         }),
         apiFetch(`${serverUrl}/api/memory/files/IDENTITY.md`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: identityContent }),
+          headers: { 'Content-Type': 'text/plain' },
+          body: identityContent,
         }),
         apiFetch(`${serverUrl}/api/memory/files/SOUL.md`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: soulContent }),
+          headers: { 'Content-Type': 'text/plain' },
+          body: soulContent,
         }),
       ])
     }
