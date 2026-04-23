@@ -182,13 +182,12 @@ async def write_memory_file(
     with open(fpath, 'w', encoding='utf-8') as f:
         f.write(sanitized)
 
-    # Rebuild memory RAG index when MEMORY.md is updated
-    if name == "MEMORY.md":
-        try:
-            from app.services.memory_index import rebuild_memory_index
-            await rebuild_memory_index(current_user.id)
-        except Exception:
-            pass  # Non-critical: index rebuild failure should not block write
+    # Rebuild memory search index
+    try:
+        from app.services.memory_search import rebuild_memory_index
+        await rebuild_memory_index(current_user.id, name)
+    except Exception:
+        pass  # Non-critical: index rebuild failure should not block write
 
     return {"ok": True, "path": name}
 
