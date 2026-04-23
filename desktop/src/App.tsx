@@ -127,17 +127,22 @@ export default function App() {
 
 function MainContent() {
   const { sidebarTab } = useAppStore()
-  // ChatArea 始终挂载（保持 WebSocket 连接），切到其他 tab 时用 CSS 隐藏
+  const onChat = sidebarTab === 'sessions'
+  // ChatArea 始终挂载，切到其他 tab 时用 visibility:hidden 隐藏，保持 WebSocket 连接
   return (
     <>
-      <div style={{ display: sidebarTab === 'sessions' ? 'contents' : 'none' }}>
+      <div className={styles.mainContentSlot} style={onChat ? undefined : { visibility: 'hidden', pointerEvents: 'none' }}>
         <ChatArea />
       </div>
-      {sidebarTab === 'tasks'           && <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>}
-      {sidebarTab === 'memory'          && <PanelView title="记忆库"><MemoryPanel /></PanelView>}
-      {sidebarTab === 'personalization' && <PersonalizationPanel />}
-      {sidebarTab === 'abilities'       && <PanelView title="能力"><AbilitiesPanel /></PanelView>}
-      {sidebarTab === 'skills'          && <PanelView title="技能库"><SkillsPanel /></PanelView>}
+      {!onChat && (
+        <div className={styles.mainContentSlot}>
+          {sidebarTab === 'tasks'           && <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>}
+          {sidebarTab === 'memory'          && <PanelView title="记忆库"><MemoryPanel /></PanelView>}
+          {sidebarTab === 'personalization' && <PersonalizationPanel />}
+          {sidebarTab === 'abilities'       && <PanelView title="能力"><AbilitiesPanel /></PanelView>}
+          {sidebarTab === 'skills'          && <PanelView title="技能库"><SkillsPanel /></PanelView>}
+        </div>
+      )}
     </>
   )
 }
