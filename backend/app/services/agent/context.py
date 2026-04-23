@@ -52,6 +52,8 @@ _TOOL_RULES = (
     "6. 记忆文件通过 memory_write / memory_read / memory_search 工具管理：\n"
     "   - **MEMORY.md**：长期记忆——用户偏好、关键事实、重要决策。\n"
     "   - **USER.md**：用户画像——称呼、职业、时区等个人信息。\n"
+    "   - **SOUL.md**：你的人格、语气与边界设定。\n"
+    "   - **IDENTITY.md**：你的名称、风格与代表表情。\n"
     "   - **YYYY-MM-DD.md**（如 2026-04-16.md）：每日笔记——当天对话要点。\n"
 )
 
@@ -71,6 +73,18 @@ _DEFAULT_SOUL = (
     "- 保护用户隐私，不主动收集敏感信息\n"
     "- 超出能力范围时诚实告知\n"
     "- 遵循道德规范和法律规定\n"
+)
+
+_DEFAULT_IDENTITY = (
+    "# 名称（Name）\n"
+    "- **名称**：NekoClaw\n"
+    "NekoClaw 是一只聪明可爱的猫咪助手，敏捷灵活。\n\n"
+    "# 风格（Vibe）\n"
+    "- **风格**：友好专业\n"
+    "风格以现代科技感为主，简洁且功能直观。\n\n"
+    "# 表情（Emoji）\n"
+    "- **表情**：🐱\n"
+    "用猫咪表情代表智能助手的灵动特质。\n"
 )
 
 _DEFAULT_USER = (
@@ -262,17 +276,26 @@ async def build_system_prompt(
     """Build the system prompt including persona files, tool rules, skill catalog, and injected memories."""
     from app.services.skill_loader import build_available_skills_prompt
 
-    # 1. SOUL.md (persona) — replaces _DEFAULT_PERSONA
+    # 1. SOUL.md (persona)
     soul = _load_persona_file(user_id, "SOUL.md", _DEFAULT_SOUL)
 
-    # 2. USER.md (user profile)
+    # 2. IDENTITY.md (name, vibe, emoji)
+    identity = _load_persona_file(user_id, "IDENTITY.md", _DEFAULT_IDENTITY)
+
+    # 3. USER.md (user profile)
     user_profile = _load_persona_file(user_id, "USER.md", _DEFAULT_USER)
 
-    # 3. AGENTS.md (operating instructions) — replaces behavior rules from _TOOL_RULES
+    # 4. AGENTS.md (operating instructions)
     agents = _load_persona_file(user_id, "AGENTS.md", _DEFAULT_AGENTS)
 
-    # 4. Tool declarations (kept in code, coupled to tool definitions)
-    base = soul + "\n\n## 用户画像\n" + user_profile + "\n\n" + agents + "\n\n" + _TOOL_RULES
+    # 5. Assemble base prompt: SOUL → IDENTITY → USER → AGENTS → TOOL_RULES
+    base = (
+        soul
+        + "\n\n## 身份\n" + identity
+        + "\n\n## 用户画像\n" + user_profile
+        + "\n\n" + agents
+        + "\n\n" + _TOOL_RULES
+    )
 
     # 5. Skill catalog and rules
     if db:
