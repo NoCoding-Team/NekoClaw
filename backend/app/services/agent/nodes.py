@@ -251,9 +251,9 @@ async def llm_call(state: AgentState) -> dict:
             break
         except Exception as exc:
             last_exc = exc
-            if attempt < _MAX_ATTEMPTS - 1:
+            if attempt == 0:
+                # 只在第一次失败时推送提示，后续重试静默等待
                 await send_event(ws, "llm_token", {"token": _RETRY_MSG})
-            # else: fall through to final error handling
 
     if last_exc is not None:
         err_msg = _RETRY_MSG
