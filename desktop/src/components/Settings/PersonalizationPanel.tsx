@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import styles from './PersonalizationPanel.module.css'
 import { useAppStore, PersonalizationConfig } from '../../store/app'
+import { apiFetch } from '../../api/apiFetch'
 
 const TRAIT_OPTIONS = ['活泼开朗', '沉稳专业', '幽默风趣', '严谨细致', '温暖贴心']
 const REPLY_STYLES = [
@@ -27,7 +28,7 @@ export function buildSystemPrompt(cfg: PersonalizationConfig): string {
 }
 
 export function PersonalizationPanel() {
-  const { personalizationConfig, setPersonalizationConfig } = useAppStore()
+  const { personalizationConfig, setPersonalizationConfig, serverUrl } = useAppStore()
   const cfg = personalizationConfig
 
   const [userName,     setUserName]     = useState(cfg?.userName     ?? '')
@@ -42,20 +43,109 @@ export function PersonalizationPanel() {
   const [customPrompt, setCustomPrompt] = useState(cfg?.customPrompt ?? '')
   const [saved,        setSaved]        = useState(false)
 
+  // ── 从记忆文件加载配置 ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!serverUrl) return
+    const load = async () => {
+      try {
+        const res = await apiFetch(`${serverUrl}/api/memory/files/USER.md`)
+        if (res.ok) {
+          const { content } = await res.json() as { content: string }
+          const name = content.match(/^- Name: (.+)$/m)?.[1]?.trim()
+          const tz   = content.match(/^- Timezone: (.+)$/m)?.[1]?.trim()
+          const notesMatch = content.match(/^## Notes\n([\s\S]*)$/m)
+          const notes = notesMatch ? notesMatch[1].trim() : content.match(/^- Notes: (.+)$/m)?.[1]?.trim()
+          if (name)  setUserName(name)
+          if (tz)    setTimezone(tz)
+          if (notes) setNotes(notes)
+        }
+      } catch { /* ignore */ }
+      try {
+        const res = await apiFetch(`${serverUrl}/api/memory/files/IDENTITY.md`)
+        if (res.ok) {
+          const { content } = await res.json() as { content: string }
+          const name     = content.match(/^- Name: (.+)$/m)?.[1]?.trim()
+          const creature = content.match(/^- Creature: (.+)$/m)?.[1]?.trim()
+          const vibe     = content.match(/^- Vibe: (.+)$/m)?.[1]?.trim()
+          const emoji    = content.match(/^- Emoji: (.+)$/m)?.[1]?.trim()
+          if (name)     setCatName(name)
+          if (creature) setBioType(creature)
+          if (vibe)     setVibe(vibe)
+          if (emoji)    setCatEmoji(emoji)
+        }
+      } catch { /* ignore */ }
+      try {
+        const res = await apiFetch(`${serverUrl}/api/memory/files/SOUL.md`)
+        if (res.ok) {
+          const { content } = await res.json() as { content: string }
+          const traitsStr  = content.match(/^- Traits: (.+)$/m)?.[1]?.trim()
+          const replyStr   = content.match(/^- Reply style: (.+)$/m)?.[1]?.trim()
+          const customMatch = content.match(/^## Custom Instructions\n([\s\S]*)$/m)
+          const custom = customMatch ? customMatch[1].trim() : undefined
+          if (traitsStr) setTraits(traitsStr.split('、').filter(Boolean))
+          if (replyStr)  setReplyStyle(replyStr)
+          if (custom)    setCustomPrompt(custom)
+        }
+      } catch { /* ignore */ }
+    }
+    load()
+  }, [serverUrl])
+
   const toggleTrait = (t: string) =>
     setTraits((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     const newCfg: PersonalizationConfig = {
       userName, timezone, notes, catName, bioType, vibe, catEmoji,
       traits, replyStyle, customPrompt, systemPrompt: '',
     }
     newCfg.systemPrompt = buildSystemPrompt(newCfg)
     setPersonalizationConfig(newCfg)
+
+    // 同步写入记忆文件
+    if (serverUrl) {
+      const userLines = ['# USER.md']
+      if (userName) userLines.push(`- Name: ${userName}`)
+      if (timezone) userLines.push(`- Timezone: ${timezone}`)
+      if (notes.trim()) { userLines.push(''); userLines.push('## Notes'); userLines.push(notes.trim()) }
+      const userContent = userLines.join('\n')
+
+      const idLines = ['# IDENTITY.md']
+      if (catName)  idLines.push(`- Name: ${catName}`)
+      if (bioType)  idLines.push(`- Creature: ${bioType}`)
+      if (vibe)     idLines.push(`- Vibe: ${vibe}`)
+      if (catEmoji) idLines.push(`- Emoji: ${catEmoji}`)
+      const identityContent = idLines.join('\n')
+
+      const soulLines = ['# SOUL.md']
+      if (traits.length) soulLines.push(`- Traits: ${traits.join('、')}`)
+      if (replyStyle)    soulLines.push(`- Reply style: ${replyStyle}`)
+      if (customPrompt.trim()) { soulLines.push(''); soulLines.push('## Custom Instructions'); soulLines.push(customPrompt.trim()) }
+      const soulContent = soulLines.join('\n')
+
+      await Promise.allSettled([
+        apiFetch(`${serverUrl}/api/memory/files/USER.md`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: userContent }),
+        }),
+        apiFetch(`${serverUrl}/api/memory/files/IDENTITY.md`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: identityContent }),
+        }),
+        apiFetch(`${serverUrl}/api/memory/files/SOUL.md`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: soulContent }),
+        }),
+      ])
+    }
+
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }, [userName, timezone, notes, catName, bioType, vibe, catEmoji,
-      traits, replyStyle, customPrompt, setPersonalizationConfig])
+      traits, replyStyle, customPrompt, setPersonalizationConfig, serverUrl])
 
   return (
     <div className={styles.panel}>
