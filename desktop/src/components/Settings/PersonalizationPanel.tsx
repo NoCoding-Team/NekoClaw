@@ -103,28 +103,88 @@ export function PersonalizationPanel() {
     newCfg.systemPrompt = buildSystemPrompt(newCfg)
     setPersonalizationConfig(newCfg)
 
-    // 调用后端 LLM 生成丰富的人格配置文件
-    if (serverUrl) {
-      setGenerating(true)
-      try {
-        const res = await apiFetch(`${serverUrl}/api/memory/generate-persona`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userName, timezone, notes, catName, bioType, vibe, catEmoji,
-            traits, replyStyle, customPrompt,
-          }),
-        })
-        if (!res.ok) {
-          console.error('generate-persona failed:', res.status, await res.text())
-        }
-      } catch (e) {
-        console.error('generate-persona error:', e)
-      } finally {
-        setGenerating(false)
-      }
+    if (!serverUrl) { setSaved(true); setTimeout(() => setSaved(false), 2500); return }
+
+    setGenerating(true)
+
+    // ── 尝试调用 LLM 端点 ─────────────────────────────────────────────
+    let llmOk = false
+    try {
+      const res = await apiFetch(`${serverUrl}/api/memory/generate-persona`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName, timezone, notes, catName, bioType, vibe, catEmoji,
+          traits, replyStyle, customPrompt,
+        }),
+      })
+      llmOk = res.ok
+    } catch { /* endpoint may not exist on remote server */ }
+
+    // ── 回退：直接用 PUT 写入结构化内容 ────────────────────────────────
+    if (!llmOk) {
+      const traitsDesc = traits.length ? traits.join('、') : '友好、专业、严谨'
+      const replyDesc  = replyStyle || '友好而专业'
+      const soulContent = [
+        '# 人格（Persona）',
+        `- **${traitsDesc}**：以${traitsDesc}的方式与用户交互，确保交流既有人性化又不失严谨性。`,
+        '- **适应性强**：根据用户的需求和情境调整回应的语气和内容。',
+        '',
+        '# 语气（Tone）',
+        `- **${replyDesc}**：始终保持${replyDesc}的语气，避免过于复杂的术语，确保用户能轻松理解。`,
+        '- **正向鼓励**：积极鼓励用户的努力，提供建设性反馈。',
+        '- 请用中文回复用户',
+        '',
+        '# 边界（Boundaries）',
+        '- 保护用户隐私，不主动收集敏感信息',
+        '- 超出能力范围时诚实告知',
+        '- 遵循道德规范和法律规定',
+        ...(customPrompt.trim() ? ['', '# 自定义指令（Custom Instructions）', customPrompt.trim()] : []),
+      ].join('\n')
+
+      const name = catName || 'NekoClaw'
+      const creature = bioType || '猫咪助手'
+      const vibeVal = vibe || '友好专业'
+      const emoji = catEmoji || '🐱'
+      const identityContent = [
+        '# 名称（Name）',
+        `- **名称**：${name}`,
+        `${name}是一只${creature}，灵活敏捷，乐于助人。`,
+        '',
+        '# 风格（Vibe）',
+        `- **风格**：${vibeVal}`,
+        `风格以${vibeVal}为主，简洁且功能直观，具备较高的交互性和灵活性。`,
+        '',
+        '# 表情（Emoji）',
+        `- **表情**：${emoji}`,
+        `用 ${emoji} 表情传递其智能助手的身份。`,
+      ].join('\n')
+
+      const uName = userName || '用户'
+      const userContent = [
+        '# 用户画像（User Profile）',
+        `- **称呼**：${uName}`,
+        ...(timezone ? [`- **时区**：${timezone}`] : []),
+        '',
+        '# 称呼方式（Preferred Addressing）',
+        `- 使用「${uName}」来称呼用户`,
+        ...(notes.trim() ? ['', '# 用户备注', notes.trim()] : []),
+      ].join('\n')
+
+      await Promise.allSettled([
+        apiFetch(`${serverUrl}/api/memory/files/SOUL.md`, {
+          method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: soulContent,
+        }),
+        apiFetch(`${serverUrl}/api/memory/files/IDENTITY.md`, {
+          method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: identityContent,
+        }),
+        apiFetch(`${serverUrl}/api/memory/files/USER.md`, {
+          method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: userContent,
+        }),
+      ])
     }
 
+    setGenerating(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
   }, [userName, timezone, notes, catName, bioType, vibe, catEmoji,
