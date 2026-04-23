@@ -83,7 +83,7 @@ const ABILITIES: Ability[] = [
     desc: '从个人知识库与记忆文件中检索相关片段，本地优先 + 云端回退，让 Agent 始终记得你的重要内容',
     executor: 'memory',
     executorLabel: '记忆系统',
-    tools: ['search_knowledge_base'],
+    tools: ['search_memory'],
     alwaysOn: true,
   },
 ]

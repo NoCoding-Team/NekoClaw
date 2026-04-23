@@ -3,15 +3,6 @@ import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
 import cron from 'node-cron'
-import {
-  hasIndex as knowledgeHasIndex,
-  searchKnowledge,
-  setKnowledgeDir,
-  getKnowledgeDir,
-  setEmbeddingConfig as setKnowledgeEmbedding,
-  shutdownKnowledge,
-  type EmbeddingConfig as KnowledgeEmbeddingConfig,
-} from './knowledge'
 
 // ── SQLite DbService ─────────────────────────────────────────────────────
 // Lazily required so that the renderer bundle never imports it
@@ -843,38 +834,4 @@ ipcMain.handle('browser:type', async (_e, selector: string, text: string) => {
 // Cleanup browser on app quit
 app.on('before-quit', () => {
   _browserContext?.browser()?.close().catch(() => {})
-  shutdownKnowledge().catch(() => {})
-})
-
-// ── IPC: Knowledge base ───────────────────────────────────────────────────
-
-ipcMain.handle('knowledge:hasIndex', () => {
-  return { hasIndex: knowledgeHasIndex() }
-})
-
-ipcMain.handle('knowledge:search', async (_e, query: string, topK?: number) => {
-  try {
-    const results = await searchKnowledge(query, topK ?? 5)
-    return { results }
-  } catch (err) {
-    return { error: String(err), results: [] }
-  }
-})
-
-ipcMain.handle('knowledge:setDir', async (_e, dir: string | null) => {
-  try {
-    await setKnowledgeDir(dir)
-    return { success: true }
-  } catch (err) {
-    return { error: String(err) }
-  }
-})
-
-ipcMain.handle('knowledge:getDir', () => {
-  return { dir: getKnowledgeDir() }
-})
-
-ipcMain.handle('knowledge:setEmbeddingConfig', (_e, config: KnowledgeEmbeddingConfig | null) => {
-  setKnowledgeEmbedding(config)
-  return { success: true }
 })

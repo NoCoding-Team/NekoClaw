@@ -358,94 +358,9 @@ function ModelCenterTab() {
 
 // ── GeneralTab ─────────────────────────────────────────────────────────────────
 function GeneralTab() {
-  const [knowledgeDir, setKnowledgeDir] = useState('')
-  const [embBaseUrl, setEmbBaseUrl] = useState('')
-  const [embModel, setEmbModel] = useState('')
-  const [embApiKey, setEmbApiKey] = useState('')
-
-  useEffect(() => {
-    window.nekoBridge.knowledge.getDir().then(r => {
-      if (r.dir) setKnowledgeDir(r.dir)
-    })
-    // Load saved embedding config from localStorage
-    const saved = localStorage.getItem('embeddingConfig')
-    if (saved) {
-      try {
-        const cfg = JSON.parse(saved)
-        setEmbBaseUrl(cfg.baseUrl || '')
-        setEmbModel(cfg.model || '')
-        setEmbApiKey(cfg.apiKey || '')
-      } catch { /* ignore */ }
-    }
-  }, [])
-
-  const handleKnowledgeDirChange = async () => {
-    const dir = knowledgeDir.trim() || null
-    await window.nekoBridge.knowledge.setDir(dir)
-  }
-
-  const handleEmbeddingSave = async () => {
-    const baseUrl = embBaseUrl.trim()
-    const model = embModel.trim()
-    const apiKey = embApiKey.trim()
-    if (baseUrl && model && apiKey) {
-      const cfg = { baseUrl, model, apiKey }
-      await window.nekoBridge.knowledge.setEmbeddingConfig(cfg)
-      localStorage.setItem('embeddingConfig', JSON.stringify(cfg))
-    } else if (!baseUrl && !model && !apiKey) {
-      await window.nekoBridge.knowledge.setEmbeddingConfig(null)
-      localStorage.removeItem('embeddingConfig')
-    }
-  }
-
   return (
     <div>
-      {/* 知识库目录 */}
-      <div className={styles.settingsBlock}>
-        <div className={styles.settingsBlockHeader}>
-          <div className={styles.secRowTitle}>知识库目录</div>
-          <div className={styles.secRowDesc}>指定一个本地目录，其中的 .md / .txt / .pdf 文件将被索引，供 Agent 搜索。</div>
-        </div>
-        <input
-          className={styles.formInput}
-          value={knowledgeDir}
-          onChange={e => setKnowledgeDir(e.target.value)}
-          onBlur={handleKnowledgeDirChange}
-          placeholder="例如 C:\Users\me\Documents\knowledge"
-        />
-      </div>
-
-      {/* Embedding 配置 */}
-      <div className={styles.settingsBlock}>
-        <div className={styles.settingsBlockHeader}>
-          <div className={styles.secRowTitle}>Embedding 模型</div>
-          <div className={styles.secRowDesc}>配置向量嵌入模型，用于记忆语义检索。留空则仅使用关键词检索。</div>
-        </div>
-        <div className={styles.settingsBlockInputs}>
-          <input
-            className={styles.formInput}
-            value={embBaseUrl}
-            onChange={e => setEmbBaseUrl(e.target.value)}
-            onBlur={handleEmbeddingSave}
-            placeholder="API Base URL（如 https://api.openai.com/v1）"
-          />
-          <input
-            className={styles.formInput}
-            value={embModel}
-            onChange={e => setEmbModel(e.target.value)}
-            onBlur={handleEmbeddingSave}
-            placeholder="模型名称（如 text-embedding-3-small）"
-          />
-          <input
-            className={styles.formInput}
-            type="password"
-            value={embApiKey}
-            onChange={e => setEmbApiKey(e.target.value)}
-            onBlur={handleEmbeddingSave}
-            placeholder="API Key"
-          />
-        </div>
-      </div>
+      {/* Knowledge settings removed — search is now server-side via pgvector */}
     </div>
   )
 }

@@ -81,17 +81,6 @@ interface NekoBridgeNet {
   httpRequest(opts: { method: string; url: string; headers?: Record<string, string>; body?: string }): Promise<{ status_code?: number; headers?: Record<string, string>; body?: string; error?: string }>
 }
 
-interface NekoBridgeKnowledge {
-  hasIndex(): Promise<{ hasIndex: boolean }>
-  search(query: string, topK?: number): Promise<{
-    results: Array<{ filePath: string; chunkIndex: number; content: string; score: number }>
-    error?: string
-  }>
-  setDir(dir: string | null): Promise<{ success?: boolean; error?: string }>
-  getDir(): Promise<{ dir: string | null }>
-  setEmbeddingConfig(config: { baseUrl: string; model: string; apiKey: string } | null): Promise<{ success: boolean }>
-}
-
 interface NekoBridge {
   file: NekoBridgeFile
   shell: NekoBridgeShell
@@ -102,7 +91,6 @@ interface NekoBridge {
   browser: NekoBridgeBrowser
   net: NekoBridgeNet
   memory: NekoBridgeMemory
-  knowledge: NekoBridgeKnowledge
   db?: NekoBridgeDb
 }
 
