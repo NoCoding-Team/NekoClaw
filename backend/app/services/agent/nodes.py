@@ -312,16 +312,14 @@ async def tools_node(state: AgentState) -> dict:
     ws = state["ws"]
     user_id = state["user_id"]
     session_id = state["session_id"]
-    ephemeral = state.get("ephemeral", False)
 
     # Persist the assistant message (with tool calls) before executing tools
-    if not ephemeral:
-        await _persist_message(
-            session_id=session_id,
-            role="assistant",
-            content=ai_message.content if isinstance(ai_message.content, str) else "",
-            tool_calls=_lc_tool_calls_to_openai(ai_message.tool_calls),
-        )
+    await _persist_message(
+        session_id=session_id,
+        role="assistant",
+        content=ai_message.content if isinstance(ai_message.content, str) else "",
+        tool_calls=_lc_tool_calls_to_openai(ai_message.tool_calls),
+    )
 
     tool_messages: list[ToolMessage] = []
 
@@ -337,13 +335,12 @@ async def tools_node(state: AgentState) -> dict:
             await send_event(ws, "tool_denied", {"call_id": call_id, "reason": deny_msg})
             result_content = json.dumps({"error": deny_msg})
             tool_messages.append(ToolMessage(content=result_content, tool_call_id=call_id))
-            if not ephemeral:
-                await _persist_message(
-                    session_id, "tool", result_content,
-                    [{"callId": call_id, "tool": tool_name, "args": args,
-                      "riskLevel": risk_level, "status": "error", "result": result_content[:2000]}],
-                    tool_call_id=call_id,
-                )
+            await _persist_message(
+                session_id, "tool", result_content,
+                [{"callId": call_id, "tool": tool_name, "args": args,
+                  "riskLevel": risk_level, "status": "error", "result": result_content[:2000]}],
+                tool_call_id=call_id,
+            )
             continue
 
         tool_def = TOOL_MAP.get(tool_name)
@@ -416,10 +413,9 @@ async def tools_node(state: AgentState) -> dict:
             "status": status,
             "result": result_content[:2000],
         }]
-        if not ephemeral:
-            await _persist_message(
-                session_id, "tool", result_content, tool_call_card, tool_call_id=call_id
-            )
+        await _persist_message(
+            session_id, "tool", result_content, tool_call_card, tool_call_id=call_id
+        )
         tool_messages.append(ToolMessage(content=result_content, tool_call_id=call_id))
 
     return {"messages": tool_messages}
@@ -429,12 +425,10 @@ async def finalize(state: AgentState) -> dict:
     """Persist the final assistant message and send completion events."""
     ws = state["ws"]
     session_id = state["session_id"]
-    ephemeral = state.get("ephemeral", False)
     ai_message: AIMessage = state["messages"][-1]  # type: ignore[assignment]
 
     content = ai_message.content if isinstance(ai_message.content, str) else str(ai_message.content)
-    if not ephemeral:
-        await _persist_message(session_id=session_id, role="assistant", content=content, tool_calls=None)
+    await _persist_message(session_id=session_id, role="assistant", content=content, tool_calls=None)
     await send_event(ws, "cat_state", {"state": "success"})
 
     return {}
@@ -448,7 +442,6 @@ async def _generate_title(state: AgentState, assistant_reply: str) -> None:
     ws = state["ws"]
     session_id = state["session_id"]
     llm_config = state["llm_config"]
-    ephemeral = state.get("ephemeral", False)
 
     # Extract first user message
     user_content = ""
@@ -469,13 +462,12 @@ async def _generate_title(state: AgentState, assistant_reply: str) -> None:
         title = (result.content.strip() if isinstance(result.content, str) else str(result.content).strip())[:30]
         if not title:
             return
-        # Update DB (skip when ephemeral — no server session data to update)
-        if not ephemeral:
-            async with AsyncSessionLocal() as db:
-                session = await db.get(Session, session_id)
-                if session:
-                    session.title = title
-                    await db.commit()
+        # Update DB
+        async with AsyncSessionLocal() as db:
+            session = await db.get(Session, session_id)
+            if session:
+                session.title = title
+                await db.commit()
         # Push to client
         await send_event(ws, "title_update", {"session_id": session_id, "title": title})
     except Exception:
