@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppStore, ChatMessage as ChatMsg, ToolCall, TurnSegment } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage, ThinkingBubble } from './ChatMessage'
-import { useWebSocket, getEphemeralServerId, clearEphemeralMapping } from '../../hooks/useWebSocket'
+import { useWebSocket } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
 import { AssetsPanel } from './AssetsPanel'
 import { apiFetch } from '../../api/apiFetch'
@@ -188,13 +188,6 @@ export function ChatArea() {
 
       // 6. 硬删除本地 SQLite 记录
       await db.deleteSession(activeSessionId)
-
-      // 7. 清理 ephemeral 服务器会话（如果存在）
-      const ephServerId = getEphemeralServerId(activeSessionId)
-      if (ephServerId) {
-        clearEphemeralMapping(activeSessionId)
-        apiFetch(`${serverUrl}/api/sessions/${ephServerId}`, { method: 'DELETE' }).catch(() => {})
-      }
 
       showToast('✓ 同步成功，后续消息将保存到服务器')
     } catch (err: unknown) {

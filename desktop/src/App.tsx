@@ -10,7 +10,6 @@ import { PersonalizationPanel } from './components/Settings/PersonalizationPanel
 import AbilitiesPanel from './components/Abilities/AbilitiesPanel'
 import SkillsPanel from './components/Skills/SkillsPanel'
 import { apiFetch } from './api/apiFetch'
-import { getEphemeralServerIds } from './hooks/useWebSocket'
 
 export default function App() {
   const { token, serverConnected, serverUrl, setSessions, setActiveSession, setProfile } = useAppStore()
@@ -97,10 +96,7 @@ export default function App() {
           return
         }
         const data: Array<{ id: string; title: string }> = await res.json()
-        // 过滤掉为 WS 传输创建的临时服务端会话
-        const ephIds = getEphemeralServerIds()
         const serverSessions = data
-          .filter((s) => !ephIds.has(s.id) && s.title !== '临时会话')
           .map((s) => ({ id: s.id, title: s.title }))
         // local-* 会话排在前面（最近使用），server 会话紧随其后
         const allSessions = [...localOnlySessions, ...serverSessions]
