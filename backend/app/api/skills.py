@@ -183,14 +183,26 @@ async def install_skill(
 
     meta = _parse_frontmatter(skill_file, skill_name, "user")
 
-    # Insert DB record
-    cfg = SkillConfig(
-        user_id=current_user.id,
-        skill_name=skill_name,
-        enabled=True,
-        source="user",
+    # Upsert DB record — reinstalling an existing skill just re-enables it
+    result = await db.execute(
+        select(SkillConfig).where(
+            SkillConfig.user_id == current_user.id,
+            SkillConfig.skill_name == skill_name,
+        )
     )
-    db.add(cfg)
+    cfg = result.scalar_one_or_none()
+    if cfg:
+        cfg.enabled = True
+        cfg.deleted_at = None
+        cfg.source = "user"
+    else:
+        cfg = SkillConfig(
+            user_id=current_user.id,
+            skill_name=skill_name,
+            enabled=True,
+            source="user",
+        )
+        db.add(cfg)
     await db.commit()
 
     return SkillInfo(
