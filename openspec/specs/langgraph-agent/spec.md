@@ -16,14 +16,18 @@
 - **THEN** 系统 SHALL 重复 llm_call → should_continue → tools 循环，直到 LLM 返回无 tool_calls 的响应
 
 ### Requirement: AgentState 类型定义
-系统 SHALL 定义 `AgentState(TypedDict)` 作为图的状态容器，包含 `messages`（消息列表，使用 `add_messages` 注解实现追加语义）、`session_id`、`user_id`、`ws`（WebSocket 引用）、`llm_config`、`skill`、`context_limit`、`user_turn_count`。
+系统 SHALL 定义 `AgentState(TypedDict)` 作为图的状态容器，包含 `messages`（消息列表，使用 `add_messages` 注解实现追加语义）、`session_id`、`user_id`、`ws`（WebSocket 引用）、`llm_config`、`skill`、`context_limit`、`user_turn_count`。AgentState SHALL NOT 包含 `ephemeral` 和 `local_history` 字段。
 
 #### Scenario: State 消息追加
 - **WHEN** llm_call 节点返回新的 assistant 消息
 - **THEN** AgentState.messages SHALL 通过 `add_messages` reducer 追加消息而非覆盖
 
+#### Scenario: State 无 ephemeral 字段
+- **WHEN** AgentState 被构造
+- **THEN** AgentState SHALL 不包含 `ephemeral: bool` 和 `local_history: list[dict]` 字段
+
 ### Requirement: prepare 节点
-`prepare` 节点 SHALL 加载会话历史、构建系统提示（含技能 prompt + 记忆注入 + 工具规则）、执行上下文裁剪和记忆刷新（当满足触发条件时）。
+`prepare` 节点 SHALL 加载会话历史、构建系统提示（含技能 prompt + 记忆注入 + 工具规则）、执行上下文裁剪和记忆刷新（当满足触发条件时）。prepare 节点 SHALL NOT 支持 ephemeral 模式，所有会话历史 SHALL 从数据库加载。
 
 #### Scenario: 首次消息上下文构建
 - **WHEN** 会话中第一条消息到达，数据库无历史消息
