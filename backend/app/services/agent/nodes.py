@@ -234,17 +234,29 @@ async def llm_call(state: AgentState) -> dict:
     model = get_chat_model(llm_config)
     if tools:
         model = model.bind_tools(tools)
-    model = model.with_retry(
-        stop_after_attempt=3,
-        wait_exponential_jitter=True,
-    )
 
-    # Stream with WebSocket callback
+    # Stream with WebSocket callback — manual retry with friendly progress messages
     handler = WebSocketStreamHandler(ws)
-    try:
-        ai_message = await model.ainvoke(messages, config={"callbacks": [handler]})
-    except Exception as exc:
-        err_msg = f"⚠️ LLM 调用失败: {exc}"
+    _MAX_ATTEMPTS = 3
+    _RETRY_MSG = "网络波动，正在重试中，请小主人稍等片刻☆*: .｡. o(≧▽≦)o .｡.:*☆"
+    ai_message = None
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_ATTEMPTS):
+        if attempt > 0:
+            wait_secs = 2 ** attempt  # 2s, 4s
+            await asyncio.sleep(wait_secs)
+        try:
+            ai_message = await model.ainvoke(messages, config={"callbacks": [handler]})
+            last_exc = None
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _MAX_ATTEMPTS - 1:
+                await send_event(ws, "llm_token", {"token": _RETRY_MSG})
+            # else: fall through to final error handling
+
+    if last_exc is not None:
+        err_msg = _RETRY_MSG
         await send_event(ws, "llm_token", {"token": err_msg})
         await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": False})
         return {"messages": [AIMessage(content=err_msg)]}
