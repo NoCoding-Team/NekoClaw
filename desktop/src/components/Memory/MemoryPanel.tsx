@@ -32,19 +32,24 @@ export default function MemoryPanel() {
 
   // ── Load file list ────────────────────────────────────────────────────
   const loadFiles = useCallback(async () => {
-    const mem = window.nekoBridge?.memory
-    if (!mem) return
+    if (!token || !serverUrl) return
     setLoading(true)
     try {
-      const result = await mem.list()
-      const items: MemoryFile[] = (result.files ?? []).map((f: { name: string; mtime?: number; modifiedAt?: number }) => ({
+      const resp = await apiFetch(`${serverUrl}/api/memory/files`)
+      if (!resp.ok) { setFiles([]); return }
+      const result = await resp.json() as Array<{ name: string; modifiedAt?: number }>
+      const items: MemoryFile[] = result.map((f) => ({
         name: f.name,
-        modifiedAt: f.mtime ?? f.modifiedAt ?? 0,
+        modifiedAt: f.modifiedAt ?? 0,
       }))
-      // Sort: MEMORY.md first, then by modifiedAt desc
+      // Sort: pinned files first (SOUL > USER > AGENTS > MEMORY), then by modifiedAt desc
+      const PIN_ORDER: Record<string, number> = {
+        'SOUL.md': 0, 'USER.md': 1, 'AGENTS.md': 2, 'MEMORY.md': 3
+      }
       items.sort((a, b) => {
-        if (a.name === 'MEMORY.md') return -1
-        if (b.name === 'MEMORY.md') return 1
+        const pa = PIN_ORDER[a.name] ?? 999
+        const pb = PIN_ORDER[b.name] ?? 999
+        if (pa !== pb) return pa - pb
         return b.modifiedAt - a.modifiedAt
       })
       setFiles(items)
@@ -53,9 +58,12 @@ export default function MemoryPanel() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [token, serverUrl])
 
-  useEffect(() => { loadFiles() }, [loadFiles])
+  useEffect(() => {
+    if (serverConnected && token) loadFiles()
+    else setFiles([])
+  }, [loadFiles, serverConnected, token])
 
   // ── Load server DB memories ──────────────────────────────────────
   const loadDbMemories = useCallback(async () => {
@@ -78,15 +86,16 @@ export default function MemoryPanel() {
 
   // ── Read file content ─────────────────────────────────────────────────
   const readFile = useCallback(async (name: string) => {
-    const mem = window.nekoBridge?.memory
-    if (!mem) return
+    if (!token || !serverUrl) return
     try {
-      const result = await mem.read(name)
-      setFileContent((result as { content?: string }).content ?? '')
+      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(name)}`)
+      if (!resp.ok) { setFileContent(''); return }
+      const data = await resp.json() as { content?: string }
+      setFileContent(data.content ?? '')
     } catch {
       setFileContent('')
     }
-  }, [])
+  }, [token, serverUrl])
 
   const handleSelectFile = useCallback((name: string) => {
     setEditing(false)
@@ -98,10 +107,12 @@ export default function MemoryPanel() {
   // ── Delete MD file ───────────────────────────────────────────
   const deleteFile = useCallback(async (e: React.MouseEvent, name: string) => {
     e.stopPropagation()
-    const mem = window.nekoBridge?.memory
-    if (!mem) return
+    if (!token || !serverUrl) return
     try {
-      await mem.delete(name)
+      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       showToast(`${name} 已删除`)
       if (selectedFile === name) {
         setSelectedFile(null)
@@ -112,7 +123,7 @@ export default function MemoryPanel() {
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : '删除失败')
     }
-  }, [selectedFile, loadFiles, showToast])
+  }, [token, serverUrl, selectedFile, loadFiles, showToast])
 
   // ── Delete server DB memory ───────────────────────────────────
   const deleteDbMemory = useCallback(async (e: React.MouseEvent, id: string) => {
@@ -142,11 +153,14 @@ export default function MemoryPanel() {
   }
 
   const saveEdit = async () => {
-    if (!selectedFile) return
-    const mem = window.nekoBridge?.memory
-    if (!mem) return
+    if (!selectedFile || !token || !serverUrl) return
     try {
-      await mem.write(selectedFile, editBuffer)
+      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(selectedFile)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: editBuffer,
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       setFileContent(editBuffer)
       setEditing(false)
       showToast('已保存')
@@ -158,8 +172,7 @@ export default function MemoryPanel() {
 
   // ── Create today note ─────────────────────────────────────────────────
   const createTodayNote = async () => {
-    const mem = window.nekoBridge?.memory
-    if (!mem) return
+    if (!token || !serverUrl) return
     const today = new Date().toISOString().slice(0, 10)
     const fileName = `${today}.md`
     // Check if it already exists
@@ -169,7 +182,12 @@ export default function MemoryPanel() {
       return
     }
     try {
-      await mem.write(fileName, `# ${today}\n\n`)
+      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(fileName)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: `# ${today}\n\n`,
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       await loadFiles()
       setSelectedFile(fileName)
       setFileContent(`# ${today}\n\n`)
@@ -177,60 +195,6 @@ export default function MemoryPanel() {
       setEditing(true)
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : '创建失败')
-    }
-  }
-
-  // ── Cloud sync ────────────────────────────────────────────────────────
-  const uploadToCloud = async () => {
-    if (!selectedFile || !token || !serverUrl) {
-      showToast('请先登录服务器')
-      return
-    }
-    const mem = window.nekoBridge?.memory
-    if (!mem) return
-    try {
-      const result = await mem.read(selectedFile)
-      const content = (result as { content?: string }).content ?? ''
-      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(selectedFile)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'text/plain' },
-        body: content,
-      })
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-      showToast(`${selectedFile} 已上传到云端`)
-    } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : '上传失败')
-    }
-  }
-
-  const pullFromCloud = async () => {
-    if (!token || !serverUrl) {
-      showToast('请先登录服务器')
-      return
-    }
-    try {
-      const resp = await apiFetch(`${serverUrl}/api/memory/files`)
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-      const cloudFiles = await resp.json() as Array<{ name: string }>
-      if (cloudFiles.length === 0) {
-        showToast('云端无记忆文件')
-        return
-      }
-      const mem = window.nekoBridge?.memory
-      if (!mem) return
-      let count = 0
-      for (const cf of cloudFiles) {
-        const fileResp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(cf.name)}`)
-        if (!fileResp.ok) continue
-        const data = await fileResp.json() as { content: string }
-        await mem.write(cf.name, data.content)
-        count++
-      }
-      showToast(`已从云端拉取 ${count} 个文件`)
-      loadFiles()
-      if (selectedFile) readFile(selectedFile)
-    } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : '拉取失败')
     }
   }
 
@@ -302,22 +266,14 @@ export default function MemoryPanel() {
           <button className={styles.btnSecondary} onClick={createTodayNote}>
             + 今日笔记
           </button>
-          {serverConnected && token && (
-            <>
-              <button className={styles.btnSecondary} onClick={pullFromCloud} title="从云端拉取所有记忆文件">
-                ↓ 拉取
-              </button>
-              {selectedFile && (
-                <button className={styles.btnSecondary} onClick={uploadToCloud} title="上传当前文件到云端">
-                  ↑ 上传
-                </button>
-              )}
-            </>
-          )}
         </div>
       </div>
 
       <div className={styles.body}>
+        {/* ── Not connected state ───────────────────────────────────── */}
+        {(!serverConnected || !token) ? (
+          <div className={styles.placeholder}>请先连接服务器并登录后查看记忆文件</div>
+        ) : (<>
         {/* ── Left: File list ────────────────────────────────────────── */}
         <div className={styles.fileList}>
           {loading ? (
@@ -345,7 +301,7 @@ export default function MemoryPanel() {
                   </div>
                   {f.modifiedAt > 0 && (
                     <div className={styles.fileMeta}>
-                      {new Date(f.modifiedAt).toLocaleDateString('zh-CN')}
+                      {new Date(f.modifiedAt * 1000).toLocaleDateString('zh-CN')}
                     </div>
                   )}
                 </li>
@@ -424,6 +380,7 @@ export default function MemoryPanel() {
             </>
           )}
         </div>
+        </>)}
       </div>
     </div>
   )
