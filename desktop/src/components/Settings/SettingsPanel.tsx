@@ -358,7 +358,6 @@ function ModelCenterTab() {
 
 // ── GeneralTab ─────────────────────────────────────────────────────────────────
 function GeneralTab() {
-  const { syncEnabled, setSyncEnabled } = useAppStore()
   const [knowledgeDir, setKnowledgeDir] = useState('')
   const [embBaseUrl, setEmbBaseUrl] = useState('')
   const [embModel, setEmbModel] = useState('')
@@ -401,22 +400,6 @@ function GeneralTab() {
 
   return (
     <div>
-      {/* 本地优先 / 云同步 */}
-      <div className={styles.secRow}>
-        <div className={styles.secRowLeft}>
-          <div className={styles.secRowTitle}>自动同步到服务器</div>
-          <div className={styles.secRowDesc}>
-            开启后，本地对话历史将自动同步到服务器；关闭则仅保存在本机。
-          </div>
-        </div>
-        <button
-          className={`${styles.toggle} ${syncEnabled ? styles.toggleOn : ''}`}
-          onClick={() => setSyncEnabled(!syncEnabled)}
-          aria-checked={syncEnabled}
-          role="switch"
-        />
-      </div>
-
       {/* 知识库目录 */}
       <div className={styles.settingsBlock}>
         <div className={styles.settingsBlockHeader}>

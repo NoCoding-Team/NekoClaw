@@ -117,7 +117,6 @@ export function ChatArea() {
     serverUrl,
     token,
     setMessages,
-    replaceSession,
     addSession,
     setActiveSession,
     appendMessage,
@@ -130,75 +129,7 @@ export function ChatArea() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [syncError, setSyncError] = useState<string | null>(null)
   const { toast, showToast, dismissToast } = useToast()
-
-  // 同步完成后阻止 useEffect 从服务器重新加载消息（防止覆盖内存中的正确数据）
-  const justSyncedIdRef = useRef<string | null>(null)
-
-  // 同步本地会话到服务器
-  const syncToServer = async () => {
-    if (!activeSessionId?.startsWith('local-') || !token || !serverUrl) return
-    setIsSyncing(true)
-    setSyncError(null)
-    try {
-      const db = window.nekoBridge?.db
-      if (!db) throw new Error('DB不可用')
-
-      // 1. 获取所有本地消息（包含 tool 消息，保留工具调用卡片）
-      const localMsgs = await db.getMessages(activeSessionId)
-      const msgs = localMsgs
-
-      // 2. 在服务器创建会话
-      const sessionTitle = useAppStore.getState().sessions.find(s => s.id === activeSessionId)?.title ?? '新对话'
-      const createRes = await apiFetch(`${serverUrl}/api/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: sessionTitle }),
-      })
-      if (!createRes.ok) throw new Error(`创建会话失败 ${createRes.status}`)
-      const serverSession: { id: string; title: string } = await createRes.json()
-
-      // 3. 逐条上传消息（保证服务端 created_at 严格递增，避免批量上传时时间戳相同导致乱序）
-      for (const m of msgs) {
-        let tool_calls = null
-        if ((m as any).toolCalls) {
-          try { tool_calls = typeof (m as any).toolCalls === 'string' ? JSON.parse((m as any).toolCalls) : (m as any).toolCalls } catch { /* ignore */ }
-        }
-        const created_at = (m as any).createdAt ? new Date((m as any).createdAt).toISOString() : undefined
-        const singleRes = await apiFetch(`${serverUrl}/api/sessions/${serverSession.id}/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: (m as any).role, content: (m as any).content, tool_calls, created_at }),
-        })
-        if (!singleRes.ok) throw new Error(`上传消息失败 ${singleRes.status}`)
-      }
-
-      // 4. 迁移消息到新会话 ID
-      // 先读取内存中的完整消息（含 toolCalls 对象），再原子迁移
-      const currentMsgs = useAppStore.getState().messagesBySession[activeSessionId] ?? []
-      // 设置 ref 阻止 useEffect 在 activeSessionId 切换时从服务器重新加载
-      justSyncedIdRef.current = serverSession.id
-      replaceSession(activeSessionId, { id: serverSession.id, title: serverSession.title })
-      // 兜底：确保消息一定在 store 里（防止 replaceSession 内部取到空数组）
-      if (currentMsgs.length > 0) {
-        setMessages(serverSession.id, currentMsgs)
-      }
-
-      // 6. 硬删除本地 SQLite 记录
-      await db.deleteSession(activeSessionId)
-
-      showToast('✓ 同步成功，后续消息将保存到服务器')
-    } catch (err: unknown) {
-      setSyncError(err instanceof Error ? err.message : '同步失败')
-      setTimeout(() => setSyncError(null), 4000)
-    } finally {
-      setIsSyncing(false)
-    }
-  }
-
-  const isLocalSession = activeSessionId?.startsWith('local-') ?? false
 
   // 切换会话时重置加载状态
   useEffect(() => {
@@ -208,12 +139,6 @@ export function ChatArea() {
   // Load history messages when switching to a session
   useEffect(() => {
     if (!activeSessionId) return
-
-    // 同步刚完成，内存中已经有正确的消息，跳过从服务器/SQLite 重新加载
-    if (justSyncedIdRef.current === activeSessionId) {
-      justSyncedIdRef.current = null
-      return
-    }
 
     // For local- sessions, load from SQLite
     if (activeSessionId.startsWith('local-')) {
@@ -380,16 +305,6 @@ export function ChatArea() {
         <div className={styles.topBar}>
           <WsStatusPill status={wsStatus} />
           <span className={styles.topBarSpacer} />
-          {isLocalSession && !!serverUrl && !!token && (
-            <button
-              className={`${styles.syncBtn} ${isSyncing ? styles.syncBtnBusy : ''}`}
-              onClick={syncToServer}
-              disabled={isSyncing}
-              title="将此对话同步到服务器"
-            >
-              {isSyncing ? '同步中…' : syncError ? `⚠ ${syncError}` : '↑ 同步到服务器'}
-            </button>
-          )}
           <button
             className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
             onClick={() => setShowAssets(v => !v)}
@@ -444,16 +359,6 @@ export function ChatArea() {
       <div className={styles.topBar}>
         <WsStatusPill status={wsStatus} />
         <span className={styles.topBarSpacer} />
-        {isLocalSession && !!serverUrl && !!token && (
-          <button
-            className={`${styles.syncBtn} ${isSyncing ? styles.syncBtnBusy : ''}`}
-            onClick={syncToServer}
-            disabled={isSyncing}
-            title="将此对话同步到服务器"
-          >
-            {isSyncing ? '同步中…' : syncError ? `⚠ ${syncError}` : '↑ 同步到服务器'}
-          </button>
-        )}
         <button
           className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
           onClick={() => setShowAssets(v => !v)}
