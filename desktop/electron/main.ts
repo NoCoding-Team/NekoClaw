@@ -94,6 +94,10 @@ function dbUpdateMessageToolCalls(id: string, toolCalls: string): void {
 
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 
+// Redirect userData to ~/.nekoclaw so data is stored in the home directory
+// rather than %APPDATA%\NekoClaw. Must be called before app is ready.
+app.setPath('userData', path.join(os.homedir(), '.nekoclaw'))
+
 // Set app name and identity so Windows taskbar shows "NekoClaw" instead of "Electron"
 app.setName('NekoClaw')
 if (process.platform === 'win32') {
