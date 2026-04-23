@@ -59,6 +59,7 @@ interface NekoBridgeDb {
   deleteLegacyLocalMemories(): Promise<{ success: boolean }>
 }
 
+/** @deprecated Memory operations now use server REST API. IPC bridge retained for backward compat. */
 interface NekoBridgeMemory {
   read(path: string): Promise<{ content?: string; error?: string }>
   write(path: string, content: string): Promise<{ success?: boolean; error?: string }>

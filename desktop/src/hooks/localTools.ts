@@ -8,16 +8,6 @@ export async function executeLocalTool(
   const bridge = window.nekoBridge
 
   switch (toolName) {
-    // ── Memory tools ──────────────────────────────────────────────────
-    case 'memory_read':
-      return bridge.memory.read(args.path as string)
-
-    case 'memory_write':
-      return bridge.memory.write(args.path as string, args.content as string)
-
-    case 'memory_search':
-      return bridge.memory.search(args.query as string)
-
     // ── File tools ────────────────────────────────────────────────────
     case 'file_read':
       return bridge.file.read(args.path as string)
