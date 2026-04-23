@@ -5,7 +5,6 @@ import { useAppStore } from '../../store/app'
 import Toast from '../Toast/Toast'
 import { apiFetch } from '../../api/apiFetch'
 
-
 interface MemoryFile {
   name: string
   modifiedAt: number
@@ -16,6 +15,19 @@ interface DbMemory {
   category: string
   content: string
   created_at: string
+}
+
+const PIN_ORDER: Record<string, number> = {
+  'SOUL.md': 0, 'USER.md': 1, 'IDENTITY.md': 2, 'AGENTS.md': 3, 'MEMORY.md': 4,
+}
+const PIN_ICONS: Record<string, string> = {
+  'SOUL.md': '✨', 'USER.md': '👤', 'IDENTITY.md': '🎭', 'AGENTS.md': '🤖', 'MEMORY.md': '📌',
+}
+const isDateFile = (n: string) => /^\d{4}-\d{2}-\d{2}\.md$/.test(n)
+function fileIcon(name: string) {
+  if (PIN_ICONS[name]) return PIN_ICONS[name]
+  if (isDateFile(name)) return '📅'
+  return '📄'
 }
 
 export default function MemoryPanel() {
@@ -42,10 +54,6 @@ export default function MemoryPanel() {
         name: f.name,
         modifiedAt: f.modifiedAt ?? 0,
       }))
-      // Sort: pinned files first (SOUL > USER > AGENTS > MEMORY), then by modifiedAt desc
-      const PIN_ORDER: Record<string, number> = {
-        'SOUL.md': 0, 'USER.md': 1, 'AGENTS.md': 2, 'MEMORY.md': 3
-      }
       items.sort((a, b) => {
         const pa = PIN_ORDER[a.name] ?? 999
         const pb = PIN_ORDER[b.name] ?? 999
@@ -256,131 +264,180 @@ export default function MemoryPanel() {
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
 
+  // ── Categorise files ───────────────────────────────────────────────────
+  const pinnedFiles = files.filter(f => f.name in PIN_ORDER)
+  const dateFiles   = files.filter(f => isDateFile(f.name))
+  const otherFiles  = files.filter(f => !(f.name in PIN_ORDER) && !isDateFile(f.name))
+
+  const renderFileItem = (f: MemoryFile) => (
+    <div
+      key={f.name}
+      className={`${styles.fileItem} ${selectedFile === f.name ? styles.fileItemActive : ''}`}
+      onClick={() => handleSelectFile(f.name)}
+    >
+      <span className={styles.fileIcon}>{fileIcon(f.name)}</span>
+      <div className={styles.fileInfo}>
+        <span className={styles.fileName}>
+          {isDateFile(f.name) ? f.name.replace('.md', '') : f.name}
+        </span>
+        {f.modifiedAt > 0 && (
+          <span className={styles.fileMeta}>
+            {new Date(f.modifiedAt * 1000).toLocaleDateString('zh-CN')}
+          </span>
+        )}
+      </div>
+      <button
+        className={styles.deleteBtn}
+        onClick={(e) => deleteFile(e, f.name)}
+        title="删除"
+      >✕</button>
+    </div>
+  )
+
   return (
     <div className={styles.panel}>
       <Toast message={toast} onClose={dismissToast} />
 
+      {/* ── Header ───────────────────────────────────────────────────── */}
       <div className={styles.header}>
-        <span className={styles.title}>记忆库</span>
-        <div className={styles.actions}>
-          <button className={styles.btnSecondary} onClick={createTodayNote}>
-            + 今日笔记
-          </button>
+        <div className={styles.headerLeft}>
+          <span className={styles.headerIcon}>🧠</span>
+          <span className={styles.title}>记忆库</span>
         </div>
+        <button className={styles.btnToday} onClick={createTodayNote}>
+          ＋ 今日笔记
+        </button>
       </div>
 
       <div className={styles.body}>
-        {/* ── Not connected state ───────────────────────────────────── */}
         {(!serverConnected || !token) ? (
-          <div className={styles.placeholder}>请先连接服务器并登录后查看记忆文件</div>
-        ) : (<>
-        {/* ── Left: File list ────────────────────────────────────────── */}
-        <div className={styles.fileList}>
-          {loading ? (
-            <div className={styles.empty}>加载中…</div>
-          ) : files.length === 0 ? (
-            <div className={styles.empty}>暂无记忆文件，与猫咪对话时会自动创建</div>
-          ) : (
-            <ul className={styles.list}>
-              {files.map(f => (
-                <li
-                  key={f.name}
-                  className={`${styles.fileItem} ${selectedFile === f.name ? styles.fileItemActive : ''}`}
-                  onClick={() => handleSelectFile(f.name)}
-                >
-                  <div className={styles.fileItemRow}>
-                    <div className={styles.fileName}>
-                      {f.name === 'MEMORY.md' ? '📌 ' : '📝 '}
-                      {f.name}
-                    </div>
-                    <button
-                      className={styles.fileDeleteBtn}
-                      onClick={(e) => deleteFile(e, f.name)}
-                      title="删除文件"
-                    >×</button>
-                  </div>
-                  {f.modifiedAt > 0 && (
-                    <div className={styles.fileMeta}>
-                      {new Date(f.modifiedAt * 1000).toLocaleDateString('zh-CN')}
+          <div className={styles.fullPlaceholder}>
+            <div className={styles.placeholderEmoji}>🔌</div>
+            <div className={styles.placeholderTitle}>未连接服务器</div>
+            <div className={styles.placeholderSub}>请先登录后查看记忆文件</div>
+          </div>
+        ) : (
+          <>
+            {/* ── Sidebar ──────────────────────────────────────────── */}
+            <div className={styles.sidebar}>
+              {loading ? (
+                <div className={styles.sidebarMsg}>加载中…</div>
+              ) : files.length === 0 && dbMemories.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyEmoji}>🌱</div>
+                  <div className={styles.emptyText}>暂无记忆文件</div>
+                  <div className={styles.emptySub}>与猫咪对话时会自动创建</div>
+                </div>
+              ) : (
+                <>
+                  {pinnedFiles.length > 0 && (
+                    <div className={styles.section}>
+                      <div className={styles.sectionLabel}>核心文件</div>
+                      {pinnedFiles.map(renderFileItem)}
                     </div>
                   )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {/* 服务端 DB 记忆条目 */}
-          {serverConnected && token && dbMemories.length > 0 && (
-            <>
-              <div className={styles.dbSectionLabel}>🧠 云端记忆条目</div>
-              <ul className={styles.list}>
-                {dbMemories.map(m => (
-                  <li
-                    key={m.id}
-                    className={`${styles.fileItem} ${selectedDbMemory?.id === m.id ? styles.fileItemActive : ''}`}
-                    onClick={() => { setSelectedDbMemory(m); setSelectedFile(null); setEditing(false) }}
-                  >
-                    <div className={styles.fileItemRow}>
-                      <div className={styles.fileName}>{m.category}</div>
-                      <button
-                        className={styles.fileDeleteBtn}
-                        onClick={(e) => deleteDbMemory(e, m.id)}
-                        title="删除记忆"
-                      >×</button>
+                  {dateFiles.length > 0 && (
+                    <div className={styles.section}>
+                      <div className={styles.sectionLabel}>笔记</div>
+                      {dateFiles.map(renderFileItem)}
                     </div>
-                    <div className={styles.fileMeta}>
-                      {m.content.length > 36 ? m.content.slice(0, 36) + '…' : m.content}
+                  )}
+                  {otherFiles.length > 0 && (
+                    <div className={styles.section}>
+                      <div className={styles.sectionLabel}>其他</div>
+                      {otherFiles.map(renderFileItem)}
                     </div>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
+                  )}
+                  {dbMemories.length > 0 && (
+                    <div className={styles.section}>
+                      <div className={styles.sectionLabel}>云端记忆</div>
+                      {dbMemories.map(m => (
+                        <div
+                          key={m.id}
+                          className={`${styles.fileItem} ${selectedDbMemory?.id === m.id ? styles.fileItemActive : ''}`}
+                          onClick={() => { setSelectedDbMemory(m); setSelectedFile(null); setEditing(false) }}
+                        >
+                          <span className={styles.fileIcon}>🧠</span>
+                          <div className={styles.fileInfo}>
+                            <span className={styles.fileName}>{m.category}</span>
+                            <span className={styles.fileMeta}>
+                              {m.content.length > 30 ? m.content.slice(0, 30) + '…' : m.content}
+                            </span>
+                          </div>
+                          <button
+                            className={styles.deleteBtn}
+                            onClick={(e) => deleteDbMemory(e, m.id)}
+                            title="删除"
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
-        {/* ── Right: Content view / editor ───────────────────────────── */}
-        <div className={styles.contentArea}>
-          {!selectedFile && !selectedDbMemory ? (
-            <div className={styles.placeholder}>← 选择一个文件查看</div>
-          ) : selectedDbMemory ? (
-            <>
-              <div className={styles.editorToolbar}>
-                <span className={styles.editorLabel}>🧠 {selectedDbMemory.category}</span>
-                <span className={styles.fileMeta}>{new Date(selectedDbMemory.created_at).toLocaleString('zh-CN')}</span>
-              </div>
-              <div className={styles.rendered}>
-                <p>{selectedDbMemory.content}</p>
-              </div>
-            </>
-          ) : editing ? (
-            <>
-              <div className={styles.editorToolbar}>
-                <span className={styles.editorLabel}>编辑: {selectedFile}</span>
-                <div className={styles.actions}>
-                  <button className={styles.btnPrimary} onClick={saveEdit}>保存</button>
-                  <button className={styles.btnSecondary} onClick={cancelEditing}>取消</button>
+            {/* ── Content area ─────────────────────────────────────── */}
+            <div className={styles.content}>
+              {!selectedFile && !selectedDbMemory ? (
+                <div className={styles.contentPlaceholder}>
+                  <div className={styles.placeholderEmoji}>📖</div>
+                  <div className={styles.placeholderTitle}>选择文件查看</div>
+                  <div className={styles.placeholderSub}>从左侧选择一个记忆文件</div>
                 </div>
-              </div>
-              <textarea
-                className={styles.editor}
-                value={editBuffer}
-                onChange={e => setEditBuffer(e.target.value)}
-                autoFocus
-              />
-            </>
-          ) : (
-            <>
-              <div className={styles.editorToolbar}>
-                <span className={styles.editorLabel}>{selectedFile}</span>
-                <button className={styles.btnSecondary} onClick={startEditing}>编辑</button>
-              </div>
-              <div
-                className={styles.rendered}
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(fileContent) }}
-              />
-            </>
-          )}
-        </div>
-        </>)}
+              ) : selectedDbMemory ? (
+                <>
+                  <div className={styles.contentToolbar}>
+                    <div className={styles.toolbarTitle}>
+                      <span className={styles.toolbarIcon}>🧠</span>
+                      {selectedDbMemory.category}
+                    </div>
+                    <span className={styles.toolbarMeta}>
+                      {new Date(selectedDbMemory.created_at).toLocaleString('zh-CN')}
+                    </span>
+                  </div>
+                  <div className={styles.rendered}>
+                    <p>{selectedDbMemory.content}</p>
+                  </div>
+                </>
+              ) : editing ? (
+                <>
+                  <div className={styles.contentToolbar}>
+                    <div className={styles.toolbarTitle}>
+                      <span className={styles.toolbarIcon}>{fileIcon(selectedFile!)}</span>
+                      {selectedFile}
+                      <span className={styles.editingBadge}>编辑中</span>
+                    </div>
+                    <div className={styles.toolbarActions}>
+                      <button className={styles.btnSave} onClick={saveEdit}>保存</button>
+                      <button className={styles.btnCancel} onClick={cancelEditing}>取消</button>
+                    </div>
+                  </div>
+                  <textarea
+                    className={styles.editor}
+                    value={editBuffer}
+                    onChange={e => setEditBuffer(e.target.value)}
+                    autoFocus
+                  />
+                </>
+              ) : (
+                <>
+                  <div className={styles.contentToolbar}>
+                    <div className={styles.toolbarTitle}>
+                      <span className={styles.toolbarIcon}>{fileIcon(selectedFile!)}</span>
+                      {selectedFile}
+                    </div>
+                    <button className={styles.btnEdit} onClick={startEditing}>编辑</button>
+                  </div>
+                  <div
+                    className={styles.rendered}
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(fileContent) }}
+                  />
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
