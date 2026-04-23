@@ -147,8 +147,8 @@ async def list_memory_files(current_user: User = Depends(get_current_user)):
         if fname.endswith('.md'):
             fpath = os.path.join(d, fname)
             stat = os.stat(fpath)
-            files.append({"name": fname, "mtime": stat.st_mtime})
-    files.sort(key=lambda f: (f["name"] != "MEMORY.md", -f["mtime"]))
+            files.append({"name": fname, "modifiedAt": stat.st_mtime})
+    files.sort(key=lambda f: (f["name"] != "MEMORY.md", -f["modifiedAt"]))
     return files
 
 
@@ -160,7 +160,7 @@ async def read_memory_file(filename: str, current_user: User = Depends(get_curre
     if not os.path.isfile(fpath):
         raise NotFoundError("File not found")
     with open(fpath, 'r', encoding='utf-8') as f:
-        return {"name": name, "content": f.read()}
+        return {"path": name, "content": f.read()}
 
 
 @router.put("/files/{filename}")
@@ -174,9 +174,19 @@ async def write_memory_file(
     # Sanitize content: strip ASCII control chars except \n \t
     sanitized = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', content)
     fpath = os.path.join(_user_memory_dir(current_user.id), name)
+    os.makedirs(os.path.dirname(fpath), exist_ok=True)
     with open(fpath, 'w', encoding='utf-8') as f:
         f.write(sanitized)
-    return {"name": name, "success": True}
+
+    # Rebuild memory RAG index when MEMORY.md is updated
+    if name == "MEMORY.md":
+        try:
+            from app.services.memory_index import rebuild_memory_index
+            await rebuild_memory_index(current_user.id)
+        except Exception:
+            pass  # Non-critical: index rebuild failure should not block write
+
+    return {"ok": True, "path": name}
 
 
 @router.delete("/files/{filename}")
