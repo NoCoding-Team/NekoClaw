@@ -6,6 +6,12 @@ from app.models import user, session, message, llm_config, memory, scheduled_tas
 async def create_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Enable pgvector extension (required for memory vector search)
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "CREATE EXTENSION IF NOT EXISTS vector"
+            )
+        )
     # 对已有数据库做字段补全迁移（ADD COLUMN IF NOT EXISTS，PostgreSQL 支持）
     async with engine.begin() as conn:
         await conn.execute(
@@ -86,6 +92,26 @@ async def create_tables():
                 "DROP TABLE IF EXISTS skills"
             )
         )
+        # Create memory_chunks table for LlamaIndex hybrid search
+        await conn.execute(
+            __import__("sqlalchemy").text("""
+                CREATE TABLE IF NOT EXISTS memory_chunks (
+                    id SERIAL PRIMARY KEY,
+                    user_id VARCHAR(36) NOT NULL,
+                    file_path TEXT NOT NULL,
+                    chunk_index INTEGER NOT NULL,
+                    content TEXT NOT NULL,
+                    embedding vector(1536),
+                    updated_at TIMESTAMPTZ DEFAULT now()
+                )
+            """)
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text("""
+                CREATE INDEX IF NOT EXISTS idx_memory_chunks_user_file
+                ON memory_chunks (user_id, file_path)
+            """)
+        )
 
 
 async def on_startup():
@@ -100,3 +126,9 @@ async def on_startup():
     # Start daily digest background cron job (UTC 18:00 = UTC+8 02:00)
     from app.services.daily_digest import start_daily_digest_background
     start_daily_digest_background()
+    # Start daily note generation cron (23:50 local time)
+    from app.services.daily_note import start_daily_note_cron
+    start_daily_note_cron()
+    # Pre-load jieba dictionary to avoid first-search delay
+    import jieba
+    jieba.initialize()
