@@ -19,10 +19,10 @@ COPY requirements.txt .
 # 安装 uv（pip resolver-too-deep 的替代方案，速度快且无深度限制）
 RUN pip install --no-cache-dir uv -i https://mirrors.aliyun.com/pypi/simple/
 
-# 安装 Python 依赖（阿里云 PyPI 镜像）
+# 安装 Python 依赖（阿里云 PyPI 镜像，清华镜像备用）
 RUN uv pip install --system --no-cache -r requirements.txt \
     --index-url https://mirrors.aliyun.com/pypi/simple/ \
-    --extra-index-url https://pypi.org/simple/
+    --extra-index-url https://pypi.tuna.tsinghua.edu.cn/simple/
 
 # 代码通过 docker-compose volume 挂载进来，此处不 COPY app/
 # 容器启动时 /app/app/ 目录由宿主机挂载提供
