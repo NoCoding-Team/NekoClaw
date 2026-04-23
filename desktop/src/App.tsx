@@ -66,57 +66,23 @@ export default function App() {
     setMigrateEntries(null)
   }
 
-  // 登录后自动从服务器拉取 sessions，并合并本地 SQLite 中的 local-* 会话
+  // 登录后自动从服务器拉取 sessions
   useEffect(() => {
     if (!token) return
     ;(async () => {
-      // 1. 先从本地 SQLite 读取 local-* 会话（Mode B 未同步的会话）
-      const dbBridge = window.nekoBridge?.db
-      const localOnlySessions: Array<{ id: string; title: string }> = []
-      if (dbBridge) {
-        try {
-          const result = await dbBridge.getSessions()
-          ;(result.sessions ?? [])
-            .filter((s) => s.id.startsWith('local-'))
-            .forEach((s) => localOnlySessions.push({ id: s.id, title: s.title }))
-        } catch {}
-      }
-
-      // 2. 从服务器拉取会话
       try {
         const res = await apiFetch(`${serverUrl}/api/sessions`)
-        if (!res.ok) {
-          // 服务器异常时仅展示本地会话
-          if (localOnlySessions.length > 0) {
-            setSessions(localOnlySessions)
-            const lastId = localStorage.getItem('neko_active_session')
-            const restored = lastId && localOnlySessions.find((s) => s.id === lastId)
-            if (restored) setActiveSession(lastId!)
-          }
-          return
-        }
+        if (!res.ok) return
         const data: Array<{ id: string; title: string }> = await res.json()
-        const serverSessions = data
-          .map((s) => ({ id: s.id, title: s.title }))
-        // local-* 会话排在前面（最近使用），server 会话紧随其后
-        const allSessions = [...localOnlySessions, ...serverSessions]
-        if (allSessions.length > 0) {
-          setSessions(allSessions)
-          // 只恢复上次打开的对话，不强制选第一条（让用户自己选）
+        const serverSessions = data.map((s) => ({ id: s.id, title: s.title }))
+        if (serverSessions.length > 0) {
+          setSessions(serverSessions)
           const lastId = localStorage.getItem('neko_active_session')
-          const restored = lastId && allSessions.find((s) => s.id === lastId)
+          const restored = lastId && serverSessions.find((s) => s.id === lastId)
           if (restored) setActiveSession(lastId!)
         }
         // 无会话时不自动创建，展示欢迎界面让用户新建
-      } catch {
-        // 网络异常时展示本地会话
-        if (localOnlySessions.length > 0) {
-          setSessions(localOnlySessions)
-          const lastId = localStorage.getItem('neko_active_session')
-          const restored = lastId && localOnlySessions.find((s) => s.id === lastId)
-          if (restored) setActiveSession(lastId!)
-        }
-      }
+      } catch {}
     })()
   }, [token])
 

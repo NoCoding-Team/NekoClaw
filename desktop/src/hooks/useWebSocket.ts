@@ -143,13 +143,6 @@ export function useWebSocket(sessionId: string | null) {
         if (!(lastExisting?.role === 'user' && lastExisting.content === content)) {
           appendMessage(sid, { id: uuidv4(), role: 'user', content })
         }
-        // Write user message to local SQLite for the new server session
-        const dbBridge = window.nekoBridge?.db
-        if (dbBridge && sid) {
-          const sTitle = useAppStore.getState().sessions.find((s) => s.id === sid)?.title ?? ''
-          dbBridge.upsertSession(sid, sTitle, Date.now()).catch(() => {})
-          dbBridge.insertMessage({ id: uuidv4(), sessionId: sid, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
-        }
         waitingReply.current = true
         startReplyTimeout()
         ws.send(JSON.stringify({
@@ -238,10 +231,6 @@ export function useWebSocket(sessionId: string | null) {
                     console.log('[Title] Stage 2 响应:', { status: r.status, data })
                     if (data.title) {
                       useAppStore.getState().updateSessionTitle(sessionId!, data.title)
-                      const dbBridge = window.nekoBridge?.db
-                      if (dbBridge) {
-                        dbBridge.upsertSession(sessionId!, data.title, Date.now()).catch(() => {})
-                      }
                       // Sync title to server DB (session may start as "新对话")
                       const { serverUrl: svPatch, token: tkPatch } = useAppStore.getState()
                       if (tkPatch && sessionId && !sessionId.startsWith('local-')) {
@@ -325,18 +314,6 @@ export function useWebSocket(sessionId: string | null) {
             ...cleanedMsgs.slice(0, -1),
             { ...last, streaming: false },
           ])
-          // Write assistant message to local SQLite
-          const dbBridge = window.nekoBridge?.db
-          if (dbBridge) {
-            dbBridge.insertMessage({ id: uuidv4(), sessionId, role: 'assistant', content: finalContent, toolCalls: null, tokenCount: finalContent.length, createdAt: Date.now() }).catch(() => {})
-          }
-          // 自动批量同步（当 syncEnabled=true 时）
-          // 后端 agent 已经持久化了本次消息，只需标记本地 SQLite 为已同步，
-          // 避免再次 POST 到 /messages/batch 造成重复写入。
-          const { syncEnabled, token: tkSync } = useAppStore.getState()
-          if (syncEnabled && tkSync && dbBridge) {
-            dbBridge.markSynced(sessionId).catch(() => {})
-          }
           // Stage 2 标题生成由 cat_state:success 处理器触发
         } else if (hadStreaming && cleanedMsgs.length !== msgs.length) {
           // hadStreaming=true 但 streaming 消息被清理（空内容）→ LLM 返回空
@@ -361,29 +338,13 @@ export function useWebSocket(sessionId: string | null) {
         const toolMsgId = uuidv4()
         _callIdToMsgId[evt.call_id as string] = toolMsgId
         appendMessage(sessionId!, { id: toolMsgId, role: 'tool', content: '', toolCalls: [tc] })
-        // 持久化工具调用消息到本地 SQLite
-        const dbBridgeStc = window.nekoBridge?.db
-        if (dbBridgeStc && sessionId) {
-          dbBridgeStc.insertMessage({ id: toolMsgId, sessionId, role: 'tool', content: '', toolCalls: JSON.stringify([tc]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
-        }
       } else if (type === 'server_tool_done') {
         const doneCallId = evt.call_id as string
         updateToolCallStatus(sessionId!, doneCallId, {
           status: 'done',
           result: (evt.result as string) || '',
         })
-        // 更新本地 SQLite 中的工具调用状态
-        const doneMsgId = _callIdToMsgId[doneCallId]
         if (doneMsgId) {
-          const dbBridgeDone = window.nekoBridge?.db
-          if (dbBridgeDone) {
-            // 从 store 中获取更新后的 toolCalls
-            const allMsgs = useAppStore.getState().messagesBySession[sessionId!] ?? []
-            const toolMsg = allMsgs.find(m => m.id === doneMsgId)
-            if (toolMsg?.toolCalls) {
-              dbBridgeDone.updateMessageToolCalls?.(doneMsgId, JSON.stringify(toolMsg.toolCalls)).catch(() => {})
-            }
-          }
           delete _callIdToMsgId[doneCallId]
         }
       } else if (type === 'check_local_index') {
@@ -464,11 +425,6 @@ export function useWebSocket(sessionId: string | null) {
           content: '',
           toolCalls: [tc],
         })
-        // 持久化工具调用消息到本地 SQLite
-        const dbBridgeCt = window.nekoBridge?.db
-        if (dbBridgeCt && sessionId) {
-          dbBridgeCt.insertMessage({ id: toolMsgIdCt, sessionId, role: 'tool', content: '', toolCalls: JSON.stringify([tc]), tokenCount: 0, createdAt: Date.now() }).catch(() => {})
-        }
 
         // ── Loop guard ───────────────────────────────────────────────
         if (securityConfig.loopGuard) {
@@ -536,11 +492,6 @@ export function useWebSocket(sessionId: string | null) {
         const title = evt.title as string
         if (sid && title) {
           useAppStore.getState().updateSessionTitle(sid, title)
-          // Also update local SQLite
-          const dbBridge = window.nekoBridge?.db
-          if (dbBridge) {
-            dbBridge.upsertSession(sid, title, Date.now()).catch(() => {})
-          }
         }
       }
     }
@@ -643,7 +594,6 @@ export function useWebSocket(sessionId: string | null) {
         const { serverUrl: sv, token: tk } = useAppStore.getState()
         if (!tk) return
         try {
-          const dbBridge = window.nekoBridge?.db
           const res = await apiFetch(`${sv}/api/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -657,10 +607,6 @@ export function useWebSocket(sessionId: string | null) {
           }
           const s = await res.json()
           useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
-          // 清理本地 SQLite 里的 local-xxx 临时记录，防止重启后再次出现在侧边栏
-          if (dbBridge) {
-            dbBridge.deleteSession(currentSessionId).catch(() => {})
-          }
           // Stage 1: 立即截断标题
           const stage1Title = content.slice(0, 15) + (content.length > 15 ? '…' : '')
           useAppStore.getState().updateSessionTitle(s.id, stage1Title)
@@ -682,23 +628,17 @@ export function useWebSocket(sessionId: string | null) {
       setCatState('thinking')
       const userMsgId = uuidv4()
       appendMessage(sessionId!, { id: userMsgId, role: 'user', content })
-      resetRound(sessionId!)      // Stage 1: 立即截断标题（第一条用户消息时）
+      resetRound(sessionId!)
+      // Stage 1: 立即截断标题（第一条用户消息时）
       {
         const msgsNow = useAppStore.getState().messagesBySession[sessionId!] ?? []
         if (msgsNow.filter(m => m.role === 'user').length === 1) {
           const stage1TitleC = content.slice(0, 15) + (content.length > 15 ? '…' : '')
           useAppStore.getState().updateSessionTitle(sessionId!, stage1TitleC)
         }
-      }      const { securityConfig } = useAppStore.getState()
-      const allowedTools = securityConfig.toolWhitelist
-
-      // Write user message to local SQLite
-      const dbBridge = window.nekoBridge?.db
-      if (dbBridge && sessionId) {
-        const sTitle = useAppStore.getState().sessions.find((s) => s.id === sessionId)?.title ?? ''
-        dbBridge.upsertSession(sessionId, sTitle, Date.now()).catch(() => {})
-        dbBridge.insertMessage({ id: userMsgId, sessionId, role: 'user', content, toolCalls: null, tokenCount: content.length, createdAt: Date.now() }).catch(() => {})
       }
+      const { securityConfig } = useAppStore.getState()
+      const allowedTools = securityConfig.toolWhitelist
 
       waitingReply.current = true
       startReplyTimeout()
@@ -741,14 +681,6 @@ async function _executeAndReply(
     status: finalStatus,
     result: resultStr,
   })
-  // 更新本地 SQLite 中的工具调用状态
-  if (toolMsgId) {
-    const dbBridge = window.nekoBridge?.db
-    if (dbBridge) {
-      const updatedTc = { ...tc, status: finalStatus, result: resultStr }
-      dbBridge.updateMessageToolCalls?.(toolMsgId, JSON.stringify([updatedTc])).catch(() => {})
-    }
-  }
   ws.send(JSON.stringify({ event: 'tool_result', call_id: callId, result }))
 }
 

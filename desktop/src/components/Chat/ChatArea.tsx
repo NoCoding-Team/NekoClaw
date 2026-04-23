@@ -140,36 +140,8 @@ export function ChatArea() {
   useEffect(() => {
     if (!activeSessionId) return
 
-    // For local- sessions, load from SQLite
-    if (activeSessionId.startsWith('local-')) {
-      if (messagesBySession[activeSessionId]?.length) return
-      ;(async () => {
-        const db = window.nekoBridge?.db
-        if (!db) {
-          setLoadFailed(true)
-          return
-        }
-        try {
-          const localMsgs = await db.getMessages(activeSessionId)
-          // 防止竞态：若 SQLite 加载期间 store 已有消息（如第一条消息刚写入），不覆盖
-          const currentMsgs = useAppStore.getState().messagesBySession[activeSessionId]
-          if (currentMsgs?.length) return
-          setMessages(
-            activeSessionId,
-            localMsgs.map((m) => {
-              let toolCalls
-              if (m.toolCalls) {
-                try { toolCalls = JSON.parse(m.toolCalls) } catch { /* malformed, skip */ }
-              }
-              return { id: m.id, role: m.role as 'user' | 'assistant' | 'tool', content: m.content, toolCalls }
-            }),
-          )
-        } catch {
-          setLoadFailed(true)
-        }
-      })()
-      return
-    }
+    // local- sessions have no persisted messages (transient until first send)
+    if (activeSessionId.startsWith('local-')) return
 
     if (messagesBySession[activeSessionId]?.length) return   // already loaded
     setIsLoadingHistory(true)
@@ -233,12 +205,10 @@ export function ChatArea() {
     const text = input.trim()
     if (!text || catState === 'thinking') return
     if (!activeSessionId) {
-      // 第一条消息时才真正创建 session
+      // 第一条消息时才真正创建 session（内存态 local-，Branch A 会在发送时迁移到服务器）
       const newId = `local-${Date.now()}`
       addSession({ id: newId, title: '新对话' })
       setActiveSession(newId)
-      // 持久化到本地 SQLite
-      window.nekoBridge?.db?.upsertSession(newId, '新对话', Date.now()).catch(() => {})
       // 立刻写入用户消息，避免欢迎屏闪烁；并进入思考态让三点气泡立即出现
       appendMessage(newId, { id: uuidv4(), role: 'user', content: text })
       setCatState('thinking')

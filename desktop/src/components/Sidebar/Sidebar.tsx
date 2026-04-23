@@ -22,11 +22,7 @@ export function Sidebar() {
     if (deletingId) return
     setDeletingId(id)
     try {
-      if (id.startsWith('local-')) {
-        // 本地会话：硬删除 SQLite 记录
-        await window.nekoBridge?.db?.deleteSession(id)
-      } else {
-        // 服务端会话：软删除
+      if (!id.startsWith('local-')) {
         await apiFetch(`${serverUrl}/api/sessions/${id}`, {
           method: 'DELETE',
         })
