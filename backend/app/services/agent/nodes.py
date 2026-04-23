@@ -234,6 +234,10 @@ async def llm_call(state: AgentState) -> dict:
     model = get_chat_model(llm_config)
     if tools:
         model = model.bind_tools(tools)
+    model = model.with_retry(
+        stop_after_attempt=3,
+        wait_exponential_jitter=True,
+    )
 
     # Stream with WebSocket callback
     handler = WebSocketStreamHandler(ws)
@@ -458,6 +462,10 @@ async def _generate_title(state: AgentState, assistant_reply: str) -> None:
     )
     try:
         model = get_chat_model(llm_config)
+        model = model.with_retry(
+            stop_after_attempt=3,
+            wait_exponential_jitter=True,
+        )
         result = await model.ainvoke([_HM(content=prompt)])
         title = (result.content.strip() if isinstance(result.content, str) else str(result.content).strip())[:30]
         if not title:
