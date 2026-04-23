@@ -29,7 +29,7 @@
 
 ## 5. Daily Digest 定时任务（daily-digest）
 
-- [ ] 5.1 新建 `backend/app/services/daily_digest.py`：实现 `run_daily_digest()` 函数——扫描所有用户的前一天日报，对有内容的执行 sub-LLM Digest
-- [ ] 5.2 实现 Digest sub-LLM prompt：评估日报营养价值，有价值则整合到 MEMORY.md（去重/更新），无价值则不调用工具
-- [ ] 5.3 在 `startup.py` 中注册 Daily Digest 内置 cron job（`0 18 * * *` UTC，即 UTC+8 凌晨 2:00）
-- [ ] 5.4 错误隔离：单用户异常捕获并记日志，不影响其他用户；sub-LLM 最多 3 轮工具调用
+- [x] 5.1 新建 `backend/app/services/daily_digest.py`：实现 `run_daily_digest()` 函数——扫描所有用户的前一天日报，对有内容的执行 sub-LLM Digest
+- [x] 5.2 实现 Digest sub-LLM prompt：评估日报营养价值，有价值则整合到 MEMORY.md（去重/更新），无价值则不调用工具
+- [x] 5.3 在 `startup.py` 中注册 Daily Digest 内置 cron job（`0 18 * * *` UTC，即 UTC+8 凌晨 2:00）
+- [x] 5.4 错误隔离：单用户异常捕获并记日志，不影响其他用户；sub-LLM 最多 3 轮工具调用

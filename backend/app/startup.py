@@ -97,3 +97,6 @@ async def on_startup():
     from app.services.tools.container import check_docker, ensure_sandbox_image
     if await check_docker():
         await ensure_sandbox_image()
+    # Start daily digest background cron job (UTC 18:00 = UTC+8 02:00)
+    from app.services.daily_digest import start_daily_digest_background
+    start_daily_digest_background()
