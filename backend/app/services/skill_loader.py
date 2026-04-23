@@ -165,7 +165,29 @@ async def build_available_skills_prompt(
 
     if len(lines) == 2:
         return ""
-    return "\n".join(lines)
+    xml = "\n".join(lines)
+
+    # Persist snapshot to user memory dir so it appears in MemoryPanel
+    _write_skills_snapshot(user_id, xml)
+
+    return xml
+
+
+def _write_skills_snapshot(user_id: str, xml_block: str) -> None:
+    """Write SKILLS_SNAPSHOT.md to the user's memory directory."""
+    from app.core.config import settings
+
+    user_dir = os.path.join(settings.MEMORY_FILES_DIR, user_id)
+    os.makedirs(user_dir, exist_ok=True)
+    content = (
+        "# 可用技能列表（Skills Snapshot）\n\n"
+        "> 此文件由系统在每次会话开始时自动生成，列出了当前启用的全部技能。\n"
+        "> 手动编辑此文件不会生效——技能的启用/禁用请通过「技能库」页面管理。\n\n"
+        f"{xml_block}\n"
+    )
+    fpath = os.path.join(user_dir, "SKILLS_SNAPSHOT.md")
+    with open(fpath, "w", encoding="utf-8") as f:
+        f.write(content)
 
 
 def read_skill_content(skill_name: str, file: str = "SKILL.md", user_id: str | None = None) -> str:

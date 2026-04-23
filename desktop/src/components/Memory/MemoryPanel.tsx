@@ -17,12 +17,12 @@ interface DbMemory {
   created_at: string
 }
 
-const PINNED_FILES = ['SOUL.md', 'USER.md', 'IDENTITY.md', 'AGENTS.md', 'MEMORY.md']
+const PINNED_FILES = ['SOUL.md', 'USER.md', 'IDENTITY.md', 'AGENTS.md', 'MEMORY.md', 'SKILLS_SNAPSHOT.md']
 const PIN_ORDER: Record<string, number> = {
-  'SOUL.md': 0, 'USER.md': 1, 'IDENTITY.md': 2, 'AGENTS.md': 3, 'MEMORY.md': 4,
+  'SOUL.md': 0, 'USER.md': 1, 'IDENTITY.md': 2, 'AGENTS.md': 3, 'MEMORY.md': 4, 'SKILLS_SNAPSHOT.md': 5,
 }
 const PIN_ICONS: Record<string, string> = {
-  'SOUL.md': '✨', 'USER.md': '👤', 'IDENTITY.md': '🎭', 'AGENTS.md': '🤖', 'MEMORY.md': '📌',
+  'SOUL.md': '✨', 'USER.md': '👤', 'IDENTITY.md': '🎭', 'AGENTS.md': '🤖', 'MEMORY.md': '📌', 'SKILLS_SNAPSHOT.md': '⚡',
 }
 const isDateFile = (n: string) => /^\d{4}-\d{2}-\d{2}\.md$/.test(n)
 function fileIcon(name: string) {
