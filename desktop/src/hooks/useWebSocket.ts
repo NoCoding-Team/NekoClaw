@@ -396,7 +396,8 @@ export function useWebSocket(sessionId: string | null) {
             (w) => cmdBase === w || cmd.trimStart().startsWith(w + ' ')
           )
         }
-        const autoRun = securityConfig.fullAccessMode || inCommandWhitelist || autoByThreshold
+        // 工具白名单作为"免检通行证"：白名单中的工具无论 risk_level 都自动执行
+        const autoRun = securityConfig.fullAccessMode || inCommandWhitelist || inToolWhitelist || autoByThreshold
 
         console.log('[WS] tool_call received:', {
           callId, toolName, riskLevel, autoRun,
