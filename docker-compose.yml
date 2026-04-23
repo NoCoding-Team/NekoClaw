@@ -1,42 +1,24 @@
 services:
 
-  # ── PostgreSQL + pgvector ────────────────────────────────────────────────────
-  db:
-    image: pgvector/pgvector:pg17
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: nekoclaw
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
   # ── Backend API ─────────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    depends_on:
-      - db
     # 代码通过 volume 挂载，修改代码后重启容器即生效
     volumes:
       - ./backend/app:/app/app:ro
     env_file:
       - ./backend/.env
-    environment:
-      # 覆盖 .env 中的 DATABASE_URL，指向 Docker 内的 db 服务
-      DATABASE_URL: postgresql+asyncpg://postgres:123456@db:5432/nekoclaw
     ports:
       - "8000:8000"
+    extra_hosts:
+      # 允许容器内通过 host.docker.internal 访问宿主机（外部 PG 在宿主机时使用）
+      - "host.docker.internal:host-gateway"
     command: >
       uvicorn app.main:app
       --host 0.0.0.0
       --port 8000
       --reload
       --reload-dir /app/app
-
-volumes:
-  pgdata:
