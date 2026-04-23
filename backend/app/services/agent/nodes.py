@@ -100,8 +100,6 @@ async def prepare(state: AgentState) -> dict:
     session_id = state["session_id"]
     user_id = state["user_id"]
     custom_llm_cfg = state.get("custom_llm_config")
-    ephemeral = state.get("ephemeral", False)
-    local_history = state.get("local_history")  # [{role, content}, ...]
 
     async with AsyncSessionLocal() as db:
         # Session
@@ -145,15 +143,12 @@ async def prepare(state: AgentState) -> dict:
                 llm_config = result.scalar_one_or_none()
 
         # Message history
-        if not ephemeral:
-            msgs_result = await db.execute(
-                select(Message)
-                .where(Message.session_id == session_id, Message.deleted_at.is_(None))
-                .order_by(Message.seq.asc(), Message.created_at.asc())
-            )
-            history = list(msgs_result.scalars().all())
-        else:
-            history = []
+        msgs_result = await db.execute(
+            select(Message)
+            .where(Message.session_id == session_id, Message.deleted_at.is_(None))
+            .order_by(Message.seq.asc(), Message.created_at.asc())
+        )
+        history = list(msgs_result.scalars().all())
 
         context_limit = llm_config.context_limit if llm_config else 128000
 
@@ -164,47 +159,30 @@ async def prepare(state: AgentState) -> dict:
         query_hint_parts: list[str] = []
         if session and session.title:
             query_hint_parts.append(session.title)
-        if not ephemeral and history:
+        if history:
             for m in reversed(history):
                 if m.role == "user" and m.content:
                     query_hint_parts.append(m.content[:200])
-                    break
-        elif ephemeral and local_history:
-            for h in reversed(local_history):
-                if h.get("role") == "user" and h.get("content"):
-                    query_hint_parts.append(h["content"][:200])
                     break
         query_hint = " ".join(query_hint_parts)
 
         system_prompt = await build_system_prompt(user_id, allowed_tools, db, query_hint=query_hint)
     messages = [SystemMessage(content=system_prompt)]
 
-    if ephemeral and local_history:
-        # Ephemeral mode: build context from client-supplied local_history
-        from langchain_core.messages import HumanMessage as _HM, AIMessage as _AIM
-        for h in local_history:
-            role = h.get("role", "")
-            content = h.get("content", "")
-            if role == "user":
-                messages.append(_HM(content=content))
-            elif role == "assistant":
-                messages.append(_AIM(content=content))
-        user_turn_count = sum(1 for h in local_history if h.get("role") == "user")
-    else:
-        user_turn_count = sum(1 for m in history if m.role == "user")
+    user_turn_count = sum(1 for m in history if m.role == "user")
 
-        # Periodic memory refresh
-        if should_run_periodic_refresh(session_id, user_turn_count):
-            await memory_refresh(session_id, user_id, history, llm_config)
+    # Periodic memory refresh
+    if should_run_periodic_refresh(session_id, user_turn_count):
+        await memory_refresh(session_id, user_id, history, llm_config)
 
-        # Context compression (token threshold)
-        total_tokens = sum(estimate_tokens(m.content or "") for m in history)
-        if total_tokens > context_limit * COMPRESS_RATIO and len(history) > 10:
-            await memory_refresh(session_id, user_id, history, llm_config)
-            history = await compress_history(session_id, history, context_limit, llm_config)
+    # Context compression (token threshold)
+    total_tokens = sum(estimate_tokens(m.content or "") for m in history)
+    if total_tokens > context_limit * COMPRESS_RATIO and len(history) > 10:
+        await memory_refresh(session_id, user_id, history, llm_config)
+        history = await compress_history(session_id, history, context_limit, llm_config)
 
-        for m in history:
-            messages.append(to_lc_message(m))
+    for m in history:
+        messages.append(to_lc_message(m))
 
     # Initial tool-result pruning
     messages = prune_tool_results(messages)
