@@ -48,28 +48,70 @@ _TOOL_RULES = (
     "   - `web_search`、`http_request`：在服务端执行，用于联网搜索和 API 请求。\n"
     "   - `memory_write`、`memory_read`、`memory_search`：在服务端读写用户记忆文件。\n"
     "4. 执行完工具后，把结果以友好的方式告诉用户，不要再让用户自己去看。\n"
-    "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。\n\n"
-    "## 记忆管理规则\n"
-    "你拥有持久记忆系统，通过 memory_write / memory_read / memory_search 工具管理：\n"
-    "- **MEMORY.md**：长期记忆——用户偏好、关键事实、重要决策、个人信息。\n"
-    "- **YYYY-MM-DD.md**（如 2026-04-16.md）：每日笔记——当天对话要点、讨论话题、结论。\n\n"
-    "### 何时写入记忆（发现以下情况时立即执行）\n"
-    "- 用户透露偏好（语言、格式、工具选择、沟通风格等）→ 写入 MEMORY.md\n"
-    "- 用户提到关于自己的重要事实（职业、项目、技术栈、习惯等）→ 写入 MEMORY.md\n"
-    "- 用户做出重要决策或给出关键指令 → 写入 MEMORY.md\n"
-    "- 用户纠正之前的错误信息 → 读取并更新 MEMORY.md 对应内容\n"
-    "- 对话产生有价值的结论、方案、要点 → 写入当日 YYYY-MM-DD.md\n"
-    "- 用户明确要求\"记住...\"、\"下次...\" → 写入 MEMORY.md\n\n"
-    "### 写入流程\n"
-    "1. 先 memory_read 读取目标文件已有内容\n"
-    "2. 在已有内容基础上追加新条目（不要覆写已有内容）\n"
-    "3. 用 memory_write 写回完整内容\n\n"
-    "### 不需要写入的内容\n"
-    "- 当前任务的临时中间步骤\n"
-    "- 大段代码或文件内容原文"
+    "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。\n"
+    "6. 记忆文件通过 memory_write / memory_read / memory_search 工具管理：\n"
+    "   - **MEMORY.md**：长期记忆——用户偏好、关键事实、重要决策。\n"
+    "   - **USER.md**：用户画像——称呼、职业、时区等个人信息。\n"
+    "   - **YYYY-MM-DD.md**（如 2026-04-16.md）：每日笔记——当天对话要点。\n"
 )
 
 _DEFAULT_PERSONA = "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。"
+
+# ── Persona file default templates ──────────────────────────────────────────
+
+_DEFAULT_SOUL = (
+    "# 人格\n"
+    "- 你是一只聪明可爱的猫咪助手，叫做 NekoClaw\n"
+    "- 友好、专业、严谨，适应性强\n\n"
+    "# 语气\n"
+    "- 友好而专业，避免过于复杂的术语\n"
+    "- 正向鼓励，提供建设性反馈\n"
+    "- 请用中文回复用户\n\n"
+    "# 边界\n"
+    "- 保护用户隐私，不主动收集敏感信息\n"
+    "- 超出能力范围时诚实告知\n"
+    "- 遵循道德规范和法律规定\n"
+)
+
+_DEFAULT_USER = (
+    "# 用户画像\n"
+    "<!-- 以下内容由 NekoClaw 在对话中自动学习填充，你也可以手动编辑 -->\n\n"
+    "## 基本信息\n"
+    "- 称呼：（待学习）\n\n"
+    "## 偏好\n"
+    "- （待学习）\n\n"
+    "## 常用技术栈\n"
+    "- （待学习）\n"
+)
+
+_DEFAULT_AGENTS = (
+    "# 操作指令\n\n"
+    "## 优先级\n"
+    "- 安全 > 效率 > 体验\n\n"
+    "## 记忆策略\n"
+    "- 重要决策、用户偏好、关键事实写入 MEMORY.md\n"
+    "- 当日对话要点写入 YYYY-MM-DD.md\n"
+    "- 发现用户个人信息（称呼、职业、时区等）时更新 USER.md\n\n"
+    "## 何时写入记忆（发现以下情况时立即执行）\n"
+    "- 用户透露偏好（语言、格式、工具选择、沟通风格等）→ 写入 MEMORY.md\n"
+    "- 用户提到关于自己的重要事实（职业、项目、技术栈、习惯等）→ 写入 MEMORY.md\n"
+    "- 用户的个人信息（称呼、职业、时区等）→ 更新 USER.md\n"
+    "- 用户做出重要决策或给出关键指令 → 写入 MEMORY.md\n"
+    "- 用户纠正之前的错误信息 → 读取并更新对应文件\n"
+    "- 对话产生有价值的结论、方案、要点 → 写入当日 YYYY-MM-DD.md\n"
+    "- 用户明确要求\"记住...\"、\"下次...\" → 写入 MEMORY.md\n\n"
+    "## 写入流程\n"
+    "1. 先 memory_read 读取目标文件已有内容\n"
+    "2. 整合新信息到已有内容中（更新冲突项、合并重复项，而非简单追加）\n"
+    "3. 用 memory_write 写回完整内容\n\n"
+    "## 不需要写入的内容\n"
+    "- 当前任务的临时中间步骤\n"
+    "- 大段代码或文件内容原文\n\n"
+    "## 行为规则\n"
+    "- 优先使用内置工具完成任务\n"
+    "- 高风险操作前需要用户确认\n"
+    "- 不确定时主动询问而非猜测\n"
+)
 
 _SKILL_SYSTEM_RULES = (
     "## 技能系统使用规则\n"
@@ -191,13 +233,48 @@ def to_lc_message(m: Any) -> BaseMessage:
 # ── System prompt construction ─────────────────────────────────────────────
 
 
-async def build_system_prompt(user_id: str, allowed_tools: list[str] | None, db: Any = None) -> str:
-    """Build the system prompt including tool rules, skill catalog, and injected memories."""
+def _load_persona_file(user_id: str, filename: str, default_template: str) -> str:
+    """Load a persona file, creating it with default template if missing. Truncate at 4000 chars."""
+    from app.core.config import settings
+
+    user_dir = os.path.join(settings.MEMORY_FILES_DIR, user_id)
+    os.makedirs(user_dir, exist_ok=True)
+    fpath = os.path.join(user_dir, filename)
+    if not os.path.isfile(fpath):
+        with open(fpath, "w", encoding="utf-8") as f:
+            f.write(default_template)
+        return default_template
+    with open(fpath, "r", encoding="utf-8") as f:
+        content = f.read().strip()
+    if not content:
+        return default_template
+    if len(content) > 4000:
+        content = content[:4000] + "\n...(已截断)"
+    return content
+
+
+async def build_system_prompt(
+    user_id: str,
+    allowed_tools: list[str] | None,
+    db: Any = None,
+    query_hint: str = "",
+) -> str:
+    """Build the system prompt including persona files, tool rules, skill catalog, and injected memories."""
     from app.services.skill_loader import build_available_skills_prompt
 
-    base = _DEFAULT_PERSONA + "\n\n" + _TOOL_RULES
+    # 1. SOUL.md (persona) — replaces _DEFAULT_PERSONA
+    soul = _load_persona_file(user_id, "SOUL.md", _DEFAULT_SOUL)
 
-    # Inject skill catalog and rules (per-user filtering when db available)
+    # 2. USER.md (user profile)
+    user_profile = _load_persona_file(user_id, "USER.md", _DEFAULT_USER)
+
+    # 3. AGENTS.md (operating instructions) — replaces behavior rules from _TOOL_RULES
+    agents = _load_persona_file(user_id, "AGENTS.md", _DEFAULT_AGENTS)
+
+    # 4. Tool declarations (kept in code, coupled to tool definitions)
+    base = soul + "\n\n## 用户画像\n" + user_profile + "\n\n" + agents + "\n\n" + _TOOL_RULES
+
+    # 5. Skill catalog and rules
     if db:
         skills_prompt = await build_available_skills_prompt(user_id, allowed_tools, db)
     else:
@@ -205,13 +282,14 @@ async def build_system_prompt(user_id: str, allowed_tools: list[str] | None, db:
     if skills_prompt:
         base += "\n\n" + _SKILL_SYSTEM_RULES + "\n" + skills_prompt
 
-    memory_context = await _load_memory(user_id)
+    # 6. Memory injection (MEMORY.md + daily notes)
+    memory_context = await _load_memory(user_id, query_hint)
     if memory_context:
         base += f"\n\n## 关于用户的记忆\n{memory_context}"
     return base
 
 
-async def _load_memory(user_id: str) -> str:
+async def _load_memory(user_id: str, query_hint: str = "") -> str:
     """Load memory for the user from Markdown files, with DB fallback."""
     from app.core.config import settings  # late import to avoid circular deps
 
@@ -224,9 +302,34 @@ async def _load_memory(user_id: str) -> str:
         with open(memory_md, encoding="utf-8") as f:
             content = f.read().strip()
         if content:
-            if len(content) > 4000:
-                content = content[:4000] + "\n...(已截断)"
-            parts.append(content)
+            if len(content) > 4000 and query_hint:
+                # RAG mode: search memory index for relevant chunks
+                try:
+                    from app.services.memory_index import search_memory_index
+
+                    embedding_config = None
+                    if settings.EMBEDDING_BASE_URL and settings.EMBEDDING_MODEL and settings.EMBEDDING_API_KEY:
+                        embedding_config = {
+                            "base_url": settings.EMBEDDING_BASE_URL,
+                            "model": settings.EMBEDDING_MODEL,
+                            "api_key": settings.EMBEDDING_API_KEY,
+                        }
+                    results = await search_memory_index(user_id, query_hint, top_k=10, embedding_config=embedding_config)
+                    if results:
+                        rag_text = "\n\n".join(r["content"] for r in results)
+                        if len(rag_text) > 4000:
+                            rag_text = rag_text[:4000] + "\n...(已截断)"
+                        parts.append(rag_text)
+                    else:
+                        # RAG returned nothing, fallback to truncation
+                        parts.append(content[:4000] + "\n...(已截断)")
+                except Exception:
+                    parts.append(content[:4000] + "\n...(已截断)")
+            elif len(content) > 4000:
+                # No query hint available, fallback to truncation
+                parts.append(content[:4000] + "\n...(已截断)")
+            else:
+                parts.append(content)
 
     # Today + yesterday daily notes
     today = date.today()
@@ -367,14 +470,21 @@ async def memory_refresh(
     refresh_messages: list[BaseMessage] = [
         SystemMessage(
             content=(
-                "你是记忆整理助手。请检查以下对话，将值得保存的信息写入记忆文件。\n\n"
+                "你是记忆整理助手。请检查以下对话，将值得保存的信息整合到记忆文件中。\n\n"
                 "## 操作步骤\n"
-                "1. 先 memory_read(\"MEMORY.md\") 读取长期记忆\n"
-                f"2. 先 memory_read(\"{today}.md\") 读取今日笔记\n"
-                "3. 从对话中提取以下信息：\n"
-                "   - 用户偏好、关键事实、重要决策、个人信息 → 追加到 MEMORY.md\n"
-                f"   - 今日对话要点、讨论话题、结论 → 追加到 {today}.md\n"
-                "4. 用 memory_write 写回更新后的完整内容（追加而非覆写）\n\n"
+                "1. memory_read(\"MEMORY.md\") 读取长期记忆\n"
+                f"2. memory_read(\"{today}.md\") 读取今日笔记\n"
+                "3. memory_read(\"USER.md\") 读取用户画像\n"
+                "4. 分析对话，与已有记忆对比后执行整合：\n"
+                "   - 新发现的信息 → 追加到对应分区\n"
+                "   - 已有但发生变化的信息 → 就地更新（如\"住在北京\"→\"搬到杭州\"）\n"
+                "   - 重复信息 → 合并为一条\n"
+                "   - 被明确否定/过时的信息 → 删除\n"
+                "   - 保持 MEMORY.md 的 ## 分区结构\n"
+                "5. 用户偏好、关键事实、重要决策 → 整合到 MEMORY.md\n"
+                f"6. 今日对话要点、讨论话题、结论 → 整合到 {today}.md\n"
+                "7. 用户个人信息（称呼、职业、时区等）→ 更新 USER.md\n"
+                "8. 用 memory_write 写回整合后的完整内容\n\n"
                 "不需要保存：临时中间步骤、大段代码原文。"
                 + existing_block
             )

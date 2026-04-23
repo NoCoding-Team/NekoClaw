@@ -275,6 +275,15 @@ async def execute_memory_write(args: dict[str, Any], user_id: str | None) -> str
         os.makedirs(os.path.dirname(fpath), exist_ok=True)
         with open(fpath, 'w', encoding='utf-8') as f:
             f.write(content)
+
+        # Rebuild memory RAG index when MEMORY.md is updated
+        if path == "MEMORY.md":
+            try:
+                from app.services.memory_index import rebuild_memory_index
+                await rebuild_memory_index(user_id)
+            except Exception:
+                pass  # Non-critical: index rebuild failure should not block write
+
         return json.dumps({"ok": True, "path": path})
     except (ValueError, OSError) as e:
         return json.dumps({"error": str(e)})

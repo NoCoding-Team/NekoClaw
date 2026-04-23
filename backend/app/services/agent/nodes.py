@@ -159,7 +159,24 @@ async def prepare(state: AgentState) -> dict:
 
         # Build messages for LangGraph state
         allowed_tools = state.get("allowed_tools")
-        system_prompt = await build_system_prompt(user_id, allowed_tools, db)
+
+        # Construct query_hint for memory RAG: session title + last user message
+        query_hint_parts: list[str] = []
+        if session and session.title:
+            query_hint_parts.append(session.title)
+        if not ephemeral and history:
+            for m in reversed(history):
+                if m.role == "user" and m.content:
+                    query_hint_parts.append(m.content[:200])
+                    break
+        elif ephemeral and local_history:
+            for h in reversed(local_history):
+                if h.get("role") == "user" and h.get("content"):
+                    query_hint_parts.append(h["content"][:200])
+                    break
+        query_hint = " ".join(query_hint_parts)
+
+        system_prompt = await build_system_prompt(user_id, allowed_tools, db, query_hint=query_hint)
     messages = [SystemMessage(content=system_prompt)]
 
     if ephemeral and local_history:
