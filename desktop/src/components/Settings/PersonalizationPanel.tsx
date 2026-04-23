@@ -42,6 +42,7 @@ export function PersonalizationPanel() {
   const [replyStyle,   setReplyStyle]   = useState(cfg?.replyStyle   ?? '')
   const [customPrompt, setCustomPrompt] = useState(cfg?.customPrompt ?? '')
   const [saved,        setSaved]        = useState(false)
+  const [generating,   setGenerating]   = useState(false)
 
   // ── 从记忆文件加载配置 ─────────────────────────────────────────────────
   useEffect(() => {
@@ -102,44 +103,26 @@ export function PersonalizationPanel() {
     newCfg.systemPrompt = buildSystemPrompt(newCfg)
     setPersonalizationConfig(newCfg)
 
-    // 同步写入记忆文件
+    // 调用后端 LLM 生成丰富的人格配置文件
     if (serverUrl) {
-      const userLines = ['# USER.md']
-      if (userName) userLines.push(`- Name: ${userName}`)
-      if (timezone) userLines.push(`- Timezone: ${timezone}`)
-      if (notes.trim()) { userLines.push(''); userLines.push('## Notes'); userLines.push(notes.trim()) }
-      const userContent = userLines.join('\n')
-
-      const idLines = ['# IDENTITY.md']
-      if (catName)  idLines.push(`- Name: ${catName}`)
-      if (bioType)  idLines.push(`- Creature: ${bioType}`)
-      if (vibe)     idLines.push(`- Vibe: ${vibe}`)
-      if (catEmoji) idLines.push(`- Emoji: ${catEmoji}`)
-      const identityContent = idLines.join('\n')
-
-      const soulLines = ['# SOUL.md']
-      if (traits.length) soulLines.push(`- Traits: ${traits.join('、')}`)
-      if (replyStyle)    soulLines.push(`- Reply style: ${replyStyle}`)
-      if (customPrompt.trim()) { soulLines.push(''); soulLines.push('## Custom Instructions'); soulLines.push(customPrompt.trim()) }
-      const soulContent = soulLines.join('\n')
-
-      await Promise.allSettled([
-        apiFetch(`${serverUrl}/api/memory/files/USER.md`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'text/plain' },
-          body: userContent,
-        }),
-        apiFetch(`${serverUrl}/api/memory/files/IDENTITY.md`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'text/plain' },
-          body: identityContent,
-        }),
-        apiFetch(`${serverUrl}/api/memory/files/SOUL.md`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'text/plain' },
-          body: soulContent,
-        }),
-      ])
+      setGenerating(true)
+      try {
+        const res = await apiFetch(`${serverUrl}/api/memory/generate-persona`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userName, timezone, notes, catName, bioType, vibe, catEmoji,
+            traits, replyStyle, customPrompt,
+          }),
+        })
+        if (!res.ok) {
+          console.error('generate-persona failed:', res.status, await res.text())
+        }
+      } catch (e) {
+        console.error('generate-persona error:', e)
+      } finally {
+        setGenerating(false)
+      }
     }
 
     setSaved(true)
@@ -251,8 +234,9 @@ export function PersonalizationPanel() {
         <button
           className={`${styles.generateBtn} ${saved ? styles.generateBtnOk : ''}`}
           onClick={handleGenerate}
+          disabled={generating}
         >
-          {saved ? '已保存 ✓' : '生成配置'}
+          {generating ? '生成中…' : saved ? '已保存 ✓' : '生成配置'}
         </button>
       </div>
     </div>
