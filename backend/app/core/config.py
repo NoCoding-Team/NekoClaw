@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     EMBEDDING_BASE_URL: str = ""
     EMBEDDING_MODEL: str = ""
     EMBEDDING_API_KEY: str = ""
+    # Milvus 向量数据库
+    MILVUS_URI: str = ""
+    MILVUS_COLLECTION: str = "memory_vectors"
     # 桌面 Electron 应用从 file:// 加载时 Origin 为 null，使用 * 放行所有来源
     # 生产环境可在 .env 中设置为具体域名，如 https://yourdomain.com
     CORS_ORIGINS: str = "*"

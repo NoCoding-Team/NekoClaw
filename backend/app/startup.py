@@ -103,7 +103,7 @@ async def create_tables():
                 "DROP TABLE IF EXISTS skills"
             )
         )
-        # Create memory_chunks table for LlamaIndex hybrid search
+        # Create memory_chunks table for LlamaIndex BM25 (text only, vectors in Milvus)
         await conn.execute(
             __import__("sqlalchemy").text("""
                 CREATE TABLE IF NOT EXISTS memory_chunks (
@@ -112,7 +112,6 @@ async def create_tables():
                     file_path TEXT NOT NULL,
                     chunk_index INTEGER NOT NULL,
                     content TEXT NOT NULL,
-                    embedding vector(1536),
                     updated_at TIMESTAMPTZ DEFAULT now()
                 )
             """)
