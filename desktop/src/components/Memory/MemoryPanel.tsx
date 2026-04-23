@@ -75,9 +75,59 @@ export default function MemoryPanel() {
   }, [token, serverUrl])
 
   useEffect(() => {
-    if (serverConnected && token) loadFiles()
-    else setFiles([])
+    if (serverConnected && token) {
+      loadFiles()
+      // Auto-generate SKILLS_SNAPSHOT.md if it doesn't exist on server
+      generateSkillsSnapshot()
+    } else {
+      setFiles([])
+    }
   }, [loadFiles, serverConnected, token])
+
+  // ── Auto-generate SKILLS_SNAPSHOT.md from skills API ─────────────
+  const generateSkillsSnapshot = useCallback(async () => {
+    if (!token || !serverUrl) return
+    try {
+      // Check if file already exists
+      const checkResp = await apiFetch(`${serverUrl}/api/memory/files/SKILLS_SNAPSHOT.md`)
+      if (checkResp.ok) return // already exists, skip
+
+      // Fetch skills list
+      const skillsResp = await apiFetch(`${serverUrl}/api/skills`)
+      if (!skillsResp.ok) return
+      const skills = await skillsResp.json() as Array<{ name: string; description: string; triggers?: string[]; enabled: boolean }>
+      const enabled = skills.filter(s => s.enabled)
+      if (enabled.length === 0) return
+
+      // Build XML snapshot
+      const xmlLines = ['<available_skills>']
+      for (const s of enabled) {
+        xmlLines.push('  <skill>')
+        xmlLines.push(`    <name>${s.name}</name>`)
+        xmlLines.push(`    <description>${s.description}</description>`)
+        if (s.triggers?.length) xmlLines.push(`    <triggers>${s.triggers.join(', ')}</triggers>`)
+        xmlLines.push('  </skill>')
+      }
+      xmlLines.push('</available_skills>')
+
+      const content = [
+        '# 可用技能列表（Skills Snapshot）',
+        '',
+        '> 此文件由系统自动生成，列出了当前启用的全部技能。',
+        '> 手动编辑此文件不会生效——技能的启用/禁用请通过「技能库」页面管理。',
+        '',
+        xmlLines.join('\n'),
+      ].join('\n')
+
+      await apiFetch(`${serverUrl}/api/memory/files/SKILLS_SNAPSHOT.md`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: content,
+      })
+      // Refresh file list to show the new file
+      loadFiles()
+    } catch { /* ignore */ }
+  }, [token, serverUrl, loadFiles])
 
   // ── Load server DB memories ──────────────────────────────────────
   const loadDbMemories = useCallback(async () => {
