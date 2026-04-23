@@ -396,7 +396,7 @@ export function useWebSocket(sessionId: string | null) {
             (w) => cmdBase === w || cmd.trimStart().startsWith(w + ' ')
           )
         }
-        const autoRun = securityConfig.fullAccessMode || inCommandWhitelist || autoByThreshold
+        const autoRun = securityConfig.fullAccessMode || inCommandWhitelist || inToolWhitelist || autoByThreshold
 
         console.log('[WS] tool_call received:', {
           callId, toolName, riskLevel, autoRun,
