@@ -194,8 +194,8 @@ async def _backfill_yesterday_notes() -> None:
             continue
         try:
             from app.services.daily_note import generate_daily_note
-            await generate_daily_note(uid, yesterday)
-            logger.info("backfill_notes: generated yesterday note for user %s", uid)
+            _, reason = await generate_daily_note(uid, yesterday)
+            logger.info("backfill_notes: generated yesterday note for user %s reason=%s", uid, reason)
         except Exception:
             logger.warning("backfill_notes: failed for user %s", uid, exc_info=True)
 

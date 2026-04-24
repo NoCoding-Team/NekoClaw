@@ -38,10 +38,10 @@ def _load_user_daily_config(user_id: str) -> dict:
         return dict(_DAILY_NOTE_CONFIG_DEFAULTS)
 
 
-async def generate_daily_note(user_id: str, target_date: date | None = None, max_retries: int = 2) -> str | None:
+async def generate_daily_note(user_id: str, target_date: date | None = None, max_retries: int = 2) -> tuple[str | None, str]:
     """Generate a daily note for a user by summarizing the day's conversations.
 
-    Returns the generated note content, or None if no conversations found.
+    Returns (content, reason) where reason is one of: 'ok', 'no_messages', 'no_llm_config', 'llm_error'.
     """
     from app.models.base import AsyncSessionLocal
     from app.models.message import Message
@@ -74,7 +74,7 @@ async def generate_daily_note(user_id: str, target_date: date | None = None, max
         messages = result.scalars().all()
 
     if not messages:
-        return None
+        return None, 'no_messages'
 
     # Build conversation text for summarization
     conv_text = "\n".join(f"{m.role}: {(m.content or '')[:500]}" for m in messages)
@@ -83,7 +83,7 @@ async def generate_daily_note(user_id: str, target_date: date | None = None, max
     llm_config = await _get_summary_llm_config(user_id)
     if not llm_config:
         logger.warning("daily_note user=%s date=%s status=skipped reason=no_llm_config", user_id, target_date.isoformat())
-        return None
+        return None, 'no_llm_config'
 
     summary_prompt = [
         SystemMessage(content=(
@@ -113,9 +113,9 @@ async def generate_daily_note(user_id: str, target_date: date | None = None, max
                 await asyncio.sleep(wait)
             else:
                 logger.warning("daily_note user=%s date=%s status=failed reason=llm_error attempts=%d", user_id, target_date.isoformat(), attempt + 1, exc_info=True)
-                return None
+                return None, 'llm_error'
     if note_content is None:
-        return None
+        return None, 'llm_error'
 
     # Write to file
     user_dir = os.path.join(settings.MEMORY_FILES_DIR, user_id)
@@ -133,7 +133,7 @@ async def generate_daily_note(user_id: str, target_date: date | None = None, max
         logger.warning("Index rebuild failed after daily note generation", exc_info=True)
 
     logger.info("daily_note user=%s date=%s status=success path=%s", user_id, target_date.isoformat(), fpath)
-    return note_content
+    return note_content, 'ok'
 
 
 async def _get_summary_llm_config(user_id: str) -> Any | None:
@@ -240,8 +240,9 @@ async def daily_note_cron() -> None:
                     note_hour, note_minute = 23, 50
                 if now.hour == note_hour and now.minute == note_minute:
                     try:
-                        await generate_daily_note(uid, today, max_retries=cfg.get("max_retries", 2))
-                        generated_today.add(uid)
+                        _, reason = await generate_daily_note(uid, today, max_retries=cfg.get("max_retries", 2))
+                        if reason == 'ok':
+                            generated_today.add(uid)
                     except Exception:
                         logger.warning("daily_note user=%s date=%s status=failed reason=exception", uid, today.isoformat(), exc_info=True)
 

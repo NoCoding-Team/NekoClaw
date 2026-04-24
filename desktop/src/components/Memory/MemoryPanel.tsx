@@ -284,10 +284,12 @@ export default function MemoryPanel() {
     // Always try AI generation first
     setGeneratingNote(true)
     showToast('正在用 AI 整理今日对话…')
+    let genReason: string | undefined
     try {
       const resp = await apiFetch(`${serverUrl}/api/memory/generate-daily-note`, { method: 'POST' })
       if (resp.ok) {
         const data = await resp.json() as { ok: boolean; reason?: string; path?: string }
+        genReason = data.reason
         if (data.ok) {
           await loadFiles()
           setSelectedFile(fileName)
@@ -301,7 +303,6 @@ export default function MemoryPanel() {
           showToast('今日笔记已生成')
           return
         }
-        // no_conversations — fall through
       }
     } catch { /* fall through */ } finally {
       setGeneratingNote(false)
@@ -310,7 +311,9 @@ export default function MemoryPanel() {
     const existing = files.find(f => f.name === fileName)
     if (existing) {
       handleSelectFile(fileName)
-      showToast('暂无今日对话，已打开笔记文件')
+      if (genReason === 'no_llm_config') showToast('未配置 AI 模型，无法自动生成')
+      else if (genReason === 'llm_error') showToast('AI 生成失败，请检查模型配置')
+      else showToast('今日暂无对话记录，已打开笔记')
       return
     }
     try {

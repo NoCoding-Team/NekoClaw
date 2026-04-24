@@ -224,13 +224,11 @@ async def generate_daily_note_now(current_user: User = Depends(get_current_user)
     from app.services.daily_note import generate_daily_note, _load_user_daily_config
     from datetime import date
     target = date.today()
-    note_path = os.path.join(_user_memory_dir(current_user.id), "notes", f"{target.isoformat()}.md")
-    already_exists = os.path.isfile(note_path)
     cfg = _load_user_daily_config(current_user.id)
-    content = await generate_daily_note(current_user.id, target, max_retries=cfg.get("max_retries", 2))
-    if content is None and not already_exists:
-        return {"ok": False, "reason": "no_conversations"}
-    return {"ok": True, "path": f"notes/{target.isoformat()}.md", "generated": content is not None}
+    content, reason = await generate_daily_note(current_user.id, target, max_retries=cfg.get("max_retries", 2))
+    if content is None:
+        return {"ok": False, "reason": reason}
+    return {"ok": True, "path": f"notes/{target.isoformat()}.md"}
 
 
 # ── Daily note config ─────────────────────────────────────────────────────
