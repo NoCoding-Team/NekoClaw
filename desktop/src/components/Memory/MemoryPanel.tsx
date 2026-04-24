@@ -274,17 +274,44 @@ export default function MemoryPanel() {
     }
   }
 
-  // ── Create today note ─────────────────────────────────────────────────
+  const [generatingNote, setGeneratingNote] = useState(false)
+
+  // ── Create today note (AI-generated or blank fallback) ───────────────
   const createTodayNote = async () => {
     if (!token || !serverUrl) return
     const today = new Date().toISOString().slice(0, 10)
     const fileName = `notes/${today}.md`
-    // Check if it already exists
+    // If already exists, just open it
     const existing = files.find(f => f.name === fileName)
     if (existing) {
       handleSelectFile(fileName)
       return
     }
+    // Try AI generation first
+    setGeneratingNote(true)
+    showToast('正在用 AI 整理今日对话…')
+    try {
+      const resp = await apiFetch(`${serverUrl}/api/memory/generate-daily-note`, { method: 'POST' })
+      if (resp.ok) {
+        const data = await resp.json() as { ok: boolean; reason?: string; path?: string }
+        if (data.ok) {
+          await loadFiles()
+          setSelectedFile(fileName)
+          setEditing(false)
+          const contentResp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(fileName)}`)
+          if (contentResp.ok) {
+            const cd = await contentResp.json() as { content?: string }
+            setFileContent(cd.content ?? '')
+          }
+          showToast('今日笔记已生成')
+          return
+        }
+        // no_conversations — fall through to blank note
+      }
+    } catch { /* fall through */ } finally {
+      setGeneratingNote(false)
+    }
+    // Fallback: create blank note
     try {
       const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(fileName)}`, {
         method: 'PUT',
@@ -407,8 +434,8 @@ export default function MemoryPanel() {
           <span className={styles.headerIcon}>🧠</span>
           <span className={styles.title}>猫脑</span>
         </div>
-        <button className={styles.btnToday} onClick={createTodayNote}>
-          ＋ 今日笔记
+        <button className={styles.btnToday} onClick={createTodayNote} disabled={generatingNote}>
+          {generatingNote ? '生成中…' : '＋ 今日笔记'}
         </button>
       </div>
 
