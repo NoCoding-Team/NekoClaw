@@ -19,6 +19,7 @@ from app.schemas.skill import SkillInfo, SkillToggle
 from app.services.skill_loader import (
     scan_skills_for_user,
     ensure_user_skill_configs,
+    refresh_skills_snapshot,
     _parse_frontmatter,
     _SKILLS_DIR,
     _SKILL_NAME_RE,
@@ -205,6 +206,7 @@ async def install_skill(
         )
         db.add(cfg)
     await db.commit()
+    await refresh_skills_snapshot(current_user.id, db)
 
     return SkillInfo(
         key=skill_name,
@@ -252,4 +254,5 @@ async def delete_skill(
         )
     )
     await db.commit()
+    await refresh_skills_snapshot(current_user.id, db)
     return {"detail": f"技能 '{name}' 已删除"}

@@ -175,6 +175,11 @@ async def build_available_skills_prompt(
     return xml
 
 
+async def refresh_skills_snapshot(user_id: str, db: AsyncSession) -> None:
+    """Regenerate SKILLS_SNAPSHOT.md after skill list changes (install / delete)."""
+    await build_available_skills_prompt(user_id, allowed_tools=None, db=db)
+
+
 def _write_skills_snapshot(user_id: str, xml_block: str) -> None:
     """Write SKILLS_SNAPSHOT.md to the user's memory directory."""
     from app.core.config import settings
