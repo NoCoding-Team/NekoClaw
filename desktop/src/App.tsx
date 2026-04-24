@@ -128,20 +128,25 @@ export default function App() {
 function MainContent() {
   const { sidebarTab } = useAppStore()
   const onChat = sidebarTab === 'sessions'
-  // ChatArea 始终挂载，切到其他 tab 时用 visibility:hidden 隐藏，保持 WebSocket 连接
+  // ChatArea 始终挂载（保持 WebSocket 连接）
+  // 非对话页时：flex:0 + overflow:hidden + pointer-events:none，视觉上完全隐藏且不占位
+  // 对话页时：flex:1 正常占满
   return (
     <>
-      <div className={styles.mainContentSlot} style={onChat ? undefined : { visibility: 'hidden', pointerEvents: 'none' }}>
+      <div style={onChat
+        ? { flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }
+        : { flex: '0 0 0', width: 0, height: '100%', overflow: 'hidden', pointerEvents: 'none' }
+      }>
         <ChatArea />
       </div>
       {!onChat && (
-        <div className={styles.mainContentSlot}>
+        <>
           {sidebarTab === 'tasks'           && <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>}
           {sidebarTab === 'memory'          && <PanelView title="记忆库"><MemoryPanel /></PanelView>}
           {sidebarTab === 'personalization' && <PersonalizationPanel />}
           {sidebarTab === 'abilities'       && <PanelView title="能力"><AbilitiesPanel /></PanelView>}
           {sidebarTab === 'skills'          && <PanelView title="技能库"><SkillsPanel /></PanelView>}
-        </div>
+        </>
       )}
     </>
   )
