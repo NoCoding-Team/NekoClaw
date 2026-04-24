@@ -23,6 +23,7 @@ export default function SkillsPanel() {
   useEffect(() => { load() }, [])
 
   const handleToggle = async (skill: SkillInfo) => {
+    if (!skill.key) return
     const next = !skill.enabled
     // Optimistic update
     setSkills(prev => prev.map(s => s.key === skill.key ? { ...s, enabled: next } : s))
@@ -35,6 +36,7 @@ export default function SkillsPanel() {
   }
 
   const handleDelete = async (skill: SkillInfo) => {
+    if (!skill.key) return
     if (!confirm(`确定要删除技能「${skill.name}」吗？`)) return
     try {
       await deleteSkill(skill.key)
