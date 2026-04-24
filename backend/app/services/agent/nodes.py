@@ -215,6 +215,14 @@ async def llm_call(state: AgentState) -> dict:
     context_limit = state["context_limit"]
     messages = list(state["messages"])
 
+    # 打印本次 LLM 调用完整消息列表（含系统提示词）
+    print(f"[llm_call] session={state['session_id']} messages={len(messages)}")
+    for i, m in enumerate(messages):
+        role = type(m).__name__
+        content = m.content if isinstance(m.content, str) else str(m.content)
+        print(f"  [{i}] {role}: {content[:300]}{'...' if len(content) > 300 else ''}")
+    print("-" * 60)
+
     # Mid-loop context safety check (also runs on first call, harmlessly)
     tokens = sum(
         estimate_tokens(m.content if isinstance(m.content, str) else "")
