@@ -228,10 +228,12 @@ async def daily_note_cron() -> None:
     """Minute-loop cron: checks each active user's schedule and generates daily notes at their configured UTC time."""
     generated_today: set[str] = set()
     last_reset_date = date.today()
+    tick_count = 0
 
     while True:
         try:
             await asyncio.sleep(60)
+            tick_count += 1
 
             now = datetime.now(timezone.utc)
             today = now.date()
@@ -263,6 +265,11 @@ async def daily_note_cron() -> None:
                 )
                 user_ids = [row[0] for row in result.fetchall()]
 
+            # Log every 5 ticks (~5 min) so we know cron is alive
+            if tick_count % 5 == 0:
+                logger.info("daily_note_cron alive tick=%d utc=%s users_today=%d generated=%s",
+                            tick_count, now.strftime("%H:%M"), len(user_ids), list(generated_today))
+
             for uid in user_ids:
                 if uid in generated_today:
                     continue
@@ -276,6 +283,11 @@ async def daily_note_cron() -> None:
                     note_hour, note_minute = 23, 50
                 note_dt = now.replace(hour=note_hour, minute=note_minute, second=0, microsecond=0)
                 elapsed = (now - note_dt).total_seconds()
+
+                # Log schedule check for every active user each tick
+                logger.debug("daily_note_cron user=%s now=%s scheduled=%02d:%02d elapsed=%.0fs",
+                             uid, now.strftime("%H:%M:%S"), note_hour, note_minute, elapsed)
+
                 if not (0 <= elapsed < 120):  # within 2 minutes after scheduled time
                     continue
                 # Skip if note file already exists for today
