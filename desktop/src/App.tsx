@@ -128,27 +128,25 @@ export default function App() {
 function MainContent() {
   const { sidebarTab } = useAppStore()
   const onChat = sidebarTab === 'sessions'
-  // ChatArea 始终挂载（保持 WebSocket 连接）
-  // 非对话页时：flex:0 + overflow:hidden + pointer-events:none，视觉上完全隐藏且不占位
-  // 对话页时：flex:1 正常占满
+  // ChatArea 始终以 position:absolute 全尺寸渲染（保持 WebSocket 连接 + 正常布局尺寸）
+  // 其他面板用更高 z-index 覆盖在上方
   return (
-    <>
-      <div style={onChat
-        ? { flex: 1, minWidth: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }
-        : { flex: '0 0 0', width: 0, height: '100%', overflow: 'hidden', pointerEvents: 'none', display: 'flex', flexDirection: 'column' }
-      }>
+    <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
+      {/* ChatArea 永远占满，不受 tab 切换影响 */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
         <ChatArea />
       </div>
+      {/* 非对话页：面板覆盖在 ChatArea 上方 */}
       {!onChat && (
-        <>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column' }}>
           {sidebarTab === 'tasks'           && <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>}
           {sidebarTab === 'memory'          && <PanelView title="记忆库"><MemoryPanel /></PanelView>}
           {sidebarTab === 'personalization' && <PersonalizationPanel />}
           {sidebarTab === 'abilities'       && <PanelView title="能力"><AbilitiesPanel /></PanelView>}
           {sidebarTab === 'skills'          && <PanelView title="技能库"><SkillsPanel /></PanelView>}
-        </>
+        </div>
       )}
-    </>
+    </div>
   )
 }
 
