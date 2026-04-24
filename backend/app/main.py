@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 import time
 import collections
 from fastapi import FastAPI, Request
@@ -8,6 +9,9 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.router import api_router
 from app.startup import on_startup
+
+# Configure root logger so module-level logger.info() calls are visible
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s - %(message)s")
 
 
 @asynccontextmanager
