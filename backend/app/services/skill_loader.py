@@ -155,12 +155,13 @@ async def build_available_skills_prompt(
     for skill_key, meta in skills.items():
         if not _skill_is_available(meta, allowed_tools):
             continue
+        skill_md_path = str(Path(meta.path) / "SKILL.md")
         lines.append("  <skill>")
         lines.append(f"    <name>{meta.name}</name>")
-        lines.append(f"    <key>{skill_key}</key>")
         lines.append(f"    <description>{meta.description}</description>")
         if meta.triggers:
             lines.append(f"    <triggers>{', '.join(meta.triggers)}</triggers>")
+        lines.append(f"    <location>{skill_md_path}</location>")
         lines.append("  </skill>")
     lines.append("</available_skills>")
 
@@ -191,8 +192,34 @@ def _write_skills_snapshot(user_id: str, xml_block: str) -> None:
         f.write(content)
 
 
+def read_skill_by_location(location: str, user_id: str | None = None) -> str:
+    """Read a skill file by its absolute path with security validation.
+
+    The ``location`` must point to a file inside one of the known skills
+    directories (builtin or the requesting user's directory).
+    """
+    target = Path(location).resolve()
+
+    # Build the set of allowed roots
+    allowed_roots: list[Path] = [_SKILLS_DIR.resolve()]
+    if user_id:
+        from app.core.config import settings
+        user_skills_root = (Path(settings.SKILLS_FILES_DIR) / user_id).resolve()
+        allowed_roots.append(user_skills_root)
+
+    for root in allowed_roots:
+        try:
+            target.relative_to(root)  # raises ValueError if not under root
+            if target.is_file():
+                return target.read_text(encoding="utf-8")
+        except ValueError:
+            continue
+
+    raise FileNotFoundError(f"Skill file not found or access denied: {location}")
+
+
 def read_skill_content(skill_name: str, file: str = "SKILL.md", user_id: str | None = None) -> str:
-    """Read a skill file with path-traversal protection.
+    """Read a skill file by name with path-traversal protection (legacy helper).
 
     Search order: builtin → user directory.
     """

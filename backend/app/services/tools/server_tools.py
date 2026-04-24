@@ -192,11 +192,12 @@ async def execute_search_memory(args: dict[str, Any], user_id: str | None = None
 # ── Skill reader tool ──────────────────────────────────────────────────────
 
 async def execute_read_skill(args: dict[str, Any], user_id: str | None = None) -> str:
-    from app.services.skill_loader import read_skill_content
-    skill = args.get("skill", "")
-    file = args.get("file", "SKILL.md")
+    from app.services.skill_loader import read_skill_by_location
+    location = args.get("location", "")
+    if not location:
+        return json.dumps({"error": "location is required"})
     try:
-        content = read_skill_content(skill, file, user_id=user_id)
+        content = read_skill_by_location(location, user_id=user_id)
         return content
     except (ValueError, FileNotFoundError) as exc:
         return json.dumps({"error": str(exc)})

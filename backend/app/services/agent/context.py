@@ -132,16 +132,15 @@ _SKILL_SYSTEM_RULES = (
     "你拥有一组可用技能（listed in <available_skills>）。技能是教你完成特定任务的操作指南。\n\n"
     "### 使用流程\n"
     "1. **意图匹配**：根据用户请求，从 <available_skills> 中识别最匹配的技能（参考 name、description、triggers）。\n"
-    "2. **读取技能**：调用 `read_skill(skill=\"<key>\")` 获取完整的 SKILL.md 内容。"
-    "其中 `<key>` 是 <available_skills> 中该技能的 <key> 字段值（非 name），例如 `read_skill(skill=\"get-weather\")`。\n"
+    "2. **读取技能**：调用 `read_skill(location=\"<location>\")` 获取完整的 SKILL.md 内容。"
+    "其中 `<location>` 是 <available_skills> 中该技能的 <location> 字段值（文件完整路径）。\n"
     "3. **按步骤执行**：严格遵循 SKILL.md 中描述的步骤，使用指定的工具完成任务。\n"
     "4. **汇总结果**：所有步骤完成后，用自然语言向用户汇总结果。\n\n"
     "### 注意事项\n"
     "- `read_skill` 是内置工具，始终可用，无需额外开启。\n"
-    "- 必须使用 <key> 字段值调用 `read_skill`，不要使用 <name>。\n"
+    "- 必须将 <location> 字段的完整路径值原样传入 `read_skill`，不要自行拼接或修改路径。\n"
     "- 如果没有匹配的技能，直接用你的知识回答用户，不需要勉强匹配。\n"
-    "- 不要编造不存在的技能名称。\n"
-    "- 如果 SKILL.md 中引用了附属资源文件，用 `read_skill(skill=\"<key>\", file=\"<path>\")` 读取。\n"
+    "- 不要编造不存在的技能路径。\n"
 )
 
 # ── Token estimation ────────────────────────────────────────────────────────
