@@ -376,6 +376,23 @@ function GeneralTab() {
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
+  // UTC ↔ Local time conversion helpers
+  const utcToLocal = (utc: string): string => {
+    const [h, m] = utc.split(':').map(Number)
+    const d = new Date()
+    d.setUTCHours(h, m, 0, 0)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  const localToUtc = (local: string): string => {
+    const [h, m] = local.split(':').map(Number)
+    const d = new Date()
+    d.setHours(h, m, 0, 0)
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
+  }
+
+  // Display value is local time, config.note_time is always UTC
+  const localNoteTime = utcToLocal(config.note_time)
+
   useEffect(() => {
     if (!token || !serverUrl) { setLoading(false); return }
     apiFetch(`${serverUrl}/api/memory/daily-note-config`)
@@ -439,15 +456,15 @@ function GeneralTab() {
       {config.auto_generate && (
         <div className={styles.secRow}>
           <div className={styles.secRowLeft}>
-            <div className={styles.secRowTitle}>生成时间（UTC）</div>
-            <div className={styles.secRowDesc}>每天在此 UTC 时间自动触发笔记生成，默认 23:50</div>
+            <div className={styles.secRowTitle}>生成时间</div>
+            <div className={styles.secRowDesc}>每天在此时间自动生成笔记（当前时区 UTC{new Date().getTimezoneOffset() <= 0 ? '+' : '-'}{Math.abs(Math.floor(new Date().getTimezoneOffset() / 60))}）</div>
           </div>
           <input
             type="time"
             className={styles.limitInput}
             style={{ width: 96 }}
-            value={config.note_time}
-            onChange={e => setConfig(c => ({ ...c, note_time: e.target.value }))}
+            value={localNoteTime}
+            onChange={e => setConfig(c => ({ ...c, note_time: localToUtc(e.target.value) }))}
           />
         </div>
       )}
