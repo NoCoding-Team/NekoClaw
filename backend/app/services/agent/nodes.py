@@ -172,6 +172,7 @@ async def prepare(state: AgentState) -> dict:
         query_hint = " ".join(query_hint_parts)
 
         system_prompt = await build_system_prompt(user_id, allowed_tools, db, query_hint=query_hint)
+    print(f"[system_prompt] session={session_id} length={len(system_prompt)}\n{system_prompt}\n{'='*60}")
     messages = [SystemMessage(content=system_prompt)]
 
     user_turn_count = sum(1 for m in history if m.role == "user")
