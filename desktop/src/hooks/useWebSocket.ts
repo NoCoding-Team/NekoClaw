@@ -586,9 +586,14 @@ export function useWebSocket(sessionId: string | null) {
           }
           const s = await res.json()
           useAppStore.getState().replaceSession(currentSessionId, { id: s.id, title: s.title })
-          // Stage 1: 立即截断标题
+          // Stage 1: 立即截断标题（同步写入服务器，避免重启后回退到"新对话"）
           const stage1Title = content.slice(0, 15) + (content.length > 15 ? '…' : '')
           useAppStore.getState().updateSessionTitle(s.id, stage1Title)
+          apiFetch(`${sv}/api/sessions/${s.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: stage1Title }),
+          }).catch(() => {})
           const { securityConfig: sc } = useAppStore.getState()
           const allowedTools = sc.toolWhitelist
           setCatState('thinking')
@@ -608,12 +613,18 @@ export function useWebSocket(sessionId: string | null) {
       const userMsgId = uuidv4()
       appendMessage(sessionId!, { id: userMsgId, role: 'user', content })
       resetRound(sessionId!)
-      // Stage 1: 立即截断标题（第一条用户消息时）
+      // Stage 1: 立即截断标题（第一条用户消息时，同步写入服务器）
       {
         const msgsNow = useAppStore.getState().messagesBySession[sessionId!] ?? []
         if (msgsNow.filter(m => m.role === 'user').length === 1) {
           const stage1TitleC = content.slice(0, 15) + (content.length > 15 ? '…' : '')
           useAppStore.getState().updateSessionTitle(sessionId!, stage1TitleC)
+          const { serverUrl: svB } = useAppStore.getState()
+          apiFetch(`${svB}/api/sessions/${sessionId!}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: stage1TitleC }),
+          }).catch(() => {})
         }
       }
       const { securityConfig } = useAppStore.getState()
