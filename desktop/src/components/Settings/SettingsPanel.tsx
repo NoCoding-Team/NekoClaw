@@ -983,7 +983,7 @@ export function SettingsPanel() {
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
         {/* Title row */}
         <div className={styles.titleRow}>
-          <span className={styles.titleText}>设置</span>
+          <span className={styles.titleText}>猫档</span>
           <button className={styles.closeBtn} onClick={close}>✕</button>
         </div>
 
@@ -992,27 +992,27 @@ export function SettingsPanel() {
           {/* Left nav */}
           <nav className={styles.nav}>
             <button className={nav('account')} onClick={() => setTab('account')}>
-              <span className={styles.navIcon}>👤</span><span>我的账户</span>
+              <span className={styles.navIcon}>👤</span><span>猫主档案</span>
             </button>
             <button className={nav('general')} onClick={() => setTab('general')}>
-              <span className={styles.navIcon}>⚙️</span><span>通用</span>
+              <span className={styles.navIcon}>⚙️</span><span>猫窝设置</span>
             </button>
             <button className={nav('models')} onClick={() => setTab('models')}>
-              <span className={styles.navIcon}>🤖</span><span>模型中心</span>
+              <span className={styles.navIcon}>🤖</span><span>猫粮站</span>
             </button>
             <button className={nav('mcp')} onClick={() => setTab('mcp')}>
               <span className={styles.navIcon}>🔌</span><span>MCP</span>
             </button>
             <button className={nav('im-bot')} onClick={() => setTab('im-bot')}>
-              <span className={styles.navIcon}>💬</span><span>IM 机器人</span>
+              <span className={styles.navIcon}>💬</span><span>猫道</span>
             </button>
             <button className={nav('security')} onClick={() => setTab('security')}>
-              <span className={styles.navIcon}>🛡️</span><span>安全</span>
+              <span className={styles.navIcon}>🛡️</span><span>铃铛</span>
               <span className={styles.betaBadge}>BETA</span>
             </button>
             <div className={styles.navDivider} />
             <button className={nav('feedback')} onClick={() => setTab('feedback')}>
-              <span className={styles.navIcon}>❓</span><span>帮助与反馈</span>
+              <span className={styles.navIcon}>❓</span><span>猫言猫语</span>
             </button>
             <button className={nav('about')} onClick={() => setTab('about')}>
               <span className={styles.navIcon}>🖥️</span><span>版本 {APP_VERSION}</span>
@@ -1037,7 +1037,7 @@ export function SettingsPanel() {
 
             {tab === 'general' && (
               <div>
-                <h2 className={styles.sectionTitle}>通用</h2>
+                <h2 className={styles.sectionTitle}>猫窝设置</h2>
                 <GeneralTab />
               </div>
             )}
@@ -1047,8 +1047,6 @@ export function SettingsPanel() {
             {tab === 'mcp' && (
               <div>
                 <h2 className={styles.sectionTitle}>MCP</h2>
-                <div className={styles.fieldCard}>
-                  <div className={styles.fieldLabel}>当前服务器地址</div>
                   <div className={styles.fieldValue}>{serverUrl ?? '—'}</div>
                 </div>
                 <button className={styles.primaryBtn} onClick={handleSwitchServer}>
@@ -1059,7 +1057,7 @@ export function SettingsPanel() {
 
             {tab === 'im-bot' && (
               <div>
-                <h2 className={styles.sectionTitle}>IM 机器人</h2>
+                <h2 className={styles.sectionTitle}>猫道</h2>
                 <p className={styles.comingSoon}>功能开发中…</p>
               </div>
             )}
@@ -1068,7 +1066,7 @@ export function SettingsPanel() {
 
             {tab === 'feedback' && (
               <div>
-                <h2 className={styles.sectionTitle}>帮助与反馈</h2>
+                <h2 className={styles.sectionTitle}>猫言猫语</h2>
                 <p className={styles.comingSoon}>如有问题请联系开发者。</p>
               </div>
             )}
