@@ -41,7 +41,7 @@ export default function MemoryPanel() {
   const [dbMemories, setDbMemories] = useState<DbMemory[]>([])
   const [selectedDbMemory, setSelectedDbMemory] = useState<DbMemory | null>(null)
   const { toast, showToast, dismissToast } = useToast()
-  const { token, serverUrl, serverConnected } = useAppStore()
+  const { token, serverUrl, serverConnected, skillsVersion } = useAppStore()
 
   // ── Load file list ────────────────────────────────────────────────────
   const loadFiles = useCallback(async () => {
@@ -128,6 +128,24 @@ export default function MemoryPanel() {
       loadFiles()
     } catch { /* ignore */ }
   }, [token, serverUrl, loadFiles])
+
+  // ── Re-read SKILLS_SNAPSHOT.md when skills change ─────────────────
+  useEffect(() => {
+    if (!skillsVersion || !token || !serverUrl) return
+    // Slight delay to let backend finish writing the file
+    const t = setTimeout(async () => {
+      try {
+        const resp = await apiFetch(`${serverUrl}/api/memory/files/SKILLS_SNAPSHOT.md`)
+        if (!resp.ok) return
+        const data = await resp.json() as { content?: string }
+        if (selectedFile === 'SKILLS_SNAPSHOT.md') {
+          setFileContent(data.content ?? '')
+        }
+        loadFiles()
+      } catch { /* ignore */ }
+    }, 500)
+    return () => clearTimeout(t)
+  }, [skillsVersion, token, serverUrl, selectedFile, loadFiles])
 
   // ── Load server DB memories ──────────────────────────────────────
   const loadDbMemories = useCallback(async () => {

@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import styles from './SkillsPanel.module.css'
 import { fetchSkills, toggleSkill, installSkill, deleteSkill, type SkillInfo } from '../../api/skills'
+import { useAppStore } from '../../store/app'
 
 export default function SkillsPanel() {
   const [skills, setSkills] = useState<SkillInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [installing, setInstalling] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const bumpSkillsVersion = useAppStore(s => s.bumpSkillsVersion)
 
   const load = async () => {
     try {
@@ -25,12 +27,11 @@ export default function SkillsPanel() {
   const handleToggle = async (skill: SkillInfo) => {
     if (!skill.key) return
     const next = !skill.enabled
-    // Optimistic update
     setSkills(prev => prev.map(s => s.key === skill.key ? { ...s, enabled: next } : s))
     try {
       await toggleSkill(skill.key, next)
+      bumpSkillsVersion()
     } catch {
-      // Revert on error
       setSkills(prev => prev.map(s => s.key === skill.key ? { ...s, enabled: !next } : s))
     }
   }
@@ -41,6 +42,7 @@ export default function SkillsPanel() {
     try {
       await deleteSkill(skill.key)
       setSkills(prev => prev.filter(s => s.key !== skill.key))
+      bumpSkillsVersion()
     } catch {
       // silent
     }
@@ -53,6 +55,7 @@ export default function SkillsPanel() {
       setInstalling(true)
       await installSkill(file)
       await load()
+      bumpSkillsVersion()
     } catch (err: any) {
       alert(err?.message || '安装失败')
     } finally {

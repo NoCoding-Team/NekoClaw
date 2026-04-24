@@ -280,6 +280,10 @@ export interface AppState {
   // Tools config (API keys for local tool execution)
   toolsConfig: ToolsConfig
   setToolsConfig: (cfg: Partial<ToolsConfig>) => void
+
+  // Skills version — increments whenever skills list changes so MemoryPanel can refresh
+  skillsVersion: number
+  bumpSkillsVersion: () => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -449,4 +453,7 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.setItem(STORAGE_TOOLS_CONFIG, JSON.stringify(next))
       return { toolsConfig: next }
     }),
+
+  skillsVersion: 0,
+  bumpSkillsVersion: () => set((s) => ({ skillsVersion: s.skillsVersion + 1 })),
 }))
