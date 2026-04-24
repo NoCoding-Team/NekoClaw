@@ -370,7 +370,7 @@ const DEFAULT_DAILY_NOTE_CONFIG: DailyNoteConfig = {
 }
 
 function GeneralTab() {
-  const { token, serverUrl } = useAppStore()
+  const { token, serverUrl, customLLMConfig } = useAppStore()
   const [config, setConfig] = useState<DailyNoteConfig>(DEFAULT_DAILY_NOTE_CONFIG)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -393,7 +393,18 @@ function GeneralTab() {
       const resp = await apiFetch(`${serverUrl}/api/memory/daily-note-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          ...config,
+          // Store enabled custom LLM config server-side so cron can use it
+          llm_config: customLLMConfig?.enabled ? {
+            enabled: true,
+            provider: customLLMConfig.provider,
+            model: customLLMConfig.model,
+            api_key: customLLMConfig.api_key,
+            base_url: customLLMConfig.base_url,
+            temperature: customLLMConfig.temperature,
+          } : null,
+        }),
       })
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       setSaveMsg('已保存')

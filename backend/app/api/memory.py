@@ -73,6 +73,11 @@ class DailyNoteConfigSchema(BaseModel):
     max_retries: int = 2
 
 
+class DailyNoteConfigUpdateSchema(DailyNoteConfigSchema):
+    """Extended schema for PUT — also accepts an optional LLM config to use in cron."""
+    llm_config: dict | None = None
+
+
 @router.get("/daily-note-config", response_model=DailyNoteConfigSchema)
 async def get_daily_note_config(current_user: User = Depends(get_current_user)):
     """Get per-user daily note generation settings."""
@@ -90,7 +95,7 @@ async def get_daily_note_config(current_user: User = Depends(get_current_user)):
 
 @router.put("/daily-note-config")
 async def update_daily_note_config(
-    payload: DailyNoteConfigSchema,
+    payload: DailyNoteConfigUpdateSchema,
     current_user: User = Depends(get_current_user),
 ):
     """Save per-user daily note generation settings."""
@@ -102,8 +107,17 @@ async def update_daily_note_config(
     user_dir = _user_memory_dir(current_user.id)
     os.makedirs(user_dir, exist_ok=True)
     fpath = os.path.join(user_dir, _DAILY_NOTE_CONFIG_FILE)
+    # Read existing to preserve any stored fields not in current payload
+    existing: dict = {}
+    if os.path.isfile(fpath):
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        except Exception:
+            pass
+    data = {**existing, **payload.model_dump(exclude_none=True)}
     with open(fpath, "w", encoding="utf-8") as f:
-        json.dump(payload.model_dump(), f)
+        json.dump(data, f)
     return {"ok": True}
 
 

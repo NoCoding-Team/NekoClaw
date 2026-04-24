@@ -285,7 +285,11 @@ async def daily_note_cron() -> None:
                     continue
                 logger.info("daily_note_cron triggering for user=%s at %s (scheduled=%02d:%02d)", uid, now.strftime("%H:%M"), note_hour, note_minute)
                 try:
-                    _, reason = await generate_daily_note(uid, today, max_retries=cfg.get("max_retries", 2))
+                    _, reason = await generate_daily_note(
+                        uid, today,
+                        max_retries=cfg.get("max_retries", 2),
+                        custom_llm_config=cfg.get("llm_config"),
+                    )
                     if reason == 'ok':
                         generated_today.add(uid)
                 except Exception:
