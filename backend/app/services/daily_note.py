@@ -268,18 +268,27 @@ async def daily_note_cron() -> None:
                 cfg = _load_user_daily_config(uid)
                 if not cfg.get("auto_generate", True):
                     continue
-                # Check if current UTC time matches user's configured note_time
+                # Check if note_time falls within the past 2-minute window (tolerates sleep drift)
                 try:
                     note_hour, note_minute = map(int, str(cfg.get("note_time", "23:50")).split(":"))
                 except ValueError:
                     note_hour, note_minute = 23, 50
-                if now.hour == note_hour and now.minute == note_minute:
-                    try:
-                        _, reason = await generate_daily_note(uid, today, max_retries=cfg.get("max_retries", 2))
-                        if reason == 'ok':
-                            generated_today.add(uid)
-                    except Exception:
-                        logger.warning("daily_note user=%s date=%s status=failed reason=exception", uid, today.isoformat(), exc_info=True)
+                note_dt = now.replace(hour=note_hour, minute=note_minute, second=0, microsecond=0)
+                elapsed = (now - note_dt).total_seconds()
+                if not (0 <= elapsed < 120):  # within 2 minutes after scheduled time
+                    continue
+                # Skip if note file already exists for today
+                note_fpath = os.path.join(settings.MEMORY_FILES_DIR, uid, "notes", f"{today.isoformat()}.md")
+                if os.path.isfile(note_fpath):
+                    generated_today.add(uid)
+                    continue
+                logger.info("daily_note_cron triggering for user=%s at %s (scheduled=%02d:%02d)", uid, now.strftime("%H:%M"), note_hour, note_minute)
+                try:
+                    _, reason = await generate_daily_note(uid, today, max_retries=cfg.get("max_retries", 2))
+                    if reason == 'ok':
+                        generated_today.add(uid)
+                except Exception:
+                    logger.warning("daily_note user=%s date=%s status=failed reason=exception", uid, today.isoformat(), exc_info=True)
 
         except asyncio.CancelledError:
             logger.info("Daily note cron cancelled")
