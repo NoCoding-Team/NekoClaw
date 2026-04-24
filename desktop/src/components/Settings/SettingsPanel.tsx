@@ -1047,6 +1047,8 @@ export function SettingsPanel() {
             {tab === 'mcp' && (
               <div>
                 <h2 className={styles.sectionTitle}>MCP</h2>
+                <div className={styles.fieldCard}>
+                  <div className={styles.fieldLabel}>当前服务器地址</div>
                   <div className={styles.fieldValue}>{serverUrl ?? '—'}</div>
                 </div>
                 <button className={styles.primaryBtn} onClick={handleSwitchServer}>
