@@ -45,7 +45,7 @@ export default function MemoryPanel() {
   const [dbMemories, setDbMemories] = useState<DbMemory[]>([])
   const [selectedDbMemory, setSelectedDbMemory] = useState<DbMemory | null>(null)
   const { toast, showToast, dismissToast } = useToast()
-  const { token, serverUrl, serverConnected, skillsVersion } = useAppStore()
+  const { token, serverUrl, serverConnected, skillsVersion, customLLMConfig } = useAppStore()
 
   // ── Load file list ────────────────────────────────────────────────────
   const loadFiles = useCallback(async () => {
@@ -286,7 +286,11 @@ export default function MemoryPanel() {
     showToast('正在用 AI 整理今日对话…')
     let genReason: string | undefined
     try {
-      const resp = await apiFetch(`${serverUrl}/api/memory/generate-daily-note`, { method: 'POST' })
+      const resp = await apiFetch(`${serverUrl}/api/memory/generate-daily-note`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custom_llm_config: customLLMConfig?.enabled ? customLLMConfig : null }),
+      })
       if (resp.ok) {
         const data = await resp.json() as { ok: boolean; reason?: string; path?: string }
         genReason = data.reason

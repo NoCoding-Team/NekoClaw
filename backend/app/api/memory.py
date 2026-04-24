@@ -219,13 +219,21 @@ async def delete_memory_file(filename: str, current_user: User = Depends(get_cur
 
 
 @router.post("/generate-daily-note")
-async def generate_daily_note_now(current_user: User = Depends(get_current_user)):
+async def generate_daily_note_now(
+    payload: dict = Body(default={}),
+    current_user: User = Depends(get_current_user),
+):
     """Manually trigger daily note generation for today for the current user."""
     from app.services.daily_note import generate_daily_note, _load_user_daily_config
     from datetime import date
     target = date.today()
     cfg = _load_user_daily_config(current_user.id)
-    content, reason = await generate_daily_note(current_user.id, target, max_retries=cfg.get("max_retries", 2))
+    custom_llm = payload.get("custom_llm_config") if payload else None
+    content, reason = await generate_daily_note(
+        current_user.id, target,
+        max_retries=cfg.get("max_retries", 2),
+        custom_llm_config=custom_llm,
+    )
     if content is None:
         return {"ok": False, "reason": reason}
     return {"ok": True, "path": f"notes/{target.isoformat()}.md"}

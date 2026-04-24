@@ -38,7 +38,12 @@ def _load_user_daily_config(user_id: str) -> dict:
         return dict(_DAILY_NOTE_CONFIG_DEFAULTS)
 
 
-async def generate_daily_note(user_id: str, target_date: date | None = None, max_retries: int = 2) -> tuple[str | None, str]:
+async def generate_daily_note(
+    user_id: str,
+    target_date: date | None = None,
+    max_retries: int = 2,
+    custom_llm_config: dict | None = None,
+) -> tuple[str | None, str]:
     """Generate a daily note for a user by summarizing the day's conversations.
 
     Returns (content, reason) where reason is one of: 'ok', 'no_messages', 'no_llm_config', 'llm_error'.
@@ -80,7 +85,10 @@ async def generate_daily_note(user_id: str, target_date: date | None = None, max
     conv_text = "\n".join(f"{m.role}: {(m.content or '')[:500]}" for m in messages)
 
     # Get a working LLM config for summarization
-    llm_config = await _get_summary_llm_config(user_id)
+    if custom_llm_config and custom_llm_config.get("enabled") and custom_llm_config.get("api_key"):
+        llm_config = _make_llm_from_dict(custom_llm_config)
+    else:
+        llm_config = await _get_summary_llm_config(user_id)
     if not llm_config:
         logger.warning("daily_note user=%s date=%s status=skipped reason=no_llm_config", user_id, target_date.isoformat())
         return None, 'no_llm_config'
@@ -134,6 +142,33 @@ async def generate_daily_note(user_id: str, target_date: date | None = None, max
 
     logger.info("daily_note user=%s date=%s status=success path=%s", user_id, target_date.isoformat(), fpath)
     return note_content, 'ok'
+
+
+def _make_llm_from_dict(cfg: dict) -> Any:
+    """Build a LangChain chat model directly from a client-side config dict (plain api_key)."""
+    from types import SimpleNamespace
+    from langchain_core.language_models import BaseChatModel
+
+    provider = (cfg.get("provider") or "openai").lower()
+    model = cfg.get("model", "")
+    api_key = cfg.get("api_key", "")
+    base_url = cfg.get("base_url", "")
+    temperature = float(cfg.get("temperature", 0.7))
+
+    if provider == "anthropic":
+        from langchain_anthropic import ChatAnthropic  # type: ignore[import-untyped]
+        return ChatAnthropic(model=model, api_key=api_key, temperature=temperature, streaming=True)  # type: ignore[call-arg]
+
+    if provider in ("gemini", "google"):
+        from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore[import-untyped]
+        return ChatGoogleGenerativeAI(model=model, google_api_key=api_key, temperature=temperature, streaming=True)  # type: ignore[call-arg]
+
+    # openai / custom
+    from langchain_openai import ChatOpenAI  # type: ignore[import-untyped]
+    kwargs: dict = {"model": model, "api_key": api_key, "temperature": temperature, "streaming": True}
+    if base_url:
+        kwargs["base_url"] = base_url
+    return ChatOpenAI(**kwargs)  # type: ignore[call-arg]
 
 
 async def _get_summary_llm_config(user_id: str) -> Any | None:
