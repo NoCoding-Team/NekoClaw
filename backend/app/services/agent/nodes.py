@@ -276,6 +276,14 @@ async def llm_call(state: AgentState) -> dict:
         return {"messages": [AIMessage(content=err_msg)]}
 
     has_tc = bool(getattr(ai_message, "tool_calls", None))
+    ai_content = ai_message.content if isinstance(ai_message.content, str) else str(ai_message.content)
+    tool_calls_summary = [f"{tc['name']}({tc.get('args',{})})" for tc in (getattr(ai_message, 'tool_calls', None) or [])]
+    print(
+        f"[llm_response] session={state['session_id']} has_tool_calls={has_tc}\n"
+        f"  content: {ai_content[:500]}{'...' if len(ai_content) > 500 else ''}\n"
+        f"  tool_calls: {tool_calls_summary}",
+        flush=True,
+    )
     await send_event(ws, "llm_done", {"message_id": str(uuid.uuid4()), "has_tool_calls": has_tc})
     return {"messages": [ai_message]}
 
