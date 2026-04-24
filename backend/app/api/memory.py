@@ -63,14 +63,15 @@ async def create_memory(
 
 # ── Daily note config (must be before /{memory_id} wildcard) ─────────────
 
-_DAILY_NOTE_CONFIG_DEFAULTS = {"auto_generate": True, "note_time": "23:50", "max_retries": 2}
+_DAILY_NOTE_CONFIG_DEFAULTS = {"auto_generate": True, "note_time": "23:50", "max_retries": 2, "timezone": "Asia/Shanghai"}
 _DAILY_NOTE_CONFIG_FILE = ".daily_note_config.json"
 
 
 class DailyNoteConfigSchema(BaseModel):
     auto_generate: bool = True
-    note_time: str = "23:50"  # HH:MM in UTC
+    note_time: str = "23:50"  # HH:MM in user's timezone
     max_retries: int = 2
+    timezone: str = "Asia/Shanghai"
 
 
 class DailyNoteConfigUpdateSchema(DailyNoteConfigSchema):

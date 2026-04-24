@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 _cron_task: asyncio.Task | None = None
 
-_DAILY_NOTE_CONFIG_DEFAULTS: dict = {"auto_generate": True, "note_time": "23:50", "max_retries": 2}
+_DAILY_NOTE_CONFIG_DEFAULTS: dict = {"auto_generate": True, "note_time": "23:50", "max_retries": 2, "timezone": "Asia/Shanghai"}
 
 
 def _load_user_daily_config(user_id: str) -> dict:
@@ -278,17 +278,25 @@ async def daily_note_cron() -> None:
                 cfg = _load_user_daily_config(uid)
                 if not cfg.get("auto_generate", True):
                     continue
-                # Check if note_time falls within the past 2-minute window (tolerates sleep drift)
+                # Convert user's local note_time to UTC using their timezone
                 try:
                     note_hour, note_minute = map(int, str(cfg.get("note_time", "23:50")).split(":"))
                 except ValueError:
                     note_hour, note_minute = 23, 50
-                note_dt = now.replace(hour=note_hour, minute=note_minute, second=0, microsecond=0)
-                elapsed = (now - note_dt).total_seconds()
+                user_tz_name = cfg.get("timezone", "Asia/Shanghai")
+                try:
+                    from zoneinfo import ZoneInfo
+                    user_tz = ZoneInfo(user_tz_name)
+                    # Build the scheduled time in user's timezone, then convert to UTC
+                    user_local = now.astimezone(user_tz).replace(hour=note_hour, minute=note_minute, second=0, microsecond=0)
+                    note_utc = user_local.astimezone(timezone.utc)
+                except Exception:
+                    # Fallback: treat note_time as UTC
+                    note_utc = now.replace(hour=note_hour, minute=note_minute, second=0, microsecond=0)
+                elapsed = (now - note_utc).total_seconds()
 
                 # Log schedule check for every active user each tick
-                logger.debug("daily_note_cron user=%s now=%s scheduled=%02d:%02d elapsed=%.0fs",
-                             uid, now.strftime("%H:%M:%S"), note_hour, note_minute, elapsed)
+                print(f"[daily_note] check user={uid} now_utc={now.strftime('%H:%M')} scheduled_local={note_hour:02d}:{note_minute:02d} tz={user_tz_name} scheduled_utc={note_utc.strftime('%H:%M')} elapsed={elapsed:.0f}s")
 
                 if not (0 <= elapsed < 120):  # within 2 minutes after scheduled time
                     continue

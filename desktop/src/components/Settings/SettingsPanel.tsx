@@ -361,12 +361,34 @@ interface DailyNoteConfig {
   auto_generate: boolean
   note_time: string
   max_retries: number
+  timezone: string
+}
+
+// Common timezone options
+const TIMEZONE_OPTIONS = [
+  { value: 'Asia/Shanghai', label: 'UTC+8 中国标准时间' },
+  { value: 'Asia/Tokyo', label: 'UTC+9 日本标准时间' },
+  { value: 'Asia/Kolkata', label: 'UTC+5:30 印度标准时间' },
+  { value: 'Europe/London', label: 'UTC+0 伦敦' },
+  { value: 'Europe/Berlin', label: 'UTC+1 柏林' },
+  { value: 'America/New_York', label: 'UTC-5 纽约' },
+  { value: 'America/Los_Angeles', label: 'UTC-8 洛杉矶' },
+  { value: 'UTC', label: 'UTC' },
+]
+
+const detectTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    return 'Asia/Shanghai'
+  }
 }
 
 const DEFAULT_DAILY_NOTE_CONFIG: DailyNoteConfig = {
   auto_generate: true,
   note_time: '23:50',
   max_retries: 2,
+  timezone: detectTimezone(),
 }
 
 function GeneralTab() {
@@ -375,23 +397,6 @@ function GeneralTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
-
-  // UTC ↔ Local time conversion helpers
-  const utcToLocal = (utc: string): string => {
-    const [h, m] = utc.split(':').map(Number)
-    const d = new Date()
-    d.setUTCHours(h, m, 0, 0)
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  }
-  const localToUtc = (local: string): string => {
-    const [h, m] = local.split(':').map(Number)
-    const d = new Date()
-    d.setHours(h, m, 0, 0)
-    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
-  }
-
-  // Display value is local time, config.note_time is always UTC
-  const localNoteTime = utcToLocal(config.note_time)
 
   useEffect(() => {
     if (!token || !serverUrl) { setLoading(false); return }
@@ -454,19 +459,44 @@ function GeneralTab() {
 
       {/* 定时时间（仅自动开启时显示） */}
       {config.auto_generate && (
+        <>
+        {/* 时区 */}
+        <div className={styles.secRow}>
+          <div className={styles.secRowLeft}>
+            <div className={styles.secRowTitle}>时区</div>
+            <div className={styles.secRowDesc}>笔记生成时间使用的时区</div>
+          </div>
+          <select
+            className={styles.limitInput}
+            style={{ width: 200 }}
+            value={config.timezone}
+            onChange={e => setConfig(c => ({ ...c, timezone: e.target.value }))}
+          >
+            {TIMEZONE_OPTIONS.map(tz => (
+              <option key={tz.value} value={tz.value}>{tz.label}</option>
+            ))}
+            {/* If user's timezone is not in the list, show it too */}
+            {!TIMEZONE_OPTIONS.some(tz => tz.value === config.timezone) && (
+              <option value={config.timezone}>{config.timezone}</option>
+            )}
+          </select>
+        </div>
+
+        {/* 生成时间 */}
         <div className={styles.secRow}>
           <div className={styles.secRowLeft}>
             <div className={styles.secRowTitle}>生成时间</div>
-            <div className={styles.secRowDesc}>每天在此时间自动生成笔记（当前时区 UTC{new Date().getTimezoneOffset() <= 0 ? '+' : '-'}{Math.abs(Math.floor(new Date().getTimezoneOffset() / 60))}）</div>
+            <div className={styles.secRowDesc}>每天在此时间自动生成笔记</div>
           </div>
           <input
             type="time"
             className={styles.limitInput}
             style={{ width: 96 }}
-            value={localNoteTime}
-            onChange={e => setConfig(c => ({ ...c, note_time: localToUtc(e.target.value) }))}
+            value={config.note_time}
+            onChange={e => setConfig(c => ({ ...c, note_time: e.target.value }))}
           />
         </div>
+        </>
       )}
 
       {/* 重试次数 */}
