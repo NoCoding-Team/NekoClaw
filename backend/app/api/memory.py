@@ -61,6 +61,52 @@ async def create_memory(
     return mem
 
 
+# ── Daily note config (must be before /{memory_id} wildcard) ─────────────
+
+_DAILY_NOTE_CONFIG_DEFAULTS = {"auto_generate": True, "note_time": "23:50", "max_retries": 2}
+_DAILY_NOTE_CONFIG_FILE = ".daily_note_config.json"
+
+
+class DailyNoteConfigSchema(BaseModel):
+    auto_generate: bool = True
+    note_time: str = "23:50"  # HH:MM in UTC
+    max_retries: int = 2
+
+
+@router.get("/daily-note-config", response_model=DailyNoteConfigSchema)
+async def get_daily_note_config(current_user: User = Depends(get_current_user)):
+    """Get per-user daily note generation settings."""
+    import json
+    fpath = os.path.join(_user_memory_dir(current_user.id), _DAILY_NOTE_CONFIG_FILE)
+    if not os.path.isfile(fpath):
+        return DailyNoteConfigSchema()
+    try:
+        with open(fpath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return DailyNoteConfigSchema(**{**_DAILY_NOTE_CONFIG_DEFAULTS, **data})
+    except Exception:
+        return DailyNoteConfigSchema()
+
+
+@router.put("/daily-note-config")
+async def update_daily_note_config(
+    payload: DailyNoteConfigSchema,
+    current_user: User = Depends(get_current_user),
+):
+    """Save per-user daily note generation settings."""
+    import json
+    if not re.match(r"^\d{2}:\d{2}$", payload.note_time):
+        from app.core.exceptions import BadRequestError
+        raise BadRequestError("note_time must be in HH:MM format")
+    payload.max_retries = max(0, min(10, payload.max_retries))
+    user_dir = _user_memory_dir(current_user.id)
+    os.makedirs(user_dir, exist_ok=True)
+    fpath = os.path.join(user_dir, _DAILY_NOTE_CONFIG_FILE)
+    with open(fpath, "w", encoding="utf-8") as f:
+        json.dump(payload.model_dump(), f)
+    return {"ok": True}
+
+
 @router.put("/{memory_id}", response_model=MemoryResponse)
 async def update_memory(
     memory_id: str,
@@ -237,52 +283,6 @@ async def generate_daily_note_now(
     if content is None:
         return {"ok": False, "reason": reason}
     return {"ok": True, "path": f"notes/{target.isoformat()}.md"}
-
-
-# ── Daily note config ─────────────────────────────────────────────────────
-
-_DAILY_NOTE_CONFIG_DEFAULTS = {"auto_generate": True, "note_time": "23:50", "max_retries": 2}
-_DAILY_NOTE_CONFIG_FILE = ".daily_note_config.json"
-
-
-class DailyNoteConfigSchema(BaseModel):
-    auto_generate: bool = True
-    note_time: str = "23:50"  # HH:MM in UTC
-    max_retries: int = 2
-
-
-@router.get("/daily-note-config", response_model=DailyNoteConfigSchema)
-async def get_daily_note_config(current_user: User = Depends(get_current_user)):
-    """Get per-user daily note generation settings."""
-    import json
-    fpath = os.path.join(_user_memory_dir(current_user.id), _DAILY_NOTE_CONFIG_FILE)
-    if not os.path.isfile(fpath):
-        return DailyNoteConfigSchema()
-    try:
-        with open(fpath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return DailyNoteConfigSchema(**{**_DAILY_NOTE_CONFIG_DEFAULTS, **data})
-    except Exception:
-        return DailyNoteConfigSchema()
-
-
-@router.put("/daily-note-config")
-async def update_daily_note_config(
-    payload: DailyNoteConfigSchema,
-    current_user: User = Depends(get_current_user),
-):
-    """Save per-user daily note generation settings."""
-    import json
-    if not re.match(r"^\d{2}:\d{2}$", payload.note_time):
-        from app.core.exceptions import BadRequestError
-        raise BadRequestError("note_time must be in HH:MM format")
-    payload.max_retries = max(0, min(10, payload.max_retries))
-    user_dir = _user_memory_dir(current_user.id)
-    os.makedirs(user_dir, exist_ok=True)
-    fpath = os.path.join(user_dir, _DAILY_NOTE_CONFIG_FILE)
-    with open(fpath, "w", encoding="utf-8") as f:
-        json.dump(payload.model_dump(), f)
-    return {"ok": True}
 
 
 # ── Generate persona files via LLM ────────────────────────────────────────
