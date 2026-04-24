@@ -219,6 +219,7 @@ async def generate_title(
         "请用不超过15个字的中文为以下对话生成一个简短标题，只输出标题本身，不要加引号和标点：\n"
         f"用户: {body.user_message[:200]}\n助手: {body.ai_reply[:200]}"
     )
+    print(f"[generate-title] prompt:\n{prompt}")
 
     try:
         # Use custom LLM config from client if provided
