@@ -324,7 +324,12 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveSession: (id) => {
     if (id) localStorage.setItem(STORAGE_ACTIVE_SESSION, id)
     else localStorage.removeItem(STORAGE_ACTIVE_SESSION)
-    set({ activeSessionId: id, catState: 'idle' })
+    set((state) => ({
+      activeSessionId: id,
+      // 只有切换到不同会话时才重置 catState，
+      // 切回同一会话（如从定时任务面板返回）时保留当前状态，避免加载气泡丢失
+      ...(id !== state.activeSessionId ? { catState: 'idle' } : {}),
+    }))
   },
   addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
   updateSessionTitle: (id, title) =>
