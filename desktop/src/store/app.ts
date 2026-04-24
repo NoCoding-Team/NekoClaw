@@ -241,6 +241,7 @@ export interface AppState {
 
   // Cat state
   catState: CatState
+  catStateBySession: Record<string, CatState>
   setCatState: (s: CatState) => void
 
   // WebSocket connection status
@@ -326,9 +327,9 @@ export const useAppStore = create<AppState>((set) => ({
     else localStorage.removeItem(STORAGE_ACTIVE_SESSION)
     set((state) => ({
       activeSessionId: id,
-      // 只有切换到不同会话时才重置 catState，
-      // 切回同一会话（如从定时任务面板返回）时保留当前状态，避免加载气泡丢失
-      ...(id !== state.activeSessionId ? { catState: 'idle' } : {}),
+      // 切换会话时恢复目标会话的 catState（默认 idle），
+      // 这样来回切换不会丢失加载气泡状态
+      catState: id ? (state.catStateBySession[id] ?? 'idle') : 'idle',
     }))
   },
   addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
@@ -389,7 +390,13 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ messagesBySession: { ...s.messagesBySession, [sessionId]: msgs } })),
 
   catState: 'idle',
-  setCatState: (catState) => set({ catState }),
+  catStateBySession: {} as Record<string, CatState>,
+  setCatState: (catState) => set((s) => ({
+    catState,
+    catStateBySession: s.activeSessionId
+      ? { ...s.catStateBySession, [s.activeSessionId]: catState }
+      : s.catStateBySession,
+  })),
 
   wsStatus: 'disconnected',
   setWsStatus: (wsStatus) => set({ wsStatus }),
