@@ -84,14 +84,16 @@ async def generate_daily_note(
     # Build conversation text for summarization
     conv_text = "\n".join(f"{m.role}: {(m.content or '')[:500]}" for m in messages)
 
-    # Get a working LLM config for summarization
+    # Get a working LLM model for summarization
     if custom_llm_config and custom_llm_config.get("enabled") and custom_llm_config.get("api_key"):
-        llm_config = _make_llm_from_dict(custom_llm_config)
+        model = _make_llm_from_dict(custom_llm_config)
     else:
         llm_config = await _get_summary_llm_config(user_id)
-    if not llm_config:
-        logger.warning("daily_note user=%s date=%s status=skipped reason=no_llm_config", user_id, target_date.isoformat())
-        return None, 'no_llm_config'
+        if not llm_config:
+            logger.warning("daily_note user=%s date=%s status=skipped reason=no_llm_config", user_id, target_date.isoformat())
+            return None, 'no_llm_config'
+        from app.services.agent.provider import get_chat_model
+        model = get_chat_model(llm_config)
 
     summary_prompt = [
         SystemMessage(content=(
@@ -109,8 +111,6 @@ async def generate_daily_note(
     note_content: str | None = None
     for attempt in range(max(1, max_retries + 1)):
         try:
-            from app.services.agent.provider import get_chat_model
-            model = get_chat_model(llm_config)
             resp = await model.ainvoke(summary_prompt)
             note_content = resp.content if isinstance(resp.content, str) else f"# {target_date.isoformat()} 日志\n\n（生成失败）"
             break
