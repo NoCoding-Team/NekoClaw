@@ -69,6 +69,7 @@ async def list_skills(
     for name, meta in all_skills.items():
         cfg = config_map.get(name)
         skills.append(SkillInfo(
+            key=name,
             name=meta.name,
             description=meta.description,
             version=meta.version,
@@ -206,6 +207,7 @@ async def install_skill(
     await db.commit()
 
     return SkillInfo(
+        key=skill_name,
         name=meta.name,
         description=meta.description,
         version=meta.version,

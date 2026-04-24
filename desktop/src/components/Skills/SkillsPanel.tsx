@@ -25,20 +25,20 @@ export default function SkillsPanel() {
   const handleToggle = async (skill: SkillInfo) => {
     const next = !skill.enabled
     // Optimistic update
-    setSkills(prev => prev.map(s => s.name === skill.name ? { ...s, enabled: next } : s))
+    setSkills(prev => prev.map(s => s.key === skill.key ? { ...s, enabled: next } : s))
     try {
-      await toggleSkill(skill.name, next)
+      await toggleSkill(skill.key, next)
     } catch {
       // Revert on error
-      setSkills(prev => prev.map(s => s.name === skill.name ? { ...s, enabled: !next } : s))
+      setSkills(prev => prev.map(s => s.key === skill.key ? { ...s, enabled: !next } : s))
     }
   }
 
   const handleDelete = async (skill: SkillInfo) => {
     if (!confirm(`确定要删除技能「${skill.name}」吗？`)) return
     try {
-      await deleteSkill(skill.name)
-      setSkills(prev => prev.filter(s => s.name !== skill.name))
+      await deleteSkill(skill.key)
+      setSkills(prev => prev.filter(s => s.key !== skill.key))
     } catch {
       // silent
     }
@@ -89,7 +89,7 @@ export default function SkillsPanel() {
       ) : (
         <div className={styles.list}>
           {skills.map(skill => (
-            <div key={skill.name} className={`${styles.card} ${skill.enabled ? styles.cardActive : ''}`}>
+            <div key={skill.key} className={`${styles.card} ${skill.enabled ? styles.cardActive : ''}`}>
               <div className={styles.cardBody}>
                 <div className={styles.cardHead}>
                   <span className={styles.cardName}>{skill.name}</span>

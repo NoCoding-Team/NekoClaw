@@ -2,7 +2,8 @@ import { useAppStore } from '../store/app'
 import { apiFetch } from './apiFetch'
 
 export interface SkillInfo {
-  name: string
+  key: string           // directory name — stable API identifier
+  name: string          // display name from frontmatter
   description: string
   version: string
   author: string
@@ -21,8 +22,8 @@ export async function fetchSkills(): Promise<SkillInfo[]> {
   return res.json()
 }
 
-export async function toggleSkill(name: string, enabled: boolean): Promise<void> {
-  const res = await apiFetch(`${getBase()}/api/skills/${encodeURIComponent(name)}/toggle`, {
+export async function toggleSkill(key: string, enabled: boolean): Promise<void> {
+  const res = await apiFetch(`${getBase()}/api/skills/${encodeURIComponent(key)}/toggle`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled }),
@@ -41,8 +42,8 @@ export async function installSkill(file: File): Promise<SkillInfo> {
   return res.json()
 }
 
-export async function deleteSkill(name: string): Promise<void> {
-  const res = await apiFetch(`${getBase()}/api/skills/${encodeURIComponent(name)}`, {
+export async function deleteSkill(key: string): Promise<void> {
+  const res = await apiFetch(`${getBase()}/api/skills/${encodeURIComponent(key)}`, {
     method: 'DELETE',
   })
   if (!res.ok) throw new Error(await res.text())

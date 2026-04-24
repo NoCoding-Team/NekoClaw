@@ -2,7 +2,8 @@ from pydantic import BaseModel
 
 
 class SkillInfo(BaseModel):
-    name: str
+    key: str            # directory name — used as stable API identifier
+    name: str           # display name from frontmatter
     description: str
     version: str = "1.0"
     author: str = "system"
