@@ -188,7 +188,7 @@ export function useWebSocket(sessionId: string | null) {
 
       if (type === 'cat_state') {
         setCatState(evt.state as any)
-        // 标题两段式 Stage 2：第一轮对话 finalize 后，调用 LLM 生成摘要标题
+        // 标题两段式 Stage 2：每次 success 时检查是否还需生成标题
         if (evt.state === 'success' && sessionId) {
           if (_titleGenerated.has(sessionId)) {
             console.log('[Title] Stage 2 跳过：已生成过标题', sessionId)
@@ -196,22 +196,24 @@ export function useWebSocket(sessionId: string | null) {
             const allMsgs = useAppStore.getState().messagesBySession[sessionId] ?? []
             const userMsgCount = allMsgs.filter(m => m.role === 'user').length
             console.log('[Title] Stage 2 检查:', { sessionId, userMsgCount, msgCount: allMsgs.length })
-            if (userMsgCount === 1) {
-              _titleGenerated.add(sessionId)
+            // 只要有用户消息就尝试生成标题（不再限制 userMsgCount === 1，
+            // 这样首次失败后续 success 还能重试）
+            if (userMsgCount >= 1) {
               const firstUserMsg = allMsgs.find(m => m.role === 'user')
+              // lastAiMsg：优先找有内容的，兜底用任意 assistant 消息
               const lastAiMsg = [...allMsgs].reverse().find(m => m.role === 'assistant' && m.content && !m.streaming)
+                ?? [...allMsgs].reverse().find(m => m.role === 'assistant' && !m.streaming)
               console.log('[Title] Stage 2 消息:', {
                 firstUser: firstUserMsg?.content?.slice(0, 30),
                 lastAi: lastAiMsg?.content?.slice(0, 30),
-                lastAiStreaming: lastAiMsg?.streaming,
               })
-              if (firstUserMsg && lastAiMsg) {
+              if (firstUserMsg) {
                 const { serverUrl: sv, customLLMConfig } = useAppStore.getState()
                 const body: Record<string, unknown> = {
                   user_message: firstUserMsg.content,
-                  ai_reply: lastAiMsg.content,
+                  ai_reply: lastAiMsg?.content ?? '',
                 }
-                if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
+                if (customLLMConfig.model && customLLMConfig.api_key) {
                   body.custom_llm_config = {
                     provider: customLLMConfig.provider,
                     model: customLLMConfig.model,
@@ -230,8 +232,9 @@ export function useWebSocket(sessionId: string | null) {
                     const data = await r.json()
                     console.log('[Title] Stage 2 响应:', { status: r.status, data })
                     if (data.title) {
+                      // 成功后才标记，失败可在下次 success 重试
+                      _titleGenerated.add(sessionId!)
                       useAppStore.getState().updateSessionTitle(sessionId!, data.title)
-                      // Sync title to server DB (session may start as "新对话")
                       const { serverUrl: svPatch, token: tkPatch } = useAppStore.getState()
                       if (tkPatch && sessionId && !sessionId.startsWith('local-')) {
                         apiFetch(`${svPatch}/api/sessions/${sessionId}`, {
@@ -244,7 +247,7 @@ export function useWebSocket(sessionId: string | null) {
                   })
                   .catch((err) => console.warn('[Title] Stage 2 请求失败:', err))
               } else {
-                console.warn('[Title] Stage 2 跳过：缺少用户/AI 消息', { hasUser: !!firstUserMsg, hasAi: !!lastAiMsg })
+                console.warn('[Title] Stage 2 跳过：缺少用户消息')
               }
             }
           }
