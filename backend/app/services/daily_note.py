@@ -21,8 +21,24 @@ logger = logging.getLogger(__name__)
 
 _cron_task: asyncio.Task | None = None
 
+_DAILY_NOTE_CONFIG_DEFAULTS: dict = {"auto_generate": True, "note_time": "23:50", "max_retries": 2}
 
-async def generate_daily_note(user_id: str, target_date: date | None = None) -> str | None:
+
+def _load_user_daily_config(user_id: str) -> dict:
+    """Load per-user daily note config from .daily_note_config.json. Returns defaults if missing."""
+    import json
+    fpath = os.path.join(settings.MEMORY_FILES_DIR, user_id, ".daily_note_config.json")
+    if not os.path.isfile(fpath):
+        return dict(_DAILY_NOTE_CONFIG_DEFAULTS)
+    try:
+        with open(fpath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return {**_DAILY_NOTE_CONFIG_DEFAULTS, **data}
+    except Exception:
+        return dict(_DAILY_NOTE_CONFIG_DEFAULTS)
+
+
+async def generate_daily_note(user_id: str, target_date: date | None = None, max_retries: int = 2) -> str | None:
     """Generate a daily note for a user by summarizing the day's conversations.
 
     Returns the generated note content, or None if no conversations found.
@@ -82,13 +98,23 @@ async def generate_daily_note(user_id: str, target_date: date | None = None) -> 
         HumanMessage(content=f"以下是今天的对话记录：\n\n{conv_text}"),
     ]
 
-    try:
-        from app.services.agent.provider import get_chat_model
-        model = get_chat_model(llm_config)
-        resp = await model.ainvoke(summary_prompt)
-        note_content = resp.content if isinstance(resp.content, str) else f"# {target_date.isoformat()} 日志\n\n（生成失败）"
-    except Exception:
-        logger.warning("daily_note user=%s date=%s status=failed reason=llm_error", user_id, target_date.isoformat(), exc_info=True)
+    note_content: str | None = None
+    for attempt in range(max(1, max_retries + 1)):
+        try:
+            from app.services.agent.provider import get_chat_model
+            model = get_chat_model(llm_config)
+            resp = await model.ainvoke(summary_prompt)
+            note_content = resp.content if isinstance(resp.content, str) else f"# {target_date.isoformat()} 日志\n\n（生成失败）"
+            break
+        except Exception:
+            if attempt < max_retries:
+                wait = 2 ** attempt
+                logger.warning("daily_note user=%s date=%s retry=%d/%d sleeping=%ds", user_id, target_date.isoformat(), attempt + 1, max_retries, wait)
+                await asyncio.sleep(wait)
+            else:
+                logger.warning("daily_note user=%s date=%s status=failed reason=llm_error attempts=%d", user_id, target_date.isoformat(), attempt + 1, exc_info=True)
+                return None
+    if note_content is None:
         return None
 
     # Write to file
@@ -163,17 +189,21 @@ async def _get_summary_llm_config(user_id: str) -> Any | None:
 
 
 async def daily_note_cron() -> None:
-    """Asyncio loop that runs daily at 23:50 to generate daily notes for all active users."""
+    """Minute-loop cron: checks each active user's schedule and generates daily notes at their configured UTC time."""
+    generated_today: set[str] = set()
+    last_reset_date = date.today()
+
     while True:
         try:
-            now = datetime.now(timezone.utc)
-            target = now.replace(hour=23, minute=50, second=0, microsecond=0)
-            if target <= now:
-                target += timedelta(days=1)
+            await asyncio.sleep(60)
 
-            wait_seconds = (target - now).total_seconds()
-            logger.info(f"Daily note cron: next run at {target.isoformat()}, sleeping {wait_seconds:.0f}s")
-            await asyncio.sleep(wait_seconds)
+            now = datetime.now(timezone.utc)
+            today = now.date()
+
+            # Reset daily tracking at midnight UTC
+            if today != last_reset_date:
+                generated_today.clear()
+                last_reset_date = today
 
             # Find all users who had conversations today
             from app.models.base import AsyncSessionLocal
@@ -181,7 +211,6 @@ async def daily_note_cron() -> None:
             from app.models.session import Session
             from sqlalchemy import select, and_, distinct
 
-            today = date.today()
             day_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
 
             async with AsyncSessionLocal() as db:
@@ -198,20 +227,29 @@ async def daily_note_cron() -> None:
                 )
                 user_ids = [row[0] for row in result.fetchall()]
 
-            logger.info("daily_note_cron: generating notes for %d users", len(user_ids))
-
             for uid in user_ids:
+                if uid in generated_today:
+                    continue
+                cfg = _load_user_daily_config(uid)
+                if not cfg.get("auto_generate", True):
+                    continue
+                # Check if current UTC time matches user's configured note_time
                 try:
-                    await generate_daily_note(uid, today)
-                except Exception:
-                    logger.warning("daily_note user=%s date=%s status=failed reason=exception", uid, today.isoformat(), exc_info=True)
+                    note_hour, note_minute = map(int, str(cfg.get("note_time", "23:50")).split(":"))
+                except ValueError:
+                    note_hour, note_minute = 23, 50
+                if now.hour == note_hour and now.minute == note_minute:
+                    try:
+                        await generate_daily_note(uid, today, max_retries=cfg.get("max_retries", 2))
+                        generated_today.add(uid)
+                    except Exception:
+                        logger.warning("daily_note user=%s date=%s status=failed reason=exception", uid, today.isoformat(), exc_info=True)
 
         except asyncio.CancelledError:
             logger.info("Daily note cron cancelled")
             break
         except Exception:
             logger.error("Daily note cron error", exc_info=True)
-            # Wait 60s before retrying on unexpected errors
             await asyncio.sleep(60)
 
 

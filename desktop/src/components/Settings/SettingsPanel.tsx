@@ -357,10 +357,119 @@ function ModelCenterTab() {
 }
 
 // ── GeneralTab ─────────────────────────────────────────────────────────────────
+interface DailyNoteConfig {
+  auto_generate: boolean
+  note_time: string
+  max_retries: number
+}
+
+const DEFAULT_DAILY_NOTE_CONFIG: DailyNoteConfig = {
+  auto_generate: true,
+  note_time: '23:50',
+  max_retries: 2,
+}
+
 function GeneralTab() {
+  const { token, serverUrl } = useAppStore()
+  const [config, setConfig] = useState<DailyNoteConfig>(DEFAULT_DAILY_NOTE_CONFIG)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
+
+  useEffect(() => {
+    if (!token || !serverUrl) { setLoading(false); return }
+    apiFetch(`${serverUrl}/api/memory/daily-note-config`)
+      .then(r => r.json())
+      .then((d: DailyNoteConfig) => setConfig({ ...DEFAULT_DAILY_NOTE_CONFIG, ...d }))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [token, serverUrl])
+
+  const save = async () => {
+    if (!token || !serverUrl || saving) return
+    setSaving(true)
+    setSaveMsg('')
+    try {
+      const resp = await apiFetch(`${serverUrl}/api/memory/daily-note-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      setSaveMsg('已保存')
+    } catch {
+      setSaveMsg('保存失败')
+    } finally {
+      setSaving(false)
+      setTimeout(() => setSaveMsg(''), 2500)
+    }
+  }
+
+  if (loading) return <div className={styles.saveMsg} style={{ padding: '24px 0' }}>加载中…</div>
+
   return (
-    <div>
-      {/* Knowledge settings removed — search is now server-side via pgvector */}
+    <div className={styles.securityPage}>
+
+      {/* 自动生成 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>自动生成日记</div>
+          <div className={styles.secRowDesc}>每天定时用 AI 整理当天的对话，自动写入笔记文件</div>
+        </div>
+        <button
+          className={`${styles.toggle} ${config.auto_generate ? styles.toggleOn : ''}`}
+          onClick={() => setConfig(c => ({ ...c, auto_generate: !c.auto_generate }))}
+          role="switch"
+          aria-checked={config.auto_generate}
+        />
+      </div>
+
+      {/* 定时时间（仅自动开启时显示） */}
+      {config.auto_generate && (
+        <div className={styles.secRow}>
+          <div className={styles.secRowLeft}>
+            <div className={styles.secRowTitle}>生成时间（UTC）</div>
+            <div className={styles.secRowDesc}>每天在此 UTC 时间自动触发笔记生成，默认 23:50</div>
+          </div>
+          <input
+            type="time"
+            className={styles.limitInput}
+            style={{ width: 96 }}
+            value={config.note_time}
+            onChange={e => setConfig(c => ({ ...c, note_time: e.target.value }))}
+          />
+        </div>
+      )}
+
+      {/* 重试次数 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>重试次数</div>
+          <div className={styles.secRowDesc}>AI 生成失败时自动重试的最大次数（0–5）</div>
+        </div>
+        <div className={styles.limitRow}>
+          <input
+            type="number"
+            className={styles.limitInput}
+            min={0}
+            max={5}
+            value={config.max_retries}
+            onChange={e =>
+              setConfig(c => ({ ...c, max_retries: Math.min(5, Math.max(0, Number(e.target.value) || 0)) }))
+            }
+          />
+          <span className={styles.secRowDesc}>次</span>
+        </div>
+      </div>
+
+      {/* 保存 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 16 }}>
+        <button className={styles.nickSaveBtn} onClick={save} disabled={saving}>
+          {saving ? '保存中…' : '保存设置'}
+        </button>
+        {saveMsg && <span className={styles.saveMsg}>{saveMsg}</span>}
+      </div>
+
     </div>
   )
 }

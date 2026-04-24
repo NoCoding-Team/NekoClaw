@@ -221,15 +221,62 @@ async def delete_memory_file(filename: str, current_user: User = Depends(get_cur
 @router.post("/generate-daily-note")
 async def generate_daily_note_now(current_user: User = Depends(get_current_user)):
     """Manually trigger daily note generation for today for the current user."""
-    from app.services.daily_note import generate_daily_note
+    from app.services.daily_note import generate_daily_note, _load_user_daily_config
     from datetime import date
     target = date.today()
     note_path = os.path.join(_user_memory_dir(current_user.id), "notes", f"{target.isoformat()}.md")
     already_exists = os.path.isfile(note_path)
-    content = await generate_daily_note(current_user.id, target)
+    cfg = _load_user_daily_config(current_user.id)
+    content = await generate_daily_note(current_user.id, target, max_retries=cfg.get("max_retries", 2))
     if content is None and not already_exists:
         return {"ok": False, "reason": "no_conversations"}
     return {"ok": True, "path": f"notes/{target.isoformat()}.md", "generated": content is not None}
+
+
+# ── Daily note config ─────────────────────────────────────────────────────
+
+_DAILY_NOTE_CONFIG_DEFAULTS = {"auto_generate": True, "note_time": "23:50", "max_retries": 2}
+_DAILY_NOTE_CONFIG_FILE = ".daily_note_config.json"
+
+
+class DailyNoteConfigSchema(BaseModel):
+    auto_generate: bool = True
+    note_time: str = "23:50"  # HH:MM in UTC
+    max_retries: int = 2
+
+
+@router.get("/daily-note-config", response_model=DailyNoteConfigSchema)
+async def get_daily_note_config(current_user: User = Depends(get_current_user)):
+    """Get per-user daily note generation settings."""
+    import json
+    fpath = os.path.join(_user_memory_dir(current_user.id), _DAILY_NOTE_CONFIG_FILE)
+    if not os.path.isfile(fpath):
+        return DailyNoteConfigSchema()
+    try:
+        with open(fpath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return DailyNoteConfigSchema(**{**_DAILY_NOTE_CONFIG_DEFAULTS, **data})
+    except Exception:
+        return DailyNoteConfigSchema()
+
+
+@router.put("/daily-note-config")
+async def update_daily_note_config(
+    payload: DailyNoteConfigSchema,
+    current_user: User = Depends(get_current_user),
+):
+    """Save per-user daily note generation settings."""
+    import json
+    if not re.match(r"^\d{2}:\d{2}$", payload.note_time):
+        from app.core.exceptions import BadRequestError
+        raise BadRequestError("note_time must be in HH:MM format")
+    payload.max_retries = max(0, min(10, payload.max_retries))
+    user_dir = _user_memory_dir(current_user.id)
+    os.makedirs(user_dir, exist_ok=True)
+    fpath = os.path.join(user_dir, _DAILY_NOTE_CONFIG_FILE)
+    with open(fpath, "w", encoding="utf-8") as f:
+        json.dump(payload.model_dump(), f)
+    return {"ok": True}
 
 
 # ── Generate persona files via LLM ────────────────────────────────────────
