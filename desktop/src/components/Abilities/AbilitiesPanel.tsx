@@ -112,8 +112,8 @@ export default function AbilitiesPanel() {
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        <h2 className={styles.title}>能力</h2>
-        <p className={styles.subtitle}>Agent 可使用的工具能力，开启"自动执行"后无需每次确认</p>
+        <h2 className={styles.title}>爪力</h2>
+        <p className={styles.subtitle}>猫咪可使用的工具爪力，开启"自动施展"后无需每次确认</p>
       </div>
 
       <div className={styles.list}>
@@ -169,7 +169,7 @@ export default function AbilitiesPanel() {
 
       <div className={styles.footer}>
         <span className={styles.footerHint}>
-          💡 开启的能力会在每次对话中自动提供给 Agent，同时无需手动确认。未开启的能力 LLM 不会看到。
+          💡 开启的爪力会在每次对话中自动提供给猫咪，同时无需手动确认。未开启的爪力猫咪不会看到。
         </span>
       </div>
     </div>

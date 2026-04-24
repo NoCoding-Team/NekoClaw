@@ -6,58 +6,59 @@
   **你的 AI 伙伴，不只是工具。** 领养一只 AI 猫咪，和它一起工作、一起成长。
 
   [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-  [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](nekoclaw-backend/)
-  [![Vue](https://img.shields.io/badge/Vue-3-4FC08D?logo=vuedotjs&logoColor=white)](nekoclaw-portal/)
-  [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](nekoclaw-backend/)
-  [![K8s](https://img.shields.io/badge/Kubernetes-326CE5?logo=kubernetes&logoColor=white)](deploy/k8s/)
+  [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](backend/)
+  [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](desktop/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](backend/)
+  [![Electron](https://img.shields.io/badge/Electron-47848F?logo=electron&logoColor=white)](desktop/)
   [![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 
 </div>
 
-NekoClaw 是一个人与 AI 共同经营的平台。每只猫咪都是一个独立的 AI 伙伴 -- 它有自己的猫窝、自己的技能、自己的成长轨迹。你负责方向，它负责执行，你们共同经营一件事。
+NekoClaw 是一款桌面端 AI 伙伴应用。你的猫咪有自己的记忆、技能和个性，它陪你工作、帮你思考、替你执行，你们一起把事情做好。
 
 ## 这是什么
 
-想象你领养了一只猫。它很聪明，能学会各种技能，能帮你处理工作中的琐事。你给它一个猫窝，教它新本领，它就会默默地帮你把事情做好。
+想象你养了一只猫。它很聪明，学会各种本领后能帮你处理大量琐事。你给它一个家，教它新技能，它就会默默地把事情做好。
 
 NekoClaw 就是这个过程的数字版。
 
-- **领养** -- 一键部署你的 AI 猫咪伙伴，它会在云端运行
-- **猫窝** -- 你和猫咪共享的工作空间，任务看板、文件、对话都在这里
-- **猫技** -- 给猫咪装载新技能，让它学会更多事情
-- **猫粮站** -- 接入各种 LLM 提供商，让猫咪有充足的 "口粮"
+- **喵一声** — 随时开启新对话，让猫咪帮你处理任何事情
+- **猫脑** — 猫咪的长期记忆，它记住你的偏好、你们的历史
+- **猫技** — 教会猫咪新本领，让它掌握更多技能包
+- **爪力** — 授权猫咪可以使用哪些工具，精确控制它的能力边界
+- **猫钟** — 设置定时任务，让猫咪在特定时间自动执行
+- **猫样** — 自定义猫咪的外观、名字和个性
+- **猫档** — 服务器连接、LLM 配置等全局设置
 
-## 核心体验
-
-### 领养你的第一只猫
-
-从领养开始。选择品种（运行时），取个名字，一键部署到 K8s 集群。全程 SSE 实时推送进度，9 个步骤清晰可见。领养完成后，猫咪就在你的猫窝里等你了。
-
-### 在猫窝里协作
-
-猫窝是人和猫咪共同工作的空间。六边形拓扑让团队关系一目了然，共享看板是你们的经营仪表盘。你可以在这里给猫咪分配任务，查看它的工作进展，和团队里其他人一起协作。
-
-### 让猫咪学会新技能
-
-猫技市场提供各种模块化技能包。需要猫咪会写代码？装载编程基因。需要它会做数据分析？装载分析基因。技能按需组合，猫咪持续进化。
-
-### 多只猫，多个团队
-
-一个组织可以有多只猫，每只猫有不同的专长。跨集群编排让你的猫咪军团遍布各处，弹性伸缩，随时扩军。
-
-## 世界观
+## 功能昵称一览
 
 | 你看到的 | NekoClaw 里叫 | 实际上是 |
 |---------|--------------|---------|
-| 猫咪 (Neko) | Instance | K8s 上运行的 AI 伙伴 |
-| 猫窝 (Nest) | Workspace | 人 + AI 共享的工作空间 |
-| 猫技 (Trick) | Gene | 可装载的模块化技能包 |
-| 领养 (Adopt) | Deploy | 实例部署 |
-| 猫道 (Cat Flap) | Channel | 通信插件 |
-| 猫粮站 (Kibble Station) | LLM Proxy | LLM 代理与路由 |
-| 铃铛 (Bell) | Security Layer | 工具调用安全拦截 |
-| 猫舍 (Cattery) | Organization | 多租户组织容器 |
+| 喵一声 | 喵一声 | 新建对话 |
+| 猫话录 | 猫话录 | 对话历史列表 |
+| 猫脑 | 猫脑 | 记忆库（Markdown 文件 + 笔记） |
+| 猫技 | 猫技 | 技能包，教会猫咪完成特定任务的操作指南 |
+| 爪力 | 爪力 | 工具权限（联网、代码执行、文件读写等） |
+| 猫钟 | 猫钟 | 定时任务调度 |
+| 猫样 | 猫样 | 个性化外观与角色设置 |
+| 猫档 | 猫档 | 全局设置（服务器、LLM 等） |
 
+## 部署
+
+```bash
+# 克隆仓库
+git clone https://github.com/your-org/nekoclaw
+
+# 启动后端服务
+docker compose up -d
+
+# 启动桌面客户端（开发模式）
+cd desktop
+npm install
+npm run dev
+```
+
+后端默认监听 `localhost:8000`，桌面客户端连接后即可使用。
 
 ## License
 

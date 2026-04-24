@@ -68,7 +68,7 @@ export default function SkillsPanel() {
     <div className={styles.panel}>
       <div className={styles.header}>
         <div className={styles.headerTop}>
-          <h2 className={styles.title}>技能库</h2>
+          <h2 className={styles.title}>猫技</h2>
           <button
             className={styles.installBtn}
             onClick={() => fileRef.current?.click()}
@@ -84,7 +84,7 @@ export default function SkillsPanel() {
             onChange={handleInstall}
           />
         </div>
-        <p className={styles.subtitle}>技能教会 Agent 如何使用工具完成特定任务，开启的技能会在对话中自动提供给 Agent</p>
+        <p className={styles.subtitle}>猫技教会猫咪如何使用爪力完成特定任务，开启的猫技会在对话中自动传授给猫咪</p>
       </div>
 
       {loading ? (
@@ -141,7 +141,7 @@ export default function SkillsPanel() {
 
       <div className={styles.footer}>
         <span className={styles.footerHint}>
-          💡 开启的技能会在每次对话中自动提供给 Agent。技能与「能力」不同——能力控制底层工具权限，技能教会 Agent 如何用这些工具完成任务。
+          💡 开启的猫技会在每次对话中自动传授给猫咪。猫技与「爪力」不同——爪力控制底层工具权限，猫技教会猫咪如何用这些爪力完成任务。
         </span>
       </div>
     </div>

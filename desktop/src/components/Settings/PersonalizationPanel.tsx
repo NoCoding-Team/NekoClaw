@@ -193,7 +193,7 @@ export function PersonalizationPanel() {
   return (
     <div className={styles.panel}>
       <div className={styles.topBar}>
-        <span className={styles.topTitle}>个性化设置</span>
+        <span className={styles.topTitle}>猫样</span>
         <div className={styles.windowControls}>
           <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
           <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>

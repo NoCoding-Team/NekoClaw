@@ -6,11 +6,11 @@ import { apiFetch } from '../../api/apiFetch'
 type Tab = 'sessions' | 'tasks' | 'memory' | 'personalization' | 'settings' | 'abilities' | 'skills'
 
 const PANEL_ITEMS: { id: Tab; icon: string; label: string }[] = [
-  { id: 'tasks',           icon: '⏰', label: '定时任务'   },
-  { id: 'memory',          icon: '🧠', label: '记忆'       },
-  { id: 'skills',          icon: '🧩', label: '技能库'     },
-  { id: 'personalization', icon: '🎨', label: '个性化设置' },
-  { id: 'abilities',       icon: '⚡', label: '能力'       },
+  { id: 'tasks',           icon: '⏰', label: '猫钟'   },
+  { id: 'memory',          icon: '🧠', label: '猫脑'   },
+  { id: 'skills',          icon: '🧩', label: '猫技'   },
+  { id: 'personalization', icon: '🎨', label: '猫样'   },
+  { id: 'abilities',       icon: '⚡', label: '爪力'   },
 ]
 
 export function Sidebar() {
@@ -51,7 +51,7 @@ export function Sidebar() {
       <div className={styles.topActions}>
         <button className={styles.newBtn} onClick={createNewSession}>
           <span className={styles.newBtnPlus}>＋</span>
-          <span>新建对话</span>
+          <span>喵一声</span>
         </button>
       </div>
 
@@ -73,7 +73,7 @@ export function Sidebar() {
       <div className={styles.divider} />
 
       {/* Session list */}
-      <div className={styles.sectionLabel}>所有对话</div>
+      <div className={styles.sectionLabel}>猫话录</div>
       <div className={styles.sessionList}>
         {sessions.length === 0 ? (
           <div className={styles.emptyHint}>暂无对话</div>
@@ -105,10 +105,10 @@ export function Sidebar() {
           <button
             className={styles.bottomBtn}
             onClick={() => setSettingsOpen(true)}
-            title="设置"
+            title="猫档"
           >
             <span className={styles.bottomIcon}>⚙️</span>
-            <span className={styles.bottomLabel}>设置</span>
+            <span className={styles.bottomLabel}>猫档</span>
           </button>
           
           <div className={styles.bottomActions}>

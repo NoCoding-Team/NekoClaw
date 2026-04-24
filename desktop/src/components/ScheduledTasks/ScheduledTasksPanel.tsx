@@ -174,14 +174,14 @@ export default function ScheduledTasksPanel() {
     <div className={styles.panel}>
       <Toast message={toast} onClose={dismissToast} />
       <div className={styles.header}>
-        <span className={styles.title}>定时任务</span>
+        <span className={styles.title}>猫钟</span>
         <button className={styles.btnPrimary} onClick={openCreate}>+ 新建</button>
       </div>
 
       {loading ? (
         <div className={styles.loading}>加载中…</div>
       ) : tasks.length === 0 ? (
-        <div className={styles.empty}>暂无定时任务</div>
+        <div className={styles.empty}>暂无猫钟任务</div>
       ) : (
         <ul className={styles.list}>
           {tasks.map(t => (
@@ -218,7 +218,7 @@ export default function ScheduledTasksPanel() {
         <div className={styles.overlay}>
           <div className={styles.formDialog}>
             <div className={styles.formHeader}>
-              <span>{editingId ? '编辑任务' : '新建定时任务'}</span>
+              <span>{editingId ? '编辑猫钟' : '新建猫钟'}</span>
               <button className={styles.closeBtn} onClick={() => setShowForm(false)}>✕</button>
             </div>
             <div className={styles.formBody}>

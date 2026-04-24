@@ -401,7 +401,7 @@ export default function MemoryPanel() {
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <span className={styles.headerIcon}>🧠</span>
-          <span className={styles.title}>记忆库</span>
+          <span className={styles.title}>猫脑</span>
         </div>
         <button className={styles.btnToday} onClick={createTodayNote}>
           ＋ 今日笔记
