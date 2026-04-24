@@ -141,6 +141,7 @@ async def generate_daily_note(
         logger.warning("Index rebuild failed after daily note generation", exc_info=True)
 
     logger.info("daily_note user=%s date=%s status=success path=%s", user_id, target_date.isoformat(), fpath)
+    logger.info("daily_note content:\n%s", note_content)
     return note_content, 'ok'
 
 
