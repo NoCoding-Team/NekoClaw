@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppStore, ChatMessage as ChatMsg, ToolCall, TurnSegment } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage, ThinkingBubble } from './ChatMessage'
-import { useWebSocket } from '../../hooks/useWebSocket'
+import { useWebSocket, sendMessageExternal } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
 import { AssetsPanel } from './AssetsPanel'
 import { apiFetch } from '../../api/apiFetch'
@@ -124,7 +124,8 @@ export function ChatArea() {
   } = useAppStore()
 
   const messages = activeSessionId ? (messagesBySession[activeSessionId] ?? []) : []
-  const { sendMessage: wsSend } = useWebSocket(activeSessionId)
+  // WebSocket 连接由 App 级别的 WebSocketManager 统一管理
+  // ChatArea 只需调用模块级的 sendMessageExternal
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -173,7 +174,7 @@ export function ChatArea() {
   }, [activeSessionId, reloadKey])
 
   // Always route through backend WebSocket
-  const sendMessage = wsSend
+  const sendMessage = sendMessageExternal
 
   const [input, setInput] = useState('')
   const [showAssets, setShowAssets] = useState(false)

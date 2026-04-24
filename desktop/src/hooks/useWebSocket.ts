@@ -13,6 +13,14 @@ const MAX_BACKOFF = 30_000
 // Module-level ref kept in sync by the hook, used by confirmTool/denyTool
 let _ws: WebSocket | null = null
 
+// Module-level sendMessage ref — set by useWebSocket, used by sendMessageExternal
+const _sendMessageRef: { current: ((content: string) => void) | null } = { current: null }
+
+/** 从 ChatArea 等组件调用，无需直接持有 useWebSocket 实例 */
+export function sendMessageExternal(content: string) {
+  _sendMessageRef.current?.(content)
+}
+
 // Per-round tool call tracking for loop guard & call limit
 const _roundToolCount: Record<string, number> = {}         // sessionId → count in current round
 const _recentTools: Record<string, string[]> = {}          // sessionId → recent tool names (window)
@@ -633,6 +641,9 @@ export function useWebSocket(sessionId: string | null) {
     },
     [sessionId, setCatState, appendMessage, connect]
   )
+
+  // 始终将最新的 sendMessage 同步到模块级 ref，供 sendMessageExternal 使用
+  _sendMessageRef.current = sendMessage
 
   return { sendMessage }
 }

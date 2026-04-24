@@ -10,6 +10,7 @@ import { PersonalizationPanel } from './components/Settings/PersonalizationPanel
 import AbilitiesPanel from './components/Abilities/AbilitiesPanel'
 import SkillsPanel from './components/Skills/SkillsPanel'
 import { apiFetch } from './api/apiFetch'
+import { WebSocketManager } from './components/WebSocketManager'
 
 export default function App() {
   const { token, serverConnected, serverUrl, setSessions, setActiveSession, setProfile } = useAppStore()
@@ -90,6 +91,8 @@ export default function App() {
   if (!token) return <LoginForm />
   return (
     <div className={styles.layout}>
+      {/* WebSocket 连接始终保持，不受侧栏 tab 切换影响 */}
+      <WebSocketManager />
       <Sidebar />
       <MainContent />
       <SettingsPanel />
@@ -127,26 +130,16 @@ export default function App() {
 
 function MainContent() {
   const { sidebarTab } = useAppStore()
-  const onChat = sidebarTab === 'sessions'
-  // ChatArea 始终以 position:absolute 全尺寸渲染（保持 WebSocket 连接 + 正常布局尺寸）
-  // 其他面板用更高 z-index 覆盖在上方
+  // ChatArea 按需挂载/卸载（WebSocket 由 WebSocketManager 保持，不依赖 ChatArea 是否挂载）
   return (
-    <div style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
-      {/* ChatArea 永远占满，不受 tab 切换影响 */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-        <ChatArea />
-      </div>
-      {/* 非对话页：面板覆盖在 ChatArea 上方 */}
-      {!onChat && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column' }}>
-          {sidebarTab === 'tasks'           && <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>}
-          {sidebarTab === 'memory'          && <PanelView title="记忆库"><MemoryPanel /></PanelView>}
-          {sidebarTab === 'personalization' && <PersonalizationPanel />}
-          {sidebarTab === 'abilities'       && <PanelView title="能力"><AbilitiesPanel /></PanelView>}
-          {sidebarTab === 'skills'          && <PanelView title="技能库"><SkillsPanel /></PanelView>}
-        </div>
-      )}
-    </div>
+    <>
+      {sidebarTab === 'sessions'        && <ChatArea />}
+      {sidebarTab === 'tasks'           && <PanelView title="定时任务"><ScheduledTasksPanel /></PanelView>}
+      {sidebarTab === 'memory'          && <PanelView title="记忆库"><MemoryPanel /></PanelView>}
+      {sidebarTab === 'personalization' && <PersonalizationPanel />}
+      {sidebarTab === 'abilities'       && <PanelView title="能力"><AbilitiesPanel /></PanelView>}
+      {sidebarTab === 'skills'          && <PanelView title="技能库"><SkillsPanel /></PanelView>}
+    </>
   )
 }
 
