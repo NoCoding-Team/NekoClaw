@@ -281,13 +281,7 @@ export default function MemoryPanel() {
     if (!token || !serverUrl) return
     const today = new Date().toISOString().slice(0, 10)
     const fileName = `notes/${today}.md`
-    // If already exists, just open it
-    const existing = files.find(f => f.name === fileName)
-    if (existing) {
-      handleSelectFile(fileName)
-      return
-    }
-    // Try AI generation first
+    // Always try AI generation first
     setGeneratingNote(true)
     showToast('正在用 AI 整理今日对话…')
     try {
@@ -302,16 +296,23 @@ export default function MemoryPanel() {
           if (contentResp.ok) {
             const cd = await contentResp.json() as { content?: string }
             setFileContent(cd.content ?? '')
+            setEditBuffer(cd.content ?? '')
           }
           showToast('今日笔记已生成')
           return
         }
-        // no_conversations — fall through to blank note
+        // no_conversations — fall through
       }
     } catch { /* fall through */ } finally {
       setGeneratingNote(false)
     }
-    // Fallback: create blank note
+    // Fallback: open existing file or create blank note
+    const existing = files.find(f => f.name === fileName)
+    if (existing) {
+      handleSelectFile(fileName)
+      showToast('暂无今日对话，已打开笔记文件')
+      return
+    }
     try {
       const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(fileName)}`, {
         method: 'PUT',
