@@ -134,8 +134,8 @@ function MainContent() {
   return (
     <>
       <div style={onChat
-        ? { flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }
-        : { flex: '0 0 0', width: 0, height: '100%', overflow: 'hidden', pointerEvents: 'none' }
+        ? { flex: 1, minWidth: 0, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }
+        : { flex: '0 0 0', width: 0, height: '100%', overflow: 'hidden', pointerEvents: 'none', display: 'flex', flexDirection: 'column' }
       }>
         <ChatArea />
       </div>
