@@ -54,7 +54,7 @@ async def _run_digest_for_user(user_id: str, yesterday_content: str, llm_config:
         HumanMessage(content=f"以下是昨日笔记内容：\n\n{yesterday_content}"),
     ]
 
-    memory_tool_list = get_tools(["memory_read", "memory_write", "memory_search"], None, user_id)
+    memory_tool_list = get_tools(["memory_read", "memory_write", "search_memory"], None, user_id)
     model = get_chat_model(llm_config)
     if memory_tool_list:
         model = model.bind_tools(memory_tool_list)

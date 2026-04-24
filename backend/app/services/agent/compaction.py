@@ -108,10 +108,17 @@ async def compress_messages(
     to_compress = messages[:split_idx]
     to_keep = messages[split_idx:]
 
-    # Memory refresh before compression
+    # Memory refresh before compression — build query_hint from messages
     try:
         from app.services.agent.context import memory_refresh
-        await memory_refresh(session_id, user_id, messages, llm_config)
+        hint_parts: list[str] = []
+        user_count = 0
+        for m in reversed(messages):
+            if m.role == "user" and m.content and user_count < 3:
+                hint_parts.append(m.content[:150])
+                user_count += 1
+        query_hint = " ".join(hint_parts)[:500]
+        await memory_refresh(session_id, user_id, messages, llm_config, query_hint=query_hint)
     except Exception:
         pass  # best-effort
 

@@ -465,6 +465,7 @@ async def memory_refresh(
     user_id: str,
     history: list[Any],  # list[Message ORM]
     llm_config: Any | None,
+    query_hint: str = "",
 ) -> None:
     """Proactively save important memories before history is compressed.
 
@@ -481,7 +482,7 @@ async def memory_refresh(
 
     recent = history[-20:]
     conv_text = "\n".join(f"{m.role}: {m.content or ''}" for m in recent)
-    existing = await _load_memory(user_id)
+    existing = await _load_memory(user_id, query_hint)
     existing_block = f"\n\n已有记忆:\n{existing}" if existing else ""
 
     today = date.today().isoformat()
@@ -513,7 +514,7 @@ async def memory_refresh(
     from app.services.agent.tools import get_tools
     from app.services.tools.server_tools import execute_server_tool
 
-    memory_tool_list = get_tools(["memory_read", "memory_write", "memory_search"], None, user_id)
+    memory_tool_list = get_tools(["memory_read", "memory_write", "search_memory"], None, user_id)
 
     try:
         from app.services.agent.provider import get_chat_model

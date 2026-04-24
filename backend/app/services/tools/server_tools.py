@@ -1,5 +1,5 @@
 """
-Server-side tool execution: web_search, http_request, memory_write, memory_read, memory_search.
+Server-side tool execution: web_search, http_request, memory_write, memory_read, search_memory.
 Legacy: save_memory, update_memory (DB-based, kept for backward compatibility).
 """
 import json
@@ -218,8 +218,6 @@ async def execute_server_tool(tool_name: str, args: dict[str, Any], user_id: str
         return await execute_memory_write(args, user_id)
     elif tool_name == "memory_read":
         return await execute_memory_read(args, user_id)
-    elif tool_name == "memory_search":
-        return await execute_memory_search(args, user_id)
     elif tool_name == "read_skill":
         return await execute_read_skill(args, user_id)
     # Legacy DB-based tools (backward compatibility)
@@ -287,21 +285,6 @@ async def execute_memory_read(args: dict[str, Any], user_id: str | None) -> str:
             content = f.read()
         return json.dumps({"ok": True, "path": path, "content": content})
     except (ValueError, OSError) as e:
-        return json.dumps({"error": str(e)})
-
-
-async def execute_memory_search(args: dict[str, Any], user_id: str | None) -> str:
-    if not user_id:
-        return json.dumps({"error": "user_id required"})
-    try:
-        query = str(args.get("query", "")).strip()
-        if not query:
-            return json.dumps({"error": "query must not be empty"})
-
-        from app.services.memory_search import search_memory
-        results = await search_memory(user_id, query, top_k=10)
-        return json.dumps({"ok": True, "results": results}, ensure_ascii=False)
-    except Exception as e:
         return json.dumps({"error": str(e)})
 
 

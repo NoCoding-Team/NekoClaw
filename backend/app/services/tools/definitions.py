@@ -121,21 +121,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["path"],
         },
     },
-    {
-        "name": "memory_search",
-        "executor": "server",
-        "description": "根据关键词搜索所有记忆文件，返回匹配的片段。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "搜索关键词",
-                },
-            },
-            "required": ["query"],
-        },
-    },
+
     # ── Client-side tools ─────────────────────────────────────────────
     {
         "name": "file_read",

@@ -97,6 +97,48 @@ def _lc_tool_calls_to_openai(tool_calls: list[dict]) -> list[dict]:
     ]
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+_COMPACTION_PREFIX = "[对话历史摘要]"
+
+
+def _build_query_hint(session: Any, history: list[Any]) -> str:
+    """Build query_hint for memory RAG from session title, compaction summary, and recent user messages.
+
+    Components (in order):
+    1. Session title (skip if "新对话")
+    2. Latest compaction summary (first 200 chars)
+    3. Last 3 user messages (each first 150 chars)
+    Total capped at 500 characters.
+    """
+    parts: list[str] = []
+
+    # 1. Session title (filter out default placeholder)
+    if session and session.title and session.title != "新对话":
+        parts.append(session.title)
+
+    if history:
+        # 2. Compaction summary (latest one)
+        for m in reversed(history):
+            if m.role == "system" and m.content and m.content.startswith(_COMPACTION_PREFIX):
+                summary = m.content[len(_COMPACTION_PREFIX):].strip()
+                if summary:
+                    parts.append(summary[:200])
+                break
+
+        # 3. Last 3 user messages
+        user_count = 0
+        for m in reversed(history):
+            if m.role == "user" and m.content:
+                parts.append(m.content[:150])
+                user_count += 1
+                if user_count >= 3:
+                    break
+
+    hint = " ".join(parts)
+    return hint[:500]
+
+
 # ── Nodes ────────────────────────────────────────────────────────────────────
 
 
@@ -160,16 +202,7 @@ async def prepare(state: AgentState) -> dict:
         # Build messages for LangGraph state
         allowed_tools = state.get("allowed_tools")
 
-        # Construct query_hint for memory RAG: session title + last user message
-        query_hint_parts: list[str] = []
-        if session and session.title:
-            query_hint_parts.append(session.title)
-        if history:
-            for m in reversed(history):
-                if m.role == "user" and m.content:
-                    query_hint_parts.append(m.content[:200])
-                    break
-        query_hint = " ".join(query_hint_parts)
+        query_hint = _build_query_hint(session, history)
 
         system_prompt = await build_system_prompt(user_id, allowed_tools, db, query_hint=query_hint)
     print(f"[system_prompt] session={session_id} length={len(system_prompt)}\n{system_prompt}\n{'='*60}", flush=True)
@@ -179,7 +212,7 @@ async def prepare(state: AgentState) -> dict:
 
     # Periodic memory refresh
     if should_run_periodic_refresh(session_id, user_turn_count):
-        await memory_refresh(session_id, user_id, history, llm_config)
+        await memory_refresh(session_id, user_id, history, llm_config, query_hint=query_hint)
 
     # Context compression (tiktoken-based 50% threshold)
     model_name = getattr(llm_config, "model", "") if llm_config else ""
