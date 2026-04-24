@@ -17,7 +17,7 @@ from typing import Any, Optional, Type
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field, create_model
 
-from app.services.tools.definitions import TOOL_DEFINITIONS
+from app.services.tools.definitions import TOOL_DEFINITIONS, TOOL_MAP
 
 # ── Schema helpers ─────────────────────────────────────────────────────────
 
@@ -77,6 +77,9 @@ class _SchemaTool(BaseTool):
 
 # ── Public API ─────────────────────────────────────────────────────────────
 
+# 始终注入的基础工具（不受用户白名单控制）
+_ALWAYS_INCLUDE = {"read_skill"}
+
 
 def get_tools(
     allowed_tools: list[str] | None,
@@ -85,19 +88,24 @@ def get_tools(
 ) -> list[BaseTool]:
     """Return BaseTool instances for bind_tools(), filtered by allowlist.
 
+    read_skill is always included regardless of allowed_tools, because it is
+    an internal infrastructure tool needed to load skill documents.
+
     Args:
         allowed_tools: None → all tools, [] → no tools, [...] → specific tools.
         ws: passed for API symmetry (used by nodes.py).
         user_id: passed for API symmetry (used by nodes.py).
     """
     if allowed_tools is not None and len(allowed_tools) == 0:
-        return []
-
-    tools_to_use = (
-        TOOL_DEFINITIONS
-        if allowed_tools is None
-        else [t for t in TOOL_DEFINITIONS if t["name"] in allowed_tools]
-    )
+        # Even when no tools are allowed, still inject always-include tools
+        tools_to_use = [t for t in TOOL_DEFINITIONS if t["name"] in _ALWAYS_INCLUDE]
+    elif allowed_tools is None:
+        tools_to_use = TOOL_DEFINITIONS
+    else:
+        tools_to_use = [
+            t for t in TOOL_DEFINITIONS
+            if t["name"] in allowed_tools or t["name"] in _ALWAYS_INCLUDE
+        ]
 
     return [
         _SchemaTool(

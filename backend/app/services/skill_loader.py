@@ -152,11 +152,12 @@ async def build_available_skills_prompt(
         return ""
 
     lines: list[str] = ["<available_skills>"]
-    for meta in skills.values():
+    for skill_key, meta in skills.items():
         if not _skill_is_available(meta, allowed_tools):
             continue
         lines.append("  <skill>")
         lines.append(f"    <name>{meta.name}</name>")
+        lines.append(f"    <key>{skill_key}</key>")
         lines.append(f"    <description>{meta.description}</description>")
         if meta.triggers:
             lines.append(f"    <triggers>{', '.join(meta.triggers)}</triggers>")
