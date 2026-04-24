@@ -19,7 +19,10 @@ function getBase() {
 export async function fetchSkills(): Promise<SkillInfo[]> {
   const res = await apiFetch(`${getBase()}/api/skills`)
   if (!res.ok) throw new Error(await res.text())
-  return res.json()
+  const list: SkillInfo[] = await res.json()
+  // Back-compat: if backend hasn't been rebuilt yet, key field may be absent;
+  // fall back to name so UI doesn't send /api/skills/undefined requests.
+  return list.map(s => ({ ...s, key: s.key || s.name }))
 }
 
 export async function toggleSkill(key: string, enabled: boolean): Promise<void> {
