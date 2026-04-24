@@ -54,7 +54,7 @@ _TOOL_RULES = (
     "   - **USER.md**：用户画像——称呼、职业、时区等个人信息。\n"
     "   - **SOUL.md**：你的人格、语气与边界设定。\n"
     "   - **IDENTITY.md**：你的名称、风格与代表表情。\n"
-    "   - **YYYY-MM-DD.md**（如 2026-04-16.md）：每日笔记——当天对话要点。\n"
+    "   - **notes/YYYY-MM-DD.md**（如 notes/2026-04-16.md）：每日笔记——当天对话要点。\n"
 )
 
 _DEFAULT_PERSONA = "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。"
@@ -104,7 +104,7 @@ _DEFAULT_AGENTS = (
     "- 安全 > 效率 > 体验\n\n"
     "## 记忆策略\n"
     "- 重要决策、用户偏好、关键事实写入 MEMORY.md\n"
-    "- 当日对话要点写入 YYYY-MM-DD.md\n"
+    "- 当日对话要点写入 notes/YYYY-MM-DD.md\n"
     "- 发现用户个人信息（称呼、职业、时区等）时更新 USER.md\n\n"
     "## 何时写入记忆（发现以下情况时立即执行）\n"
     "- 用户透露偏好（语言、格式、工具选择、沟通风格等）→ 写入 MEMORY.md\n"
@@ -112,7 +112,7 @@ _DEFAULT_AGENTS = (
     "- 用户的个人信息（称呼、职业、时区等）→ 更新 USER.md\n"
     "- 用户做出重要决策或给出关键指令 → 写入 MEMORY.md\n"
     "- 用户纠正之前的错误信息 → 读取并更新对应文件\n"
-    "- 对话产生有价值的结论、方案、要点 → 写入当日 YYYY-MM-DD.md\n"
+    "- 对话产生有价值的结论、方案、要点 → 写入当日 notes/YYYY-MM-DD.md\n"
     "- 用户明确要求\"记住...\"、\"下次...\" → 写入 MEMORY.md\n\n"
     "## 写入流程\n"
     "1. 先 memory_read 读取目标文件已有内容\n"
@@ -352,7 +352,7 @@ async def _load_memory(user_id: str, query_hint: str = "") -> str:
     # Today + yesterday daily notes
     today = date.today()
     for d in [today, today - timedelta(days=1)]:
-        daily_path = os.path.join(user_dir, f"{d.isoformat()}.md")
+        daily_path = os.path.join(user_dir, "notes", f"{d.isoformat()}.md")
         if os.path.isfile(daily_path):
             with open(daily_path, encoding="utf-8") as f:
                 text = f.read().strip()
@@ -491,7 +491,7 @@ async def memory_refresh(
                 "你是记忆整理助手。请检查以下对话，将值得保存的信息整合到记忆文件中。\n\n"
                 "## 操作步骤\n"
                 "1. memory_read(\"MEMORY.md\") 读取长期记忆\n"
-                f"2. memory_read(\"{today}.md\") 读取今日笔记\n"
+                f"2. memory_read(\"notes/{today}.md\") 读取今日笔记\n"
                 "3. memory_read(\"USER.md\") 读取用户画像\n"
                 "4. 分析对话，与已有记忆对比后执行整合：\n"
                 "   - 新发现的信息 → 追加到对应分区\n"
@@ -500,7 +500,7 @@ async def memory_refresh(
                 "   - 被明确否定/过时的信息 → 删除\n"
                 "   - 保持 MEMORY.md 的 ## 分区结构\n"
                 "5. 用户偏好、关键事实、重要决策 → 整合到 MEMORY.md\n"
-                f"6. 今日对话要点、讨论话题、结论 → 整合到 {today}.md\n"
+                f"6. 今日对话要点、讨论话题、结论 → 整合到 notes/{today}.md\n"
                 "7. 用户个人信息（称呼、职业、时区等）→ 更新 USER.md\n"
                 "8. 用 memory_write 写回整合后的完整内容\n\n"
                 "不需要保存：临时中间步骤、大段代码原文。"

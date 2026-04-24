@@ -130,33 +130,47 @@ def _user_memory_dir(user_id: str) -> str:
     return d
 
 
+# Allowed subdirectory prefixes for memory files
+_ALLOWED_SUBDIRS = {"notes"}
+
+
 def _validate_memory_filename(name: str) -> str:
-    """Validate and sanitize a memory file name."""
+    """Validate and sanitize a memory file name (supports notes/ subdir)."""
     if not name or not name.endswith('.md'):
         raise NotFoundError("Only .md files are allowed")
     # Reject path traversal and absolute paths
-    if '..' in name or '/' in name or '\\' in name or os.path.isabs(name):
+    if '..' in name or '\\' in name or os.path.isabs(name):
         raise ForbiddenError("Invalid file name")
-    if not re.match(r'^[\w\-. ]+\.md$', name):
-        raise ForbiddenError("Invalid file name characters")
+    # Allow either root-level files or one-level whitelisted subdirectory
+    if '/' in name:
+        parts = name.split('/')
+        if len(parts) != 2 or parts[0] not in _ALLOWED_SUBDIRS:
+            raise ForbiddenError("Invalid file path: only notes/ subdirectory is allowed")
+        if not re.match(r'^[\w\-. ]+\.md$', parts[1]):
+            raise ForbiddenError("Invalid file name characters")
+    else:
+        if not re.match(r'^[\w\-. ]+\.md$', name):
+            raise ForbiddenError("Invalid file name characters")
     return name
 
 
 @router.get("/files")
 async def list_memory_files(current_user: User = Depends(get_current_user)):
-    """List all memory files for the current user."""
+    """List all memory files for the current user (recursive, includes subdirs)."""
     d = _user_memory_dir(current_user.id)
     files = []
-    for fname in os.listdir(d):
-        if fname.endswith('.md'):
-            fpath = os.path.join(d, fname)
-            stat = os.stat(fpath)
-            files.append({"name": fname, "modifiedAt": stat.st_mtime})
+    for dirpath, _dirnames, filenames in os.walk(d):
+        for fname in filenames:
+            if fname.endswith('.md'):
+                fpath = os.path.join(dirpath, fname)
+                rel = os.path.relpath(fpath, d).replace('\\', '/')
+                stat = os.stat(fpath)
+                files.append({"name": rel, "modifiedAt": stat.st_mtime})
     files.sort(key=lambda f: (f["name"] != "MEMORY.md", -f["modifiedAt"]))
     return files
 
 
-@router.get("/files/{filename}")
+@router.get("/files/{filename:path}")
 async def read_memory_file(filename: str, current_user: User = Depends(get_current_user)):
     """Read a memory file's content."""
     name = _validate_memory_filename(filename)
@@ -167,7 +181,7 @@ async def read_memory_file(filename: str, current_user: User = Depends(get_curre
         return {"path": name, "content": f.read()}
 
 
-@router.put("/files/{filename}")
+@router.put("/files/{filename:path}")
 async def write_memory_file(
     filename: str,
     content: str = Body(..., media_type="text/plain"),
@@ -182,17 +196,18 @@ async def write_memory_file(
     with open(fpath, 'w', encoding='utf-8') as f:
         f.write(sanitized)
 
-    # Rebuild memory search index
-    try:
-        from app.services.memory_search import rebuild_memory_index
-        await rebuild_memory_index(current_user.id, name)
-    except Exception:
-        pass  # Non-critical: index rebuild failure should not block write
+    # Rebuild memory search index for MEMORY.md and daily notes
+    if name == "MEMORY.md" or re.match(r'^(notes/)?(\d{4}-\d{2}-\d{2})\.md$', name):
+        try:
+            from app.services.memory_search import rebuild_memory_index
+            await rebuild_memory_index(current_user.id, name)
+        except Exception:
+            pass  # Non-critical: index rebuild failure should not block write
 
     return {"ok": True, "path": name}
 
 
-@router.delete("/files/{filename}")
+@router.delete("/files/{filename:path}")
 async def delete_memory_file(filename: str, current_user: User = Depends(get_current_user)):
     """Hard-delete a memory file for the current user."""
     name = _validate_memory_filename(filename)

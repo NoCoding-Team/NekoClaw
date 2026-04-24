@@ -24,7 +24,11 @@ const PIN_ORDER: Record<string, number> = {
 const PIN_ICONS: Record<string, string> = {
   'SOUL.md': '✨', 'USER.md': '👤', 'IDENTITY.md': '🎭', 'AGENTS.md': '🤖', 'MEMORY.md': '📌', 'SKILLS_SNAPSHOT.md': '⚡',
 }
-const isDateFile = (n: string) => /^\d{4}-\d{2}-\d{2}\.md$/.test(n)
+const isDateFile = (n: string) => /^(notes\/)\d{4}-\d{2}-\d{2}\.md$/.test(n)
+function displayName(name: string) {
+  if (isDateFile(name)) return name.replace(/^notes\//, '').replace('.md', '')
+  return name
+}
 function fileIcon(name: string) {
   if (PIN_ICONS[name]) return PIN_ICONS[name]
   if (isDateFile(name)) return '📅'
@@ -274,7 +278,7 @@ export default function MemoryPanel() {
   const createTodayNote = async () => {
     if (!token || !serverUrl) return
     const today = new Date().toISOString().slice(0, 10)
-    const fileName = `${today}.md`
+    const fileName = `notes/${today}.md`
     // Check if it already exists
     const existing = files.find(f => f.name === fileName)
     if (existing) {
@@ -372,7 +376,7 @@ export default function MemoryPanel() {
         <span className={styles.fileIcon}>{fileIcon(f.name)}</span>
         <div className={styles.fileInfo}>
           <span className={styles.fileName}>
-            {isDateFile(f.name) ? f.name.replace('.md', '') : f.name}
+            {displayName(f.name)}
           </span>
           {f.modifiedAt > 0 ? (
             <span className={styles.fileMeta}>

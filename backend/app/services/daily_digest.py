@@ -102,7 +102,7 @@ async def run_daily_digest() -> None:
     for user in users:
         try:
             user_dir = os.path.join(settings.MEMORY_FILES_DIR, user.id)
-            daily_path = os.path.join(user_dir, f"{yesterday}.md")
+            daily_path = os.path.join(user_dir, "notes", f"{yesterday}.md")
             if not os.path.isfile(daily_path):
                 continue
             with open(daily_path, "r", encoding="utf-8") as f:

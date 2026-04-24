@@ -263,7 +263,7 @@ async def execute_memory_write(args: dict[str, Any], user_id: str | None) -> str
             f.write(content)
 
         # Rebuild memory RAG index for MEMORY.md and daily notes
-        if path == "MEMORY.md" or re.match(r"^\d{4}-\d{2}-\d{2}\.md$", path):
+        if path == "MEMORY.md" or re.match(r"^(notes/)?\d{4}-\d{2}-\d{2}\.md$", path):
             try:
                 from app.services.memory_search import rebuild_memory_index
                 await rebuild_memory_index(user_id, path)

@@ -66,7 +66,7 @@ async def generate_daily_note(user_id: str, target_date: date | None = None) -> 
     # Get a working LLM config for summarization
     llm_config = await _get_summary_llm_config(user_id)
     if not llm_config:
-        logger.warning(f"No LLM config available for daily note generation (user={user_id})")
+        logger.warning("daily_note user=%s date=%s status=skipped reason=no_llm_config", user_id, target_date.isoformat())
         return None
 
     summary_prompt = [
@@ -88,24 +88,25 @@ async def generate_daily_note(user_id: str, target_date: date | None = None) -> 
         resp = await model.ainvoke(summary_prompt)
         note_content = resp.content if isinstance(resp.content, str) else f"# {target_date.isoformat()} 日志\n\n（生成失败）"
     except Exception:
-        logger.warning(f"LLM call failed for daily note generation (user={user_id})", exc_info=True)
+        logger.warning("daily_note user=%s date=%s status=failed reason=llm_error", user_id, target_date.isoformat(), exc_info=True)
         return None
 
     # Write to file
     user_dir = os.path.join(settings.MEMORY_FILES_DIR, user_id)
-    os.makedirs(user_dir, exist_ok=True)
-    fpath = os.path.join(user_dir, f"{target_date.isoformat()}.md")
+    notes_dir = os.path.join(user_dir, "notes")
+    os.makedirs(notes_dir, exist_ok=True)
+    fpath = os.path.join(notes_dir, f"{target_date.isoformat()}.md")
     with open(fpath, "w", encoding="utf-8") as f:
         f.write(note_content)
 
     # Trigger index rebuild
     try:
         from app.services.memory_search import rebuild_memory_index
-        await rebuild_memory_index(user_id, f"{target_date.isoformat()}.md")
+        await rebuild_memory_index(user_id, f"notes/{target_date.isoformat()}.md")
     except Exception:
         logger.warning("Index rebuild failed after daily note generation", exc_info=True)
 
-    logger.info(f"Daily note generated: {fpath}")
+    logger.info("daily_note user=%s date=%s status=success path=%s", user_id, target_date.isoformat(), fpath)
     return note_content
 
 
@@ -136,6 +137,28 @@ async def _get_summary_llm_config(user_id: str) -> Any | None:
                 LLMConfig.deleted_at.is_(None),
             )
         )
+        cfg = result.scalar_one_or_none()
+        if cfg:
+            return cfg
+
+        # Fall back to any available config for this user
+        result = await db.execute(
+            select(LLMConfig).where(
+                LLMConfig.owner_id == user_id,
+                LLMConfig.deleted_at.is_(None),
+            ).limit(1)
+        )
+        cfg = result.scalar_one_or_none()
+        if cfg:
+            return cfg
+
+        # Fall back to any global config
+        result = await db.execute(
+            select(LLMConfig).where(
+                LLMConfig.owner_id.is_(None),
+                LLMConfig.deleted_at.is_(None),
+            ).limit(1)
+        )
         return result.scalar_one_or_none()
 
 
@@ -143,7 +166,7 @@ async def daily_note_cron() -> None:
     """Asyncio loop that runs daily at 23:50 to generate daily notes for all active users."""
     while True:
         try:
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             target = now.replace(hour=23, minute=50, second=0, microsecond=0)
             if target <= now:
                 target += timedelta(days=1)
@@ -175,13 +198,13 @@ async def daily_note_cron() -> None:
                 )
                 user_ids = [row[0] for row in result.fetchall()]
 
-            logger.info(f"Daily note cron: generating notes for {len(user_ids)} users")
+            logger.info("daily_note_cron: generating notes for %d users", len(user_ids))
 
             for uid in user_ids:
                 try:
                     await generate_daily_note(uid, today)
                 except Exception:
-                    logger.warning(f"Daily note generation failed for user {uid}", exc_info=True)
+                    logger.warning("daily_note user=%s date=%s status=failed reason=exception", uid, today.isoformat(), exc_info=True)
 
         except asyncio.CancelledError:
             logger.info("Daily note cron cancelled")
