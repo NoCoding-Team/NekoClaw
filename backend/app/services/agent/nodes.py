@@ -172,7 +172,7 @@ async def prepare(state: AgentState) -> dict:
         query_hint = " ".join(query_hint_parts)
 
         system_prompt = await build_system_prompt(user_id, allowed_tools, db, query_hint=query_hint)
-    print(f"[system_prompt] session={session_id} length={len(system_prompt)}\n{system_prompt}\n{'='*60}")
+    print(f"[system_prompt] session={session_id} length={len(system_prompt)}\n{system_prompt}\n{'='*60}", flush=True)
     messages = [SystemMessage(content=system_prompt)]
 
     user_turn_count = sum(1 for m in history if m.role == "user")
@@ -216,12 +216,12 @@ async def llm_call(state: AgentState) -> dict:
     messages = list(state["messages"])
 
     # 打印本次 LLM 调用完整消息列表（含系统提示词）
-    print(f"[llm_call] session={state['session_id']} messages={len(messages)}")
+    print(f"[llm_call] session={state['session_id']} messages={len(messages)}", flush=True)
     for i, m in enumerate(messages):
         role = type(m).__name__
         content = m.content if isinstance(m.content, str) else str(m.content)
-        print(f"  [{i}] {role}: {content[:300]}{'...' if len(content) > 300 else ''}")
-    print("-" * 60)
+        print(f"  [{i}] {role}: {content[:300]}{'...' if len(content) > 300 else ''}", flush=True)
+    print("-" * 60, flush=True)
 
     # Mid-loop context safety check (also runs on first call, harmlessly)
     tokens = sum(

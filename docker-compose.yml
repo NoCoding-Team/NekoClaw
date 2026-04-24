@@ -16,6 +16,7 @@ services:
     environment:
       MEMORY_FILES_DIR: /app/data/memory
       SKILLS_FILES_DIR: /app/data/skills
+      PYTHONUNBUFFERED: "1"
     ports:
       - "8000:8000"
     extra_hosts:
