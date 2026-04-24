@@ -9,6 +9,7 @@ services:
     # 代码通过 volume 挂载，修改代码后重启容器即生效
     volumes:
       - ./backend/app:/app/app:ro
+      - ./backend/skills:/app/skills:ro
       - ./memory:/app/data/memory
       - ./skills:/app/data/skills
     env_file:
