@@ -141,6 +141,7 @@ async def generate_daily_note(
         logger.warning("Index rebuild failed after daily note generation", exc_info=True)
 
     logger.info("daily_note user=%s date=%s status=success path=%s", user_id, target_date.isoformat(), fpath)
+    print(f"[daily_note] SUCCESS user={user_id} date={target_date.isoformat()} path={fpath}")
     logger.info("daily_note content:\n%s", note_content)
     return note_content, 'ok'
 
@@ -267,6 +268,7 @@ async def daily_note_cron() -> None:
 
             # Log every 5 ticks (~5 min) so we know cron is alive
             if tick_count % 5 == 0:
+                print(f"[daily_note] cron alive tick={tick_count} utc={now.strftime('%H:%M')} users_today={len(user_ids)} generated={list(generated_today)}")
                 logger.info("daily_note_cron alive tick=%d utc=%s users_today=%d generated=%s",
                             tick_count, now.strftime("%H:%M"), len(user_ids), list(generated_today))
 
@@ -295,6 +297,7 @@ async def daily_note_cron() -> None:
                 if os.path.isfile(note_fpath):
                     generated_today.add(uid)
                     continue
+                print(f"[daily_note] triggering for user={uid} at {now.strftime('%H:%M')} (scheduled={note_hour:02d}:{note_minute:02d})")
                 logger.info("daily_note_cron triggering for user=%s at %s (scheduled=%02d:%02d)", uid, now.strftime("%H:%M"), note_hour, note_minute)
                 try:
                     _, reason = await generate_daily_note(
@@ -321,6 +324,7 @@ def start_daily_note_cron() -> None:
     if _cron_task is not None and not _cron_task.done():
         return
     _cron_task = asyncio.create_task(daily_note_cron())
+    print("[daily_note] cron started")
     logger.info("Daily note cron started")
 
 

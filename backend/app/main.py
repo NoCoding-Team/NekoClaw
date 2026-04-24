@@ -11,7 +11,10 @@ from app.api.router import api_router
 from app.startup import on_startup
 
 # Configure root logger so module-level logger.info() calls are visible
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s - %(message)s")
+# force=True ensures this works even after uvicorn has configured logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(name)s - %(message)s", force=True)
+# Also ensure our app loggers are at INFO level
+logging.getLogger("app").setLevel(logging.INFO)
 
 
 @asynccontextmanager
