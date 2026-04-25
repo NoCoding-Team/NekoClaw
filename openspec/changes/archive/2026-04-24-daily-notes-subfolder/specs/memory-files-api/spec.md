@@ -1,16 +1,4 @@
-# memory-files-api
-
-服务端记忆文件 REST API——提供记忆文件的列表、读取和写入端点，供前端通过 HTTP 访问用户的记忆文件。
-
----
-
-## Overview
-
-在桌面端服务优先架构下，记忆文件的管理统一通过服务端 REST API 进行，替代原有的 Electron IPC 本地访问路径。前端通过 `/api/memory/files*` 端点读写用户记忆文件，服务端负责路径安全校验、目录创建和索引更新。
-
----
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: 记忆文件列表 API
 系统 SHALL 提供 `GET /api/memory/files` 端点，递归返回当前用户的记忆目录下所有 `.md` 文件列表，包括子目录。

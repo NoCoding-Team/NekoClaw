@@ -4,13 +4,6 @@
   overflow: hidden;
 }
 
-.mainContentSlot {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
-}
-
 /* Login */
 .login {
   height: 100vh;

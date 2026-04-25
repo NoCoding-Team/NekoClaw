@@ -66,13 +66,6 @@ const nekoBridge = {
         electron.ipcRenderer.removeListener("scheduler:fired", handler);
       };
     }
-  },
-  knowledge: {
-    hasIndex: () => electron.ipcRenderer.invoke("knowledge:hasIndex"),
-    search: (query, topK) => electron.ipcRenderer.invoke("knowledge:search", query, topK),
-    setDir: (dir) => electron.ipcRenderer.invoke("knowledge:setDir", dir),
-    getDir: () => electron.ipcRenderer.invoke("knowledge:getDir"),
-    setEmbeddingConfig: (config) => electron.ipcRenderer.invoke("knowledge:setEmbeddingConfig", config)
   }
 };
 electron.contextBridge.exposeInMainWorld("nekoBridge", nekoBridge);
