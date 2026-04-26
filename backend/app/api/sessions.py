@@ -22,7 +22,11 @@ async def list_sessions(
 ):
     result = await db.execute(
         select(Session)
-        .where(Session.user_id == current_user.id, Session.deleted_at.is_(None))
+        .where(
+            Session.user_id == current_user.id,
+            Session.deleted_at.is_(None),
+            Session.source == "chat",
+        )
         .order_by(Session.created_at.desc())
     )
     return result.scalars().all()
@@ -38,6 +42,8 @@ async def create_session(
         id=str(uuid.uuid4()),
         user_id=current_user.id,
         title=body.title,
+        source=body.source or "chat",
+        memory_policy=body.memory_policy or "auto",
     )
     db.add(session)
     await db.commit()
