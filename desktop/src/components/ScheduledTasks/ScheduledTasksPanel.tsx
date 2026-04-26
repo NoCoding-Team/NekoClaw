@@ -37,6 +37,7 @@ interface ScheduledTaskRun {
   trigger_type: string
   session_id: string | null
   error_message: string | null
+  summary: string | null
 }
 
 type RepeatPreset = 'daily' | 'workdays' | 'weekly' | 'monthly' | 'custom'
@@ -119,11 +120,10 @@ export default function ScheduledTasksPanel() {
       return
     }
     const localId = `local-task-${task.id}-${Date.now()}`
-    addSession({ id: localId, title: task.title || '猫钟任务' })
+    addSession({ id: localId, title: task.title || '猫钟任务', source: 'scheduled_task' })
     setActiveSession(localId)
     appendMessage(localId, { id: uuidv4(), role: 'user', content: task.description })
     setCatState('thinking')
-    setSidebarTab('sessions')
     setTimeout(() => {
       sendMessageExternal(task.description, {
         allowedTools: task.allowed_tools ?? [],
@@ -635,14 +635,6 @@ export default function ScheduledTasksPanel() {
                     <li key={run.id} className={styles.item}>
                       <div className={styles.itemHeader}>
                         <span className={styles.itemTitle}>{statusLabel(run.status)}</span>
-                        {run.session_id && (
-                          <button
-                            className={styles.icnBtn}
-                            onClick={() => { setActiveSession(run.session_id!); setSidebarTab('sessions') }}
-                          >
-                            打开会话
-                          </button>
-                        )}
                       </div>
                       <div className={styles.itemMeta}>
                         {run.scheduled_for && <span className={styles.metaItem}>计划: {new Date(run.scheduled_for).toLocaleString('zh-CN')}</span>}
@@ -650,6 +642,7 @@ export default function ScheduledTasksPanel() {
                         {run.finished_at && <span className={styles.metaItem}>结束: {new Date(run.finished_at).toLocaleString('zh-CN')}</span>}
                         <span className={styles.metaItem}>来源: {run.trigger_type}</span>
                       </div>
+                      {run.summary && <div className={styles.itemDesc} style={{ whiteSpace: 'pre-wrap' }}>{run.summary}</div>}
                       {run.error_message && <div className={styles.itemDesc}>{run.error_message}</div>}
                     </li>
                   ))}

@@ -75,10 +75,10 @@ export function Sidebar() {
       {/* Session list */}
       <div className={styles.sectionLabel}>猫话录</div>
       <div className={styles.sessionList}>
-        {sessions.length === 0 ? (
+        {sessions.filter(s => s.source !== 'scheduled_task').length === 0 ? (
           <div className={styles.emptyHint}>暂无对话</div>
         ) : (
-          sessions.map((s) => (
+          sessions.filter(s => s.source !== 'scheduled_task').map((s) => (
             <div
               key={s.id}
               className={`${styles.sessionItem} ${activeSessionId === s.id && sidebarTab === 'sessions' ? styles.sessionActive : ''}`}

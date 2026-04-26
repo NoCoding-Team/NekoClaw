@@ -110,8 +110,10 @@ export const ALL_TOOL_NAMES: string[] = [
   'web_search',
   'browser_navigate', 'browser_screenshot', 'browser_click', 'browser_type',
   'http_request',
-  'search_memory',
+  'memory_read', 'memory_write', 'search_memory',
 ]
+
+const ALWAYS_ENABLED_TOOL_NAMES = ['memory_read', 'memory_write', 'search_memory']
 
 export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
   botControlPermission: true,
@@ -135,6 +137,12 @@ function loadSecurityConfig(): SecurityConfig {
     // still empty and was never explicitly configured, populate with all tools.
     if (Array.isArray(saved.toolWhitelist) && saved.toolWhitelist.length === 0) {
       saved.toolWhitelist = [...ALL_TOOL_NAMES]
+    }
+    if (Array.isArray(saved.toolWhitelist)) {
+      saved.toolWhitelist = Array.from(new Set([
+        ...saved.toolWhitelist,
+        ...ALWAYS_ENABLED_TOOL_NAMES,
+      ]))
     }
     return saved
   } catch {
@@ -197,6 +205,7 @@ export interface ToolCall {
 export interface Session {
   id: string
   title: string
+  source?: string
 }
 
 export interface AppState {
@@ -341,13 +350,15 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({ sessions: s.sessions.map((sess) => sess.id === id ? { ...sess, title } : sess) })),
   replaceSession: (oldId, newSession) =>
     set((s) => {
+      const oldSess = s.sessions.find((sess) => sess.id === oldId)
+      const merged = { ...newSession, source: newSession.source ?? oldSess?.source }
       const msgs = s.messagesBySession[oldId]
       const newMsgsBySession = { ...s.messagesBySession, [newSession.id]: msgs ?? [] }
       delete newMsgsBySession[oldId]
       const newActiveId = s.activeSessionId === oldId ? newSession.id : s.activeSessionId
       if (newActiveId) localStorage.setItem(STORAGE_ACTIVE_SESSION, newActiveId)
       return {
-        sessions: s.sessions.map((sess) => sess.id === oldId ? newSession : sess),
+        sessions: s.sessions.map((sess) => sess.id === oldId ? merged : sess),
         activeSessionId: newActiveId,
         messagesBySession: newMsgsBySession,
       }

@@ -13,9 +13,6 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.agent.context import _TOOL_GROUPS
-from app.services.skill_loader import get_enabled_skills_for_user
-
 logger = logging.getLogger(__name__)
 
 _INFER_SYSTEM_PROMPT = """\
@@ -32,6 +29,7 @@ _INFER_SYSTEM_PROMPT = """\
 
 
 def _build_tool_list_text() -> str:
+    from app.services.agent.context import _TOOL_GROUPS  # lazy: avoids heavy __init__ chain
     lines = []
     for group_tools, _ in _TOOL_GROUPS:
         lines.append(", ".join(group_tools))
@@ -75,6 +73,7 @@ async def infer_tools_for_task(
     from sqlalchemy import select
     from app.models.llm_config import LLMConfig
     from app.services.agent.provider import get_chat_model
+    from app.services.skill_loader import get_enabled_skills_for_user
     from langchain_core.messages import HumanMessage, SystemMessage
 
     # Get user LLM config (user default → global default)
