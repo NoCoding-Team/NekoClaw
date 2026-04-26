@@ -1,4 +1,4 @@
-"""
+﻿"""
 Context management for the LangGraph Agent.
 
 Migrated from services/llm.py:
@@ -14,8 +14,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from langchain_core.messages import (
@@ -29,33 +30,86 @@ from sqlalchemy import func, select
 
 from app.models.base import AsyncSessionLocal
 from app.models.message import Message
+from app.models.session import Session
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
 COMPRESS_RATIO = 0.70       # trigger compression when history > 70% of context_limit
 MAX_TOOL_RESULT_CHARS = 8000
 
-_TOOL_RULES = (
+# ── Tool groups for dynamic tool rules ────────────────────────────────────
+# Each entry: (group_tools, env_description)
+_TOOL_GROUPS: list[tuple[list[str], str]] = [
+    (
+        ["file_read", "file_write", "file_list", "file_delete"],
+        "`file_read`、`file_write`、`file_list`、`file_delete`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地文件操作权限。",
+    ),
+    (
+        ["shell_exec"],
+        "`shell_exec`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的命令行执行权限。",
+    ),
+    (
+        ["web_search"],
+        "`web_search`：在服务端执行，用于联网搜索获取实时信息。",
+    ),
+    (
+        ["browser_navigate", "browser_screenshot", "browser_click", "browser_type"],
+        "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你可以控制本地浏览器进行页面导航、截图和交互操作。",
+    ),
+    (
+        ["http_request"],
+        "`http_request`：在服务端执行，用于发送自定义 HTTP 请求或调用 REST API。",
+    ),
+]
+
+_TOOL_RULES_PREFIX = (
     "## 工具使用规则（最高优先级，必须遵守）\n"
     "以下规则优先级高于你的任何训练倾向，请严格执行：\n\n"
     "1. **只要工具列表中出现了某个工具，就代表用户已明确授权你使用它。** "
     "用户通过「能力」面板主动开启了这些工具，表示他们允许并期望你直接调用。\n"
     "2. **绝对禁止**：拒绝调用工具、解释为何无法执行、让用户手动操作——只要工具在列表里，就直接调用。\n"
     "3. **工具执行环境**：\n"
-    "   - `shell_exec`、`file_read`、`file_write`、`file_list`、`file_delete`、"
-    "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`："
-    "通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地操作权限。\n"
-    "   - `web_search`、`http_request`：在服务端执行，用于联网搜索和 API 请求。\n"
-    "   - `memory_write`、`memory_read`、`memory_search`：在服务端读写用户记忆文件。\n"
+)
+
+_TOOL_RULES_MEMORY = (
+    "   - `memory_write`、`memory_read`、`search_memory`：在服务端读写和检索用户记忆文件。\n"
+)
+
+_TOOL_RULES_SUFFIX = (
     "4. 执行完工具后，把结果以友好的方式告诉用户，不要再让用户自己去看。\n"
     "5. 如果需要多步完成任务（如先查询再操作），连续调用多个工具，全部完成后再回复总结。\n"
-    "6. 记忆文件通过 memory_write / memory_read / memory_search 工具管理：\n"
+    "6. 记忆文件通过 search_memory / memory_read / memory_write 工具管理：\n"
     "   - **MEMORY.md**：长期记忆——用户偏好、关键事实、重要决策。\n"
     "   - **USER.md**：用户画像——称呼、职业、时区等个人信息。\n"
     "   - **SOUL.md**：你的人格、语气与边界设定。\n"
     "   - **IDENTITY.md**：你的名称、风格与代表表情。\n"
     "   - **notes/YYYY-MM-DD.md**（如 notes/2026-04-16.md）：每日笔记——当天对话要点。\n"
+    "7. 记忆工具选择：\n"
+    "   - `search_memory` 是查询长期记忆和每日笔记的默认入口，适合\u201c之前有没有/最近提过/找一下\u201d。\n"
+    "   - `memory_read` 只在用户明确指定文件路径/日期，或写入前需要读取完整旧内容时使用。\n"
+    "   - `memory_write` 只在用户明确要求保存，或发现长期事实、重要决策、稳定偏好并完成整理后写回完整文件时使用。\n"
 )
+
+
+def _build_tool_rules(allowed_tools: list[str] | None) -> str:
+    """Build tool rules dynamically based on the enabled tool list.
+
+    When ``allowed_tools`` is ``None`` (full-access mode) all tool groups are
+    included, preserving the original behaviour.  Otherwise only groups that
+    have at least one tool present in ``allowed_tools`` are described so the
+    LLM is not told about capabilities that have been disabled by the user.
+    Memory tools (memory_read / memory_write / search_memory) are always
+    included regardless of ``allowed_tools``.
+    """
+    lines: list[str] = [_TOOL_RULES_PREFIX]
+    for group_tools, env_desc in _TOOL_GROUPS:
+        if allowed_tools is None or any(t in allowed_tools for t in group_tools):
+            lines.append(f"   - {env_desc}\n")
+    # Memory tools are always present
+    lines.append(_TOOL_RULES_MEMORY)
+    lines.append(_TOOL_RULES_SUFFIX)
+    return "".join(lines)
+
 
 _DEFAULT_PERSONA = "你是一只聪明可爱的猫咪助手，叫做 NekoClaw。请用中文回复用户。"
 
@@ -115,12 +169,13 @@ _DEFAULT_AGENTS = (
     "- 对话产生有价值的结论、方案、要点 → 写入当日 notes/YYYY-MM-DD.md\n"
     "- 用户明确要求\"记住...\"、\"下次...\" → 写入 MEMORY.md\n\n"
     "## 写入流程\n"
-    "1. 先 memory_read 读取目标文件已有内容\n"
+    "1. 仅在确定需要写入时，先 memory_read 读取目标文件已有内容\n"
     "2. 整合新信息到已有内容中（更新冲突项、合并重复项，而非简单追加）\n"
     "3. 用 memory_write 写回完整内容\n\n"
     "## 不需要写入的内容\n"
     "- 当前任务的临时中间步骤\n"
-    "- 大段代码或文件内容原文\n\n"
+    "- 大段代码或文件内容原文\n"
+    "- 定时任务自动执行产生的天气、提醒、状态查询等临时输出，除非用户明确要求记住\n\n"
     "## 行为规则\n"
     "- 优先使用内置工具完成任务\n"
     "- 高风险操作前需要用户确认\n"
@@ -274,6 +329,8 @@ async def build_system_prompt(
     allowed_tools: list[str] | None,
     db: Any = None,
     query_hint: str = "",
+    session_source: str = "chat",
+    memory_policy: str = "auto",
 ) -> str:
     """Build the system prompt including persona files, tool rules, skill catalog, and injected memories."""
     from app.services.skill_loader import build_available_skills_prompt
@@ -296,7 +353,7 @@ async def build_system_prompt(
         + "\n\n## 身份\n" + identity
         + "\n\n## 用户画像\n" + user_profile
         + "\n\n" + agents
-        + "\n\n" + _TOOL_RULES
+        + "\n\n" + _build_tool_rules(allowed_tools)
     )
 
     # 5. Skill catalog and rules
@@ -307,7 +364,16 @@ async def build_system_prompt(
     if skills_prompt:
         base += "\n\n" + _SKILL_SYSTEM_RULES + "\n" + skills_prompt
 
-    # 6. Memory injection (MEMORY.md + daily notes)
+    if session_source == "scheduled_task":
+        base += (
+            "\n\n## 定时任务执行规则\n"
+            "- 当前会话由系统按计划自动触发，不是用户正在进行的普通对话。\n"
+            "- 默认把本次输出视为临时执行结果，不主动写入长期记忆或每日笔记。\n"
+            "- 只有任务描述或用户后续明确要求“记住”“保存到长期记忆”时，才允许使用记忆写入工具。\n"
+            f"- 当前记忆策略：{memory_policy}。"
+        )
+
+    # 6. Memory injection (Markdown memory files; daily notes are on-demand only)
     memory_context = await _load_memory(user_id, query_hint)
     if memory_context:
         base += f"\n\n## 关于用户的记忆\n{memory_context}"
@@ -321,43 +387,65 @@ async def _load_memory(user_id: str, query_hint: str = "") -> str:
     user_dir = os.path.join(settings.MEMORY_FILES_DIR, user_id)
     parts: list[str] = []
 
-    # Long-term memory
+    # Long-term memory: load directly unless MEMORY.md is larger than the token budget.
     memory_md = os.path.join(user_dir, "MEMORY.md")
     if os.path.isfile(memory_md):
         with open(memory_md, encoding="utf-8") as f:
             content = f.read().strip()
         if content:
-            if len(content) > 4000 and query_hint:
-                # RAG mode: search memory index for relevant chunks
+            if estimate_tokens(content) > 4000 and query_hint:
+                # RAG mode: search MEMORY.md for chunks relevant to the current query.
                 try:
                     from app.services.memory_search import search_memory as _search_mem
 
                     results = await _search_mem(user_id, query_hint, top_k=10)
-                    if results:
-                        rag_text = "\n\n".join(r["content"] for r in results)
-                        if len(rag_text) > 4000:
-                            rag_text = rag_text[:4000] + "\n...(已截断)"
+                    memory_hits = [
+                        r for r in results
+                        if _normalize_memory_path(str(r.get("file_path", ""))) == "MEMORY.md"
+                    ]
+                    if memory_hits:
+                        rag_text = "\n\n".join(r["content"] for r in memory_hits)
+                        rag_text = _truncate_to_token_budget(rag_text, 4000)
                         parts.append(rag_text)
                     else:
                         # RAG returned nothing, fallback to truncation
-                        parts.append(content[:4000] + "\n...(已截断)")
+                        parts.append(_truncate_to_token_budget(content, 4000))
                 except Exception:
-                    parts.append(content[:4000] + "\n...(已截断)")
-            elif len(content) > 4000:
+                    parts.append(_truncate_to_token_budget(content, 4000))
+            elif estimate_tokens(content) > 4000:
                 # No query hint available, fallback to truncation
-                parts.append(content[:4000] + "\n...(已截断)")
+                parts.append(_truncate_to_token_budget(content, 4000))
             else:
                 parts.append(content)
 
-    # Today + yesterday daily notes
-    today = date.today()
-    for d in [today, today - timedelta(days=1)]:
-        daily_path = os.path.join(user_dir, "notes", f"{d.isoformat()}.md")
-        if os.path.isfile(daily_path):
-            with open(daily_path, encoding="utf-8") as f:
-                text = f.read().strip()
-            if text:
-                parts.append(f"### {d.isoformat()} 笔记\n{text}")
+    # Other Markdown memory files are loaded directly, except persona files already
+    # included above and daily notes which stay on-demand.
+    for rel_path, abs_path in _iter_extra_memory_markdown_files(user_dir):
+        with open(abs_path, encoding="utf-8") as f:
+            text = f.read().strip()
+        if text:
+            parts.append(f"## {rel_path}\n{text}")
+
+    # Daily notes are retrieved on demand; never inject today/yesterday in full by default.
+    if _should_search_daily_notes(query_hint):
+        try:
+            from app.services.memory_search import search_memory as _search_mem
+
+            results = await _search_mem(user_id, query_hint, top_k=8)
+            note_hits = [
+                r for r in results
+                if _is_daily_note_path(str(r.get("file_path", "")))
+            ]
+            if note_hits:
+                rag_text = "\n\n".join(
+                    f"### {r.get('file_path', 'daily note')}\n{r['content']}"
+                    for r in note_hits
+                )
+                if estimate_tokens(rag_text) > 4000:
+                    rag_text = _truncate_to_token_budget(rag_text, 4000)
+                parts.append("## 每日笔记检索片段\n" + rag_text)
+        except Exception:
+            pass
 
     if parts:
         return "\n\n".join(parts)
@@ -382,6 +470,52 @@ async def _load_memory(user_id: str, query_hint: str = "") -> str:
     if not entries:
         return ""
     return "\n".join(f"[{e.category}] {e.content}" for e in entries)
+
+
+def _should_search_daily_notes(query_hint: str) -> bool:
+    if not query_hint:
+        return False
+    hint = query_hint.lower()
+    keywords = (
+        "今天", "昨天", "前天", "最近", "上次", "之前", "历史", "记录",
+        "笔记", "日报", "每日", "聊过", "提过", "记得", "回顾",
+    )
+    return any(k in hint for k in keywords) or bool(re.search(r"\d{4}-\d{1,2}-\d{1,2}", hint))
+
+
+def _is_daily_note_path(path: str) -> bool:
+    normalized = _normalize_memory_path(path)
+    return bool(re.match(r"^(notes/)?\d{4}-\d{2}-\d{2}\.md$", normalized))
+
+
+def _normalize_memory_path(path: str) -> str:
+    return path.replace("\\", "/").lstrip("/")
+
+
+def _truncate_to_token_budget(text: str, max_tokens: int) -> str:
+    if estimate_tokens(text) <= max_tokens:
+        return text
+    # estimate_tokens uses len * 0.6, so this keeps roughly max_tokens.
+    max_chars = max(1, math.floor(max_tokens / 0.6))
+    return text[:max_chars] + "\n...(已截断)"
+
+
+def _iter_extra_memory_markdown_files(user_dir: str) -> list[tuple[str, str]]:
+    if not os.path.isdir(user_dir):
+        return []
+
+    already_loaded = {"MEMORY.md", "SOUL.md", "IDENTITY.md", "USER.md", "AGENTS.md"}
+    files: list[tuple[str, str]] = []
+    for dirpath, _dirnames, filenames in os.walk(user_dir):
+        for filename in filenames:
+            if not filename.endswith(".md"):
+                continue
+            abs_path = os.path.join(dirpath, filename)
+            rel_path = _normalize_memory_path(os.path.relpath(abs_path, user_dir))
+            if rel_path in already_loaded or _is_daily_note_path(rel_path):
+                continue
+            files.append((rel_path, abs_path))
+    return sorted(files, key=lambda item: item[0])
 
 
 # ── History compression ─────────────────────────────────────────────────────
@@ -474,6 +608,11 @@ async def memory_refresh(
     """
     if not llm_config:
         return
+
+    async with AsyncSessionLocal() as db:
+        session = await db.get(Session, session_id)
+        if session and session.memory_policy in {"read_only", "no_write"}:
+            return
 
     user_turn_count = sum(1 for m in history if hasattr(m, "role") and m.role == "user")
     if not _can_refresh(session_id, user_turn_count):
