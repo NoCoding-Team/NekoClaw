@@ -269,6 +269,10 @@ export interface AppState {
   personalizationConfig: PersonalizationConfig | null
   setPersonalizationConfig: (cfg: PersonalizationConfig) => void
 
+  // App-wide timezone (synced from 猫窝设置 → 时区)
+  appTimezone: string
+  setAppTimezone: (tz: string) => void
+
   // Security config
   securityConfig: SecurityConfig
   setSecurityConfig: (cfg: Partial<SecurityConfig>) => void
@@ -427,6 +431,9 @@ export const useAppStore = create<AppState>((set) => ({
     localStorage.setItem(STORAGE_PERSONAL, JSON.stringify(cfg))
     set({ personalizationConfig: cfg })
   },
+
+  appTimezone: loadPersonalizationConfig()?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+  setAppTimezone: (appTimezone) => set({ appTimezone }),
 
   securityConfig: loadSecurityConfig(),
   setSecurityConfig: (patch) =>

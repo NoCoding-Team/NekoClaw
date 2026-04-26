@@ -392,7 +392,7 @@ const DEFAULT_DAILY_NOTE_CONFIG: DailyNoteConfig = {
 }
 
 function GeneralTab() {
-  const { token, serverUrl, customLLMConfig } = useAppStore()
+  const { token, serverUrl, customLLMConfig, setAppTimezone } = useAppStore()
   const [config, setConfig] = useState<DailyNoteConfig>(DEFAULT_DAILY_NOTE_CONFIG)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -402,7 +402,11 @@ function GeneralTab() {
     if (!token || !serverUrl) { setLoading(false); return }
     apiFetch(`${serverUrl}/api/memory/daily-note-config`)
       .then(r => r.json())
-      .then((d: DailyNoteConfig) => setConfig({ ...DEFAULT_DAILY_NOTE_CONFIG, ...d }))
+      .then((d: DailyNoteConfig) => {
+        const merged = { ...DEFAULT_DAILY_NOTE_CONFIG, ...d }
+        setConfig(merged)
+        if (merged.timezone) setAppTimezone(merged.timezone)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [token, serverUrl])
@@ -429,6 +433,7 @@ function GeneralTab() {
         }),
       })
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      setAppTimezone(config.timezone)
       setSaveMsg('已保存')
     } catch {
       setSaveMsg('保存失败')
@@ -534,7 +539,7 @@ function GeneralTab() {
 
 // ── SecurityTab ────────────────────────────────────────────────────────────────
 function SecurityTab() {
-  const { securityConfig, setSecurityConfig, toolCallCounts } = useAppStore()
+  const { securityConfig, setSecurityConfig } = useAppStore()
   const cfg = securityConfig
 
   // Tag input state

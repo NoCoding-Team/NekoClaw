@@ -71,6 +71,7 @@ export default function ScheduledTasksPanel() {
     token,
     serverUrl,
     securityConfig,
+    appTimezone,
     addSession,
     setActiveSession,
     appendMessage,
@@ -93,12 +94,15 @@ export default function ScheduledTasksPanel() {
   const [emptyToolsTarget, setEmptyToolsTarget] = useState<{ task: Pick<ScheduledTask, 'id' | 'title' | 'description' | 'allowed_tools'>; runId: string } | null>(null)
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
 
-  /** 将后端返回的 ISO 时间串（可能无 TZ 后缀，实际为 UTC）转为本地时间显示 */
+  /** 将后端返回的 ISO 时间串（可能无 TZ 后缀，实际为 UTC）按设置的时区显示 */
   function fmtTime(iso: string | null | undefined): string {
     if (!iso) return ''
-    // 确保字符串被解析为 UTC（如果末尾无 Z 或 +00:00，手动补充 Z）
     const utcStr = /[Zz]$|[+\-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z'
-    return new Date(utcStr).toLocaleString('zh-CN')
+    try {
+      return new Date(utcStr).toLocaleString('zh-CN', { timeZone: appTimezone })
+    } catch {
+      return new Date(utcStr).toLocaleString('zh-CN')
+    }
   }
 
   const fetchTasks = useCallback(async () => {
