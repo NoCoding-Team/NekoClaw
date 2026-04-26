@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 
 class ScheduledTaskCreate(BaseModel):
@@ -92,3 +92,12 @@ class ScheduledTaskRunOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("scheduled_for", "started_at", "finished_at", "created_at")
+    def _serialize_dt(self, v: datetime | None) -> str | None:
+        if v is None:
+            return None
+        # Ensure UTC-aware before formatting so the frontend gets an unambiguous ISO string
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")

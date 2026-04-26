@@ -91,6 +91,15 @@ export default function ScheduledTasksPanel() {
   const [inferredTools, setInferredTools] = useState<string[] | null>(null)
   const [inferReason, setInferReason] = useState('')
   const [emptyToolsTarget, setEmptyToolsTarget] = useState<{ task: Pick<ScheduledTask, 'id' | 'title' | 'description' | 'allowed_tools'>; runId: string } | null>(null)
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
+
+  /** 将后端返回的 ISO 时间串（可能无 TZ 后缀，实际为 UTC）转为本地时间显示 */
+  function fmtTime(iso: string | null | undefined): string {
+    if (!iso) return ''
+    // 确保字符串被解析为 UTC（如果末尾无 Z 或 +00:00，手动补充 Z）
+    const utcStr = /[Zz]$|[+\-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z'
+    return new Date(utcStr).toLocaleString('zh-CN')
+  }
 
   const fetchTasks = useCallback(async () => {
     if (!token) return
@@ -635,14 +644,25 @@ export default function ScheduledTasksPanel() {
                     <li key={run.id} className={styles.item}>
                       <div className={styles.itemHeader}>
                         <span className={styles.itemTitle}>{statusLabel(run.status)}</span>
+                        {run.summary && (
+                          <button
+                            className={styles.icnBtn}
+                            style={{ fontSize: 12 }}
+                            onClick={() => setExpandedRunId(expandedRunId === run.id ? null : run.id)}
+                          >
+                            {expandedRunId === run.id ? '收起' : '详情'}
+                          </button>
+                        )}
                       </div>
                       <div className={styles.itemMeta}>
-                        {run.scheduled_for && <span className={styles.metaItem}>计划: {new Date(run.scheduled_for).toLocaleString('zh-CN')}</span>}
-                        {run.started_at && <span className={styles.metaItem}>开始: {new Date(run.started_at).toLocaleString('zh-CN')}</span>}
-                        {run.finished_at && <span className={styles.metaItem}>结束: {new Date(run.finished_at).toLocaleString('zh-CN')}</span>}
+                        {run.scheduled_for && <span className={styles.metaItem}>计划: {fmtTime(run.scheduled_for)}</span>}
+                        {run.started_at && <span className={styles.metaItem}>开始: {fmtTime(run.started_at)}</span>}
+                        {run.finished_at && <span className={styles.metaItem}>结束: {fmtTime(run.finished_at)}</span>}
                         <span className={styles.metaItem}>来源: {run.trigger_type}</span>
                       </div>
-                      {run.summary && <div className={styles.itemDesc} style={{ whiteSpace: 'pre-wrap' }}>{run.summary}</div>}
+                      {expandedRunId === run.id && run.summary && (
+                        <div className={styles.itemDesc} style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{run.summary}</div>
+                      )}
                       {run.error_message && <div className={styles.itemDesc}>{run.error_message}</div>}
                     </li>
                   ))}

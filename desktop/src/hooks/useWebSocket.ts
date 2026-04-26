@@ -10,15 +10,22 @@ import { apiFetch } from '../api/apiFetch'
 
 const MAX_BACKOFF = 30_000
 
+export interface SendMessageOptions {
+  allowedTools?: string[] | null
+  taskRun?: { taskId: string; runId: string }
+  source?: 'chat' | 'scheduled_task'
+  memoryPolicy?: 'auto' | 'read_only' | 'no_write'
+}
+
 // Module-level ref kept in sync by the hook, used by confirmTool/denyTool
 let _ws: WebSocket | null = null
 
 // Module-level sendMessage ref — set by useWebSocket, used by sendMessageExternal
-const _sendMessageRef: { current: ((content: string) => void) | null } = { current: null }
+const _sendMessageRef: { current: ((content: string, options?: SendMessageOptions) => void) | null } = { current: null }
 
 /** 从 ChatArea 等组件调用，无需直接持有 useWebSocket 实例 */
-export function sendMessageExternal(content: string) {
-  _sendMessageRef.current?.(content)
+export function sendMessageExternal(content: string, options?: SendMessageOptions) {
+  _sendMessageRef.current?.(content, options)
 }
 
 // Per-round tool call tracking for loop guard & call limit
@@ -69,7 +76,28 @@ export function useWebSocket(sessionId: string | null) {
   const pendingMessage = useRef<{
     content: string
     allowedTools?: string[] | null
+    taskRun?: { taskId: string; runId: string }
+    source?: 'chat' | 'scheduled_task'
+    memoryPolicy?: 'auto' | 'read_only' | 'no_write'
   } | null>(null)
+  const activeTaskRun = useRef<{ taskId: string; runId: string } | null>(null)
+
+  const updateTaskRun = useCallback(async (
+    taskRun: { taskId: string; runId: string } | null,
+    patch: { status: 'running' | 'success' | 'failed'; session_id?: string | null; error_message?: string | null; summary?: string | null }
+  ) => {
+    if (!taskRun) return
+    const { serverUrl: sv } = useAppStore.getState()
+    try {
+      await apiFetch(`${sv}/api/scheduled-tasks/${taskRun.taskId}/runs/${taskRun.runId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+    } catch (err) {
+      console.warn('[Scheduler] 更新执行记录失败:', err)
+    }
+  }, [])
 
   /** 启动回复超时：45s 没收到 llm_token/llm_done 则注入错误提示 */
   const startReplyTimeout = () => {
@@ -78,6 +106,11 @@ export function useWebSocket(sessionId: string | null) {
       if (!waitingReply.current) return
       waitingReply.current = false
       streamingMsgId.current = null
+      if (activeTaskRun.current) {
+        const failedTaskRun = activeTaskRun.current
+        activeTaskRun.current = null
+        updateTaskRun(failedTaskRun, { status: 'failed', error_message: '回复超时' }).catch(() => {})
+      }
       setCatState('idle')
       const sid = useAppStore.getState().activeSessionId
       if (!sid) return
@@ -134,9 +167,13 @@ export function useWebSocket(sessionId: string | null) {
       }, 30_000)
       // 发送带入的待发消息（local- 会话 第一条消息）
       if (pendingMessage.current) {
-        const { content, allowedTools } = pendingMessage.current
+        const { content, allowedTools, taskRun, source, memoryPolicy } = pendingMessage.current
         pendingMessage.current = null
+        activeTaskRun.current = taskRun ?? null
         const sid = useAppStore.getState().activeSessionId!
+        if (taskRun) {
+          updateTaskRun(taskRun, { status: 'running', session_id: sid }).catch(() => {})
+        }
         // 若 handleSend 已乐观写入该条消息（新对话场景），跳过重复追加
         const existingMsgs = useAppStore.getState().messagesBySession[sid] ?? []
         const lastExisting = existingMsgs[existingMsgs.length - 1]
@@ -147,6 +184,8 @@ export function useWebSocket(sessionId: string | null) {
         startReplyTimeout()
         ws.send(JSON.stringify({
           event: 'message', content, allowed_tools: allowedTools ?? null,
+          source: source ?? 'chat',
+          memory_policy: memoryPolicy ?? 'auto',
           ...((() => {
             const { customLLMConfig } = useAppStore.getState()
             if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
@@ -293,6 +332,14 @@ export function useWebSocket(sessionId: string | null) {
 
         // 无工具调用，本轮 LLM 输出结束，重置为 idle
         setCatState('idle')
+        if (activeTaskRun.current) {
+          const doneTaskRun = activeTaskRun.current
+          activeTaskRun.current = null
+          // Collect last assistant message as summary for the run record
+          const lastMsg = cleanedMsgs.filter(m => m.role === 'assistant').pop()
+          const summary = lastMsg?.content?.trim() ?? undefined
+          updateTaskRun(doneTaskRun, { status: 'success', session_id: sid, summary: summary || null }).catch(() => {})
+        }
 
         // 如果本轮完全没有收到 token 且没有 streaming 气泡，插入一条回退提示
         // （常见原因：后端 LLM 返回空内容、WS 中途重连丢失 token 等）
@@ -343,6 +390,7 @@ export function useWebSocket(sessionId: string | null) {
         appendMessage(sessionId!, { id: toolMsgId, role: 'tool', content: '', toolCalls: [tc] })
       } else if (type === 'server_tool_done') {
         const doneCallId = evt.call_id as string
+        const doneMsgId = _callIdToMsgId[doneCallId]
         updateToolCallStatus(sessionId!, doneCallId, {
           status: 'done',
           result: (evt.result as string) || '',
@@ -487,6 +535,11 @@ export function useWebSocket(sessionId: string | null) {
       // 如果断连时仍在等待回复，注入错误提示气泡
       const wasWaiting = waitingReply.current || !!streamingMsgId.current
       if (wasWaiting && sessionId && !intentionalClose.current) {
+        if (activeTaskRun.current) {
+          const failedTaskRun = activeTaskRun.current
+          activeTaskRun.current = null
+          updateTaskRun(failedTaskRun, { status: 'failed', session_id: sessionId, error_message: 'WebSocket 连接断开' }).catch(() => {})
+        }
         const sid = sessionId
         const msgs = useAppStore.getState().messagesBySession[sid] ?? []
         // 查找正在 streaming 的 assistant 消息
@@ -528,7 +581,7 @@ export function useWebSocket(sessionId: string | null) {
       if (wsRef.current !== ws) return
       ws.close()
     }
-  }, [token, sessionId, serverUrl]) // eslint-disable-line
+  }, [token, sessionId, serverUrl, updateTaskRun]) // eslint-disable-line
 
   // (Re)connect when deps change.
   // When sessionId changes, connect is recreated and the old WS must be closed
@@ -567,7 +620,7 @@ export function useWebSocket(sessionId: string | null) {
   }, [])
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, options?: SendMessageOptions) => {
       const currentSessionId = useAppStore.getState().activeSessionId
       if (!currentSessionId) return
 
@@ -579,7 +632,11 @@ export function useWebSocket(sessionId: string | null) {
           const res = await apiFetch(`${sv}/api/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: '新对话' }),
+            body: JSON.stringify({
+              title: options?.source === 'scheduled_task' ? '猫钟任务' : '新对话',
+              source: options?.source ?? 'chat',
+              memory_policy: options?.memoryPolicy ?? 'auto',
+            }),
           })
           if (!res.ok) {
             console.error('[WS] 创建会话失败:', res.status)
@@ -598,9 +655,15 @@ export function useWebSocket(sessionId: string | null) {
             body: JSON.stringify({ title: stage1Title }),
           }).catch(() => {})
           const { securityConfig: sc } = useAppStore.getState()
-          const allowedTools = sc.toolWhitelist
+          const allowedTools = options?.allowedTools ?? sc.toolWhitelist
           setCatState('thinking')
-          pendingMessage.current = { content, allowedTools }
+          pendingMessage.current = {
+            content,
+            allowedTools,
+            taskRun: options?.taskRun,
+            source: options?.source,
+            memoryPolicy: options?.memoryPolicy,
+          }
           resetRound(currentSessionId)
         } catch (err) {
           console.error('[WS] sendMessage Branch A error:', err)
@@ -631,12 +694,18 @@ export function useWebSocket(sessionId: string | null) {
         }
       }
       const { securityConfig } = useAppStore.getState()
-      const allowedTools = securityConfig.toolWhitelist
+      const allowedTools = options?.allowedTools ?? securityConfig.toolWhitelist
+      activeTaskRun.current = options?.taskRun ?? null
+      if (options?.taskRun) {
+        updateTaskRun(options.taskRun, { status: 'running', session_id: sessionId! }).catch(() => {})
+      }
 
       waitingReply.current = true
       startReplyTimeout()
       wsRef.current.send(JSON.stringify({
         event: 'message', content, allowed_tools: allowedTools,
+        source: options?.source ?? 'chat',
+        memory_policy: options?.memoryPolicy ?? 'auto',
         ...((() => {
           const { customLLMConfig } = useAppStore.getState()
           if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
@@ -653,7 +722,7 @@ export function useWebSocket(sessionId: string | null) {
         })()),
       }))
     },
-    [sessionId, setCatState, appendMessage, connect]
+    [sessionId, setCatState, appendMessage, connect, updateTaskRun]
   )
 
   // 始终将最新的 sendMessage 同步到模块级 ref，供 sendMessageExternal 使用
@@ -667,7 +736,7 @@ async function _executeAndReply(
   sessionId: string,
   tc: ToolCall,
   callId: string,
-  toolMsgId?: string,
+  _toolMsgId?: string,
 ) {
   useAppStore.getState().updateToolCallStatus(sessionId, callId, { status: 'executing' })
   const result = await executeLocalTool(tc.tool, tc.args)
