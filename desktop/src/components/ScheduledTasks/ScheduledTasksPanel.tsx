@@ -448,15 +448,15 @@ export default function ScheduledTasksPanel() {
               <div className={styles.itemDesc}>{t.description}</div>
               <div className={styles.itemMeta}>
                 {t.cron_expr && <span className={styles.cronTag}>{t.cron_expr}</span>}
-                {t.run_at && <span className={styles.cronTag}>一次性 {new Date(t.run_at).toLocaleString('zh-CN')}</span>}
-                {t.next_run_at && <span className={styles.metaItem}>下次: {new Date(t.next_run_at).toLocaleString('zh-CN')}</span>}
+                {t.run_at && <span className={styles.cronTag}>一次性 {fmtTime(t.run_at)}</span>}
+                {t.next_run_at && <span className={styles.metaItem}>下次: {fmtTime(t.next_run_at)}</span>}
                 {t.last_status && <span className={styles.metaItem}>状态: {statusLabel(t.last_status)}</span>}
                 <span className={styles.metaItem}>执行 {t.run_count} 次</span>
                 {t.missed_count > 0 && <span className={styles.metaItem}>错过 {t.missed_count} 次</span>}
                 <span className={styles.metaItem}>工具 {t.allowed_tools?.length ?? 0} 个</span>
                 {t.last_run_at && (
                   <span className={styles.metaItem}>
-                    上次: {new Date(t.last_run_at).toLocaleString('zh-CN')}
+                    上次: {fmtTime(t.last_run_at)}
                   </span>
                 )}
               </div>

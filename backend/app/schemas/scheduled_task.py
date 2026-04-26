@@ -51,6 +51,14 @@ class ScheduledTaskOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_serializer("run_at", "last_run_at", "next_run_at", "created_at")
+    def _serialize_dt(self, v: datetime | None) -> str | None:
+        if v is None:
+            return None
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        return v.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 class ScheduledTaskRunCreate(BaseModel):
     scheduled_for: Optional[datetime] = None
