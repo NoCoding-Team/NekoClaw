@@ -29,7 +29,7 @@
 
 #### Scenario: 完整 system prompt 拼接顺序
 - **WHEN** `build_system_prompt` 构建系统提示
-- **THEN** system prompt SHALL 按以下顺序拼接：SOUL.md 内容 → USER.md 内容 → AGENTS.md 内容 → 工具声明（_TOOL_RULES 中工具列表和执行环境部分） → Skills 目录和规则 → 记忆注入（MEMORY.md + 日报）
+- **THEN** system prompt SHALL 按以下顺序拼接：Soul.md 内容 → USER.md 内容 → AGENTS.md 内容 → 工具声明（`_build_tool_rules(allowed_tools)` 动态生成的工具列表和执行环境部分） → Skills 目录和规则 → 记忆注入（MEMORY.md + 日报）
 
 #### Scenario: SOUL.md 替代硬编码人设
 - **WHEN** SOUL.md 存在且有内容
@@ -59,3 +59,21 @@ Agent SHALL 能够通过 `memory_write("USER.md", ...)` 工具自主更新用户
 #### Scenario: _TOOL_RULES 仅保留工具声明
 - **WHEN** `build_system_prompt` 拼接工具规则
 - **THEN** `_TOOL_RULES` SHALL 仅包含工具列表、工具执行环境说明和工具使用的基本规则（如"执行完工具后把结果告诉用户"），不再包含记忆策略、优先级等可由用户自定义的行为规则
+### Requirement: 工具规则按 allowed_tools 动态生成
+`build_system_prompt` SHALL 通过 `_build_tool_rules(allowed_tools)` 函数动态生成工具执行环境说明，只描述实际启用的工具组。
+
+#### Scenario: 已关闭工具不出现在工具规则中
+- **WHEN** `allowed_tools` 不包含 `web_search`
+- **THEN** 生成的工具规则 SHALL 不包含网络搜索工具的任何描述
+
+#### Scenario: 已启用工具出现在工具规则中
+- **WHEN** `allowed_tools` 包含 `shell_exec`
+- **THEN** 生成的工具规则 SHALL 包含命令行执行工具的执行环境描述
+
+#### Scenario: allowed_tools 为 None 时全量注入
+- **WHEN** `allowed_tools` 为 `None`（全量模式）
+- **THEN** 生成的工具规则 SHALL 包含所有工具组的描述
+
+#### Scenario: 记忆工具始终注入
+- **WHEN** `allowed_tools` 为任意值（包括空列表）
+- **THEN** 生成的工具规则 SHALL 始终包含 `memory_read`、`memory_write`、`search_memory` 的描述
