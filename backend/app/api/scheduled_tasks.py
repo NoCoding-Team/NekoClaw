@@ -264,7 +264,7 @@ def _calculate_next_run_at(task: ScheduledTask) -> datetime | None:
             return _to_utc(task.run_at)
         return None
     if task.schedule_type == "cron" and task.cron_expr:
-        return _next_cron_time(task.cron_expr, now)
+        return _next_cron_time(task.cron_expr, now, task.timezone or "UTC")
     return None
 
 
@@ -284,7 +284,7 @@ def _is_valid_cron(expr: str) -> bool:
     return all(_cron_field_values(part, low, high) is not None for part, (low, high) in zip(parts, ranges))
 
 
-def _next_cron_time(expr: str, after: datetime) -> datetime | None:
+def _next_cron_time(expr: str, after: datetime, tz_name: str = "UTC") -> datetime | None:
     parts = expr.split()
     if len(parts) == 6:
         parts = parts[1:]
@@ -296,15 +296,21 @@ def _next_cron_time(expr: str, after: datetime) -> datetime | None:
         return None
 
     minute_values, hour_values, day_values, month_values, weekday_values = values
+    try:
+        from zoneinfo import ZoneInfo
+        task_tz = ZoneInfo(tz_name)
+    except Exception:
+        task_tz = timezone.utc
     candidate = after.astimezone(timezone.utc).replace(second=0, microsecond=0) + timedelta(minutes=1)
     limit = candidate + timedelta(days=366)
     while candidate <= limit:
-        weekday = (candidate.weekday() + 1) % 7
+        local = candidate.astimezone(task_tz)
+        weekday = (local.weekday() + 1) % 7
         if (
-            candidate.minute in minute_values
-            and candidate.hour in hour_values
-            and candidate.day in day_values
-            and candidate.month in month_values
+            local.minute in minute_values
+            and local.hour in hour_values
+            and local.day in day_values
+            and local.month in month_values
             and (weekday in weekday_values or (weekday == 0 and 7 in weekday_values))
         ):
             return candidate
