@@ -56,8 +56,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "search_memory",
         "executor": "server",
         "description": (
-            "搜索记忆库，返回与查询最相关的记忆片段。"
-            "当需要从用户的长期记忆和每日笔记中查找信息时使用此工具。"
+            "搜索用户的长期记忆和每日笔记，返回与查询最相关的片段。"
+            "这是查询历史记忆、近期笔记、之前是否提过某事的默认入口；"
+            "不要为了普通历史查询直接读取完整文件。"
         ),
         "parameters": {
             "type": "object",
@@ -88,7 +89,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "server",
         "description": (
             "写入或更新一个 Markdown 记忆文件。"
-            "长期记忆写入 MEMORY.md，当日笔记写入 YYYY-MM-DD.md。"
+            "仅在用户明确要求保存，或需要保存长期事实、稳定偏好、重要决策时使用；"
+            "写入前应先用 memory_read 读取目标文件旧内容并整理成完整文件。"
+            "不要保存定时任务的临时输出、一次性查询或中间步骤。"
+            "保存用户偏好、关键事实、重要决策时必须使用此工具，不要使用 file_write。"
+            "长期记忆写入 MEMORY.md，当日笔记写入 notes/YYYY-MM-DD.md。"
             "写入时请提供文件的完整内容（会覆盖原文件）。"
         ),
         "parameters": {
@@ -109,7 +114,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "memory_read",
         "executor": "server",
-        "description": "读取一个记忆文件的内容。",
+        "description": (
+            "读取一个明确指定的记忆文件完整内容。"
+            "仅当用户指定 MEMORY.md、USER.md、SOUL.md、IDENTITY.md、某个 notes/YYYY-MM-DD.md，"
+            "或写入前需要读取旧内容时使用；普通历史查询应优先使用 search_memory。"
+            "读取记忆文件时必须使用此工具，不要使用 file_read。"
+        ),
         "parameters": {
             "type": "object",
             "properties": {
@@ -126,7 +136,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "file_read",
         "executor": "client",
-        "description": "Read a local file.",
+        "description": "Read a local file. Do not use for memory files; use memory_read for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
         "parameters": {
             "type": "object",
             "properties": {"path": {"type": "string"}},
@@ -136,7 +146,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "file_write",
         "executor": "client",
-        "description": "Write content to a local file.",
+        "description": "Write content to a local file. Do not use for memory files; use memory_write for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
         "parameters": {
             "type": "object",
             "properties": {

@@ -153,10 +153,18 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
         content = data.get("content", "")
         allowed_tools: list[str] | None = data.get("allowed_tools")  # None=all, []=none, [...]= specified list
         custom_llm_config: dict | None = data.get("custom_llm_config")  # optional user-supplied LLM config
+        source = data.get("source")
+        memory_policy = data.get("memory_policy")
 
         # Persist user message
         async with AsyncSessionLocal() as db:
             from sqlalchemy import select as sel, func as fn
+            session = await db.get(Session, session_id)
+            if session:
+                if source:
+                    session.source = source
+                if memory_policy:
+                    session.memory_policy = memory_policy
             result = await db.execute(
                 sel(fn.coalesce(fn.max(Message.seq), 0)).where(Message.session_id == session_id)
             )

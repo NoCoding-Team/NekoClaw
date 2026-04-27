@@ -5,7 +5,7 @@ import re
 import shutil
 from datetime import date, datetime, timedelta, timezone
 from app.models.base import engine, Base, AsyncSessionLocal
-from app.models import user, session, message, llm_config, memory, scheduled_task, skill_config  # noqa: F401 - ensure all models are registered
+from app.models import user, session, message, llm_config, memory, scheduled_task, scheduled_task_run, skill_config  # noqa: F401 - ensure all models are registered
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,17 @@ async def create_tables():
                 "ALTER TABLE messages ADD COLUMN IF NOT EXISTS tool_call_id VARCHAR(64) NULL"
             )
         )
+        # Session source and memory policy: distinguish normal chat from scheduled tasks.
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS source VARCHAR(32) NOT NULL DEFAULT 'chat'"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS memory_policy VARCHAR(32) NOT NULL DEFAULT 'auto'"
+            )
+        )
         # Backfill seq for existing messages (based on created_at order within each session)
         await conn.execute(
             __import__("sqlalchemy").text(
@@ -125,6 +136,91 @@ async def create_tables():
                 CREATE INDEX IF NOT EXISTS idx_memory_chunks_user_file
                 ON memory_chunks (user_id, file_path)
             """)
+        )
+        # Scheduled task execution fields and history.
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                """
+                CREATE TABLE IF NOT EXISTS scheduled_task_runs (
+                    id VARCHAR(36) PRIMARY KEY,
+                    task_id VARCHAR(36) NOT NULL REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
+                    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    scheduled_for TIMESTAMPTZ NULL,
+                    started_at TIMESTAMPTZ NULL,
+                    finished_at TIMESTAMPTZ NULL,
+                    status VARCHAR(16) NOT NULL DEFAULT 'running',
+                    trigger_type VARCHAR(16) NOT NULL DEFAULT 'auto',
+                    session_id VARCHAR(36) NULL REFERENCES sessions(id),
+                    allowed_tools_snapshot JSON NOT NULL DEFAULT '[]'::json,
+                    error_message TEXT NULL,
+                    summary TEXT NULL,
+                    duration_ms INTEGER NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    deleted_at TIMESTAMPTZ NULL
+                )
+                """
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_task_id ON scheduled_task_runs (task_id)"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_user_id ON scheduled_task_runs (user_id)"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_session_id ON scheduled_task_runs (session_id)"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_status ON scheduled_task_runs (status)"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE scheduled_tasks ADD COLUMN IF NOT EXISTS schedule_type VARCHAR(16) NOT NULL DEFAULT 'once'"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE scheduled_tasks ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE scheduled_tasks ADD COLUMN IF NOT EXISTS allowed_tools JSON NOT NULL DEFAULT '[]'::json"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE scheduled_tasks ADD COLUMN IF NOT EXISTS status VARCHAR(16) NOT NULL DEFAULT 'enabled'"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE scheduled_tasks ADD COLUMN IF NOT EXISTS last_status VARCHAR(16) NULL"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE scheduled_tasks ADD COLUMN IF NOT EXISTS missed_count INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                """
+                UPDATE scheduled_tasks
+                SET schedule_type = CASE WHEN cron_expr IS NOT NULL THEN 'cron' ELSE 'once' END,
+                    status = CASE WHEN is_enabled THEN 'enabled' ELSE 'paused' END
+                WHERE schedule_type IS NULL OR schedule_type = ''
+                """
+            )
         )
 
 
@@ -200,8 +296,33 @@ async def _backfill_yesterday_notes() -> None:
             logger.warning("backfill_notes: failed for user %s", uid, exc_info=True)
 
 
+async def _backfill_scheduled_task_state() -> None:
+    """Fill derived fields for tasks created before the execution workflow."""
+    from sqlalchemy import select
+    from app.api.scheduled_tasks import _sync_task_state
+    from app.models.scheduled_task import ScheduledTask
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(ScheduledTask).where(ScheduledTask.deleted_at.is_(None))
+        )
+        tasks = result.scalars().all()
+        changed = False
+        for task in tasks:
+            if not task.schedule_type:
+                task.schedule_type = "cron" if task.cron_expr else "once"
+            if task.allowed_tools is None:
+                task.allowed_tools = []
+            _sync_task_state(task)
+            changed = True
+        if changed:
+            await db.commit()
+
+
 async def on_startup():
     await create_tables()
+    # Backfill scheduled task derived state for older databases.
+    await _backfill_scheduled_task_state()
     # Migrate daily notes from root to notes/ subfolder
     await _migrate_daily_notes_to_subfolder()
     # Backfill yesterday's daily notes if missing

@@ -67,6 +67,8 @@ async def generate_daily_note(
             .where(
                 and_(
                     Session.user_id == user_id,
+                    Session.source != "scheduled_task",
+                    Session.memory_policy.notin_(["read_only", "no_write"]),
                     Message.created_at >= day_start,
                     Message.created_at < day_end,
                     Message.deleted_at.is_(None),

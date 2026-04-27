@@ -204,14 +204,23 @@ async def prepare(state: AgentState) -> dict:
 
         query_hint = _build_query_hint(session, history)
 
-        system_prompt = await build_system_prompt(user_id, allowed_tools, db, query_hint=query_hint)
+        session_source = session.source if session else "chat"
+        memory_policy = session.memory_policy if session else "auto"
+        system_prompt = await build_system_prompt(
+            user_id,
+            allowed_tools,
+            db,
+            query_hint=query_hint,
+            session_source=session_source,
+            memory_policy=memory_policy,
+        )
     print(f"[system_prompt] session={session_id} length={len(system_prompt)}\n{system_prompt}\n{'='*60}", flush=True)
     messages = [SystemMessage(content=system_prompt)]
 
     user_turn_count = sum(1 for m in history if m.role == "user")
 
     # Periodic memory refresh
-    if should_run_periodic_refresh(session_id, user_turn_count):
+    if memory_policy not in {"read_only", "no_write"} and should_run_periodic_refresh(session_id, user_turn_count):
         await memory_refresh(session_id, user_id, history, llm_config, query_hint=query_hint)
 
     # Context compression (tiktoken-based 50% threshold)

@@ -11,3 +11,5 @@ class Session(BaseModel):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(256), nullable=False, default="新对话")
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="chat")
+    memory_policy: Mapped[str] = mapped_column(String(32), nullable=False, default="auto")

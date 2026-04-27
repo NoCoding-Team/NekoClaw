@@ -4,11 +4,15 @@ from pydantic import BaseModel
 
 class SessionCreate(BaseModel):
     title: str = "新对话"
+    source: str = "chat"
+    memory_policy: str = "auto"
 
 
 class SessionResponse(BaseModel):
     id: str
     title: str
+    source: str = "chat"
+    memory_policy: str = "auto"
     created_at: datetime
 
     model_config = {"from_attributes": True}
