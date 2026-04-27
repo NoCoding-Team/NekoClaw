@@ -159,16 +159,6 @@ function PanelView({ title, children }: { title: string; children: React.ReactNo
   )
 }
 
-function WipPlaceholder({ name, icon }: { name: string; icon: string }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16, color: 'var(--text-muted)' }}>
-      <span style={{ fontSize: 48, filter: 'grayscale(0.4)' }}>{icon}</span>
-      <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>{name}</span>
-      <span style={{ fontSize: 13 }}>🚧 待开发</span>
-    </div>
-  )
-}
-
 // ─── 连接服务器 ────────────────────────────────────────────────────────────────
 
 function ConnectForm() {

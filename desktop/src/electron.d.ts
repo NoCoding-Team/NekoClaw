@@ -81,6 +81,35 @@ interface NekoBridgeNet {
   httpRequest(opts: { method: string; url: string; headers?: Record<string, string>; body?: string }): Promise<{ status_code?: number; headers?: Record<string, string>; body?: string; error?: string }>
 }
 
+interface NekoBridgeSchedulerTask {
+  id: string
+  title: string
+  description: string
+  schedule_type?: 'once' | 'cron'
+  cron_expr: string | null
+  run_at: string | null
+  next_run_at?: string | null
+  timezone?: string
+  skill_id: string | null
+  allowed_tools?: string[]
+  is_enabled: boolean
+}
+
+interface NekoBridgeSchedulerFiredTask {
+  id: string
+  title: string
+  description: string
+  skill_id: string | null
+  allowed_tools: string[]
+  scheduled_for: string
+}
+
+interface NekoBridgeScheduler {
+  sync(tasks: NekoBridgeSchedulerTask[]): Promise<{ scheduled: number }>
+  validateCron(expr: string): Promise<{ valid: boolean }>
+  onFired(callback: (task: NekoBridgeSchedulerFiredTask) => void): () => void
+}
+
 interface NekoBridge {
   file: NekoBridgeFile
   shell: NekoBridgeShell
@@ -91,6 +120,7 @@ interface NekoBridge {
   browser: NekoBridgeBrowser
   net: NekoBridgeNet
   memory: NekoBridgeMemory
+  scheduler: NekoBridgeScheduler
   db?: NekoBridgeDb
 }
 

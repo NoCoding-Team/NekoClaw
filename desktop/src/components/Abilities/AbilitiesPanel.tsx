@@ -79,11 +79,11 @@ const ABILITIES: Ability[] = [
   {
     id: 'knowledge',
     icon: '🧠',
-    name: '记忆检索',
-    desc: '从个人知识库与记忆文件中检索相关片段，本地优先 + 云端回退，让 Agent 始终记得你的重要内容',
+    name: '记忆管理',
+    desc: '读取、写入和检索个人记忆文件，让 Agent 把长期记忆保存到记忆库面板可见的位置',
     executor: 'memory',
     executorLabel: '记忆系统',
-    tools: ['search_memory'],
+    tools: ['memory_read', 'memory_write', 'search_memory'],
     alwaysOn: true,
   },
 ]

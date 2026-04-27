@@ -1553,7 +1553,9 @@ function fireTask(task) {
       id: task.id,
       title: task.title,
       description: task.description,
-      skill_id: task.skill_id
+      skill_id: task.skill_id,
+      allowed_tools: task.allowed_tools ?? [],
+      scheduled_for: task.run_at ?? task.next_run_at ?? (/* @__PURE__ */ new Date()).toISOString()
     });
   }
 }
@@ -1565,7 +1567,8 @@ function scheduleTask(task) {
     const job = cron.schedule(task.cron_expr, () => fireTask(task));
     _cronJobs.set(task.id, job);
   } else if (task.run_at) {
-    const delay = new Date(task.run_at).getTime() - Date.now();
+    const target = task.next_run_at ?? task.run_at;
+    const delay = new Date(target).getTime() - Date.now();
     if (delay > 0) {
       const timer = setTimeout(() => {
         _onceTimers.delete(task.id);

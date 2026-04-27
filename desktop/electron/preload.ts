@@ -85,15 +85,20 @@ export const nekoBridge = {
   },
   scheduler: {
     sync: (tasks: Array<{
-      id: number; title: string; description: string
+      id: string; title: string; description: string
+      schedule_type?: 'once' | 'cron'
       cron_expr: string | null; run_at: string | null
-      skill_id: string | null; is_enabled: boolean
+      next_run_at?: string | null; timezone?: string
+      skill_id: string | null; allowed_tools?: string[]; is_enabled: boolean
     }>): Promise<{ scheduled: number }> => ipcRenderer.invoke('scheduler:sync', tasks),
 
     validateCron: (expr: string): Promise<{ valid: boolean }> =>
       ipcRenderer.invoke('scheduler:validate-cron', expr),
 
-    onFired: (callback: (task: { id: number; title: string; description: string; skill_id: string | null }) => void) => {
+    onFired: (callback: (task: {
+      id: string; title: string; description: string; skill_id: string | null
+      allowed_tools: string[]; scheduled_for: string
+    }) => void) => {
       const handler = (_e: any, task: any) => callback(task)
       ipcRenderer.on('scheduler:fired', handler)
       return () => { ipcRenderer.removeListener('scheduler:fired', handler) }

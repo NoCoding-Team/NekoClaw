@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import styles from './MemoryPanel.module.css'
 import { useToast } from '../../hooks/useToast'
 import { useAppStore } from '../../store/app'
@@ -169,19 +169,6 @@ export default function MemoryPanel() {
   }, [loadDbMemories, serverConnected, token])
 
 
-
-  // ── Read file content ─────────────────────────────────────────────────
-  const readFile = useCallback(async (name: string) => {
-    if (!token || !serverUrl) return
-    try {
-      const resp = await apiFetch(`${serverUrl}/api/memory/files/${encodeURIComponent(name)}`)
-      if (!resp.ok) { setFileContent(''); return }
-      const data = await resp.json() as { content?: string }
-      setFileContent(data.content ?? '')
-    } catch {
-      setFileContent('')
-    }
-  }, [token, serverUrl])
 
   const handleSelectFile = useCallback(async (name: string) => {
     setSelectedFile(name)

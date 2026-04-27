@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppStore, ChatMessage as ChatMsg, ToolCall, TurnSegment } from '../../store/app'
 import { CatAvatar } from '../CatAvatar/CatAvatar'
 import { ChatMessage, ThinkingBubble } from './ChatMessage'
-import { useWebSocket, sendMessageExternal } from '../../hooks/useWebSocket'
+import { sendMessageExternal } from '../../hooks/useWebSocket'
 import styles from './ChatArea.module.css'
 import { AssetsPanel } from './AssetsPanel'
 import { apiFetch } from '../../api/apiFetch'
@@ -115,7 +115,6 @@ export function ChatArea() {
     catState,
     wsStatus,
     serverUrl,
-    token,
     setMessages,
     addSession,
     setActiveSession,
@@ -130,7 +129,7 @@ export function ChatArea() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const { toast, showToast, dismissToast } = useToast()
+  const { toast, dismissToast } = useToast()
 
   // 切换会话时重置加载状态
   useEffect(() => {

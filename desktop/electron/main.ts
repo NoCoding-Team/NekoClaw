@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, ipcMain, nativeImage, net, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, net, safeStorage, shell } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
@@ -181,19 +181,23 @@ app.on('window-all-closed', () => {
 
 // ── Scheduled-task scheduler (node-cron) ──────────────────────────────────
 interface ScheduledTaskInfo {
-  id: number
+  id: string
   title: string
   description: string
+  schedule_type?: 'once' | 'cron'
   cron_expr: string | null
   run_at: string | null
+  next_run_at?: string | null
+  timezone?: string
   skill_id: string | null
+  allowed_tools?: string[]
   is_enabled: boolean
 }
 
-const _cronJobs = new Map<number, cron.ScheduledTask>()
-const _onceTimers = new Map<number, ReturnType<typeof setTimeout>>()
+const _cronJobs = new Map<string, ReturnType<typeof cron.schedule>>()
+const _onceTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
-function clearScheduledTask(taskId: number) {
+function clearScheduledTask(taskId: string) {
   const job = _cronJobs.get(taskId)
   if (job) { job.stop(); _cronJobs.delete(taskId) }
   const timer = _onceTimers.get(taskId)
@@ -208,6 +212,8 @@ function fireTask(task: ScheduledTaskInfo) {
       title: task.title,
       description: task.description,
       skill_id: task.skill_id,
+      allowed_tools: task.allowed_tools ?? [],
+      scheduled_for: task.run_at ?? task.next_run_at ?? new Date().toISOString(),
     })
   }
 }
@@ -221,7 +227,8 @@ function scheduleTask(task: ScheduledTaskInfo) {
     const job = cron.schedule(task.cron_expr, () => fireTask(task))
     _cronJobs.set(task.id, job)
   } else if (task.run_at) {
-    const delay = new Date(task.run_at).getTime() - Date.now()
+    const target = task.next_run_at ?? task.run_at
+    const delay = new Date(target).getTime() - Date.now()
     if (delay > 0) {
       const timer = setTimeout(() => {
         _onceTimers.delete(task.id)
