@@ -262,6 +262,12 @@ async def generate_title(
                 print("[generate-title] No server LLM config found")
                 return {"title": None, "error": "No LLM config available"}
             model = get_chat_model(llm_cfg)
+            # generate_title doesn't need streaming; disable to avoid parse errors
+            # from providers that don't fully support SSE (e.g. custom base_url)
+            try:
+                model = model.model_copy(update={"streaming": False})
+            except Exception:
+                pass
 
         result = await model.ainvoke([_HM(content=prompt)])
         title = (result.content.strip() if isinstance(result.content, str) else str(result.content).strip())[:30]
