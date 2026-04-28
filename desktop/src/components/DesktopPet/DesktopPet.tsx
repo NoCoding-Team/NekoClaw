@@ -1,5 +1,5 @@
 import Lottie from 'lottie-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const CAT_SIZE = 160
 
@@ -22,35 +22,22 @@ export default function DesktopPet() {
     return unsub
   }, [])
 
-  // 转发事件检测鼠标悬停，通知主进程（窗口始终穿透，拖拽由主进程处理）
-  const handleMouseEnter = useCallback(() => {
-    window.nekoBridge.pet.mouseEnter()
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    window.nekoBridge.pet.mouseLeave()
-  }, [])
-
   if (!animData) return null
 
   return (
-    <div
-      style={{
-        width: CAT_SIZE,
-        height: CAT_SIZE,
-        transform: flipped ? 'scaleX(-1)' : 'none',
-        background: 'transparent',
-        overflow: 'hidden',
-      }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <div style={{
+      width: CAT_SIZE,
+      height: CAT_SIZE,
+      transform: flipped ? 'scaleX(-1)' : 'none',
+      background: 'transparent',
+      overflow: 'hidden',
+    }}>
       <Lottie
         animationData={animData}
         assetsPath="animations/images/"
         loop
         autoplay
-        style={{ width: CAT_SIZE, height: CAT_SIZE, pointerEvents: 'none' }}
+        style={{ width: CAT_SIZE, height: CAT_SIZE }}
         rendererSettings={{ preserveAspectRatio: 'xMidYMid meet', clearCanvas: true }}
       />
     </div>

@@ -176,7 +176,6 @@ function createPetWindow() {
   let petY = screenHeight - PET_SIZE
   let petDir: 1 | -1 = 1
   let isDragging = false
-  let mouseOverPet = false
   let dragOffsetX = 0
   let dragOffsetY = 0
 
@@ -223,9 +222,8 @@ function createPetWindow() {
     },
   })
 
-  // 始终保持鼠标穿透 + 转发：窗口永远不可交互，绝对不会出现白框
-  // forward: true 让 mousemove/mouseenter/mouseleave 转发到渲染进程
-  win.setIgnoreMouseEvents(true, { forward: true })
+  // 始终保持鼠标穿透：窗口永远不可交互，绝对不会出现白框
+  win.setIgnoreMouseEvents(true)
 
   win.once('ready-to-show', () => {
     win.showInactive()
@@ -241,19 +239,22 @@ function createPetWindow() {
     syncPetFlip()
   })
 
-  // 渲染进程通过转发事件检测鼠标悬停在猫咪上
-  ipcMain.on('pet:mouse-enter', () => { mouseOverPet = true })
-  ipcMain.on('pet:mouse-leave', () => { if (!isDragging) mouseOverPet = false })
+  // 判断光标是否在窗口范围内（直接用坐标比较，不依赖任何转发事件）
+  const isCursorOverPet = () => {
+    const cursor = screen.getCursorScreenPoint()
+    return cursor.x >= petX && cursor.x <= petX + PET_SIZE
+      && cursor.y >= petY && cursor.y <= petY + PET_SIZE
+  }
 
   // 统一的 tick 循环：自动行走 + 拖拽检测
   const maxX = screenWidth - PET_SIZE
   const tickInterval = setInterval(() => {
     if (win.isDestroyed()) { clearInterval(tickInterval); return }
 
-    // 拖拽检测：鼠标在猫咪上 + 左键按下 → 开始拖拽
     const mouseDown = isLeftMouseDown()
 
-    if (!isDragging && mouseOverPet && mouseDown) {
+    // 拖拽检测：光标在猫咪范围内 + 左键按下 → 开始拖拽
+    if (!isDragging && mouseDown && isCursorOverPet()) {
       isDragging = true
       const cursor = screen.getCursorScreenPoint()
       dragOffsetX = cursor.x - Math.round(petX)
@@ -262,12 +263,9 @@ function createPetWindow() {
 
     if (isDragging) {
       if (!mouseDown) {
-        // 松开鼠标：结束拖拽
         isDragging = false
-        mouseOverPet = false
         return
       }
-      // 拖拽中：移动窗口跟随光标
       const cur = screen.getCursorScreenPoint()
       const newX = cur.x - dragOffsetX
       const newY = cur.y - dragOffsetY
@@ -302,8 +300,6 @@ function createPetWindow() {
 
   win.on('closed', () => {
     clearInterval(tickInterval)
-    ipcMain.removeAllListeners('pet:mouse-enter')
-    ipcMain.removeAllListeners('pet:mouse-leave')
   })
 
   if (VITE_DEV_SERVER_URL) {
