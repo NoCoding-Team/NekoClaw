@@ -106,14 +106,6 @@ function ModelCenterTab() {
       .finally(() => setLoadingConfigs(false))
   }, []) // eslint-disable-line
 
-  // Quick-select provider and auto-fill base URL
-  const selectProvider = (val: string) => {
-    setProvider(val)
-    const preset = PROVIDERS.find(p => p.value === val)
-    if (preset?.url) setBaseUrl(preset.url)
-    else if (val !== 'custom') setBaseUrl('')
-  }
-
   const addFallback = () =>
     setFallbacks(prev => [...prev, { provider: 'openai', model: '', api_key: '', base_url: '', showKey: false }])
 
@@ -243,28 +235,9 @@ function ModelCenterTab() {
       {/* ── 自定义配置 ── */}
       {modelSubTab === 'custom' && (
         <div className={styles.customForm}>
-          {/* Provider 快捷选择 */}
+          {/* API Base URL */}
           <div className={styles.formRow}>
             <label className={styles.formLabel}>API Base URL</label>
-            <div className={styles.urlQuickBtns} style={{ marginBottom: 6 }}>
-              {PROVIDERS.filter(p => p.url).map(p => (
-                <button
-                  key={p.value}
-                  className={`${styles.quickBtn} ${provider === p.value ? styles.quickBtnActive : ''}`}
-                  title={p.label}
-                  onClick={() => selectProvider(p.value)}>
-                  <ProviderIcon value={p.value} size={14} />
-                  {p.abbr}
-                </button>
-              ))}
-              <button
-                className={`${styles.quickBtn} ${provider === 'custom' ? styles.quickBtnActive : ''}`}
-                title="自定义"
-                onClick={() => selectProvider('custom')}>
-                <ProviderIcon value="custom" size={14} />
-                自定义
-              </button>
-            </div>
             <input
               className={styles.formInput}
               placeholder="https://api.openai.com/v1"
