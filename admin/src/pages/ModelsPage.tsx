@@ -45,7 +45,7 @@ const PROVIDER_ICON_META: Record<string, { abbr: string; bg: string }> = {
 // Simple Icons CDN slugs for providers that have official icons
 const LOBE_ICONS: Record<string, string> = {
   openai:     'openai',
-  anthropic:  'anthropic',
+  anthropic:  'claude',
   gemini:     'gemini',
   deepseek:   'deepseek',
   qwen:       'qwen',
@@ -55,7 +55,7 @@ const LOBE_ICONS: Record<string, string> = {
   yi:         'yi',
   groq:       'groq',
   mistral:    'mistral',
-  xai:        'xai',
+  xai:        'grok',
   openrouter: 'openrouter',
   ollama:     'ollama',
 }
