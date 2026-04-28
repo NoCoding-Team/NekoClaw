@@ -198,7 +198,7 @@ function createPetWindow() {
     maximizable: false,
     movable: false,
     fullscreenable: false,
-    // thickFrame 保持默认 true，确保 DWM 正确合成透明窗口
+    thickFrame: false,
     hasShadow: false,
     roundedCorners: false,
     focusable: false,
@@ -210,9 +210,9 @@ function createPetWindow() {
     },
   })
 
-  win.setTitle('')
-  // 默认穿透 + 转发，鼠标进入时切为可交互
-  win.setIgnoreMouseEvents(true, { forward: true })
+  // Hook WM_NCCALCSIZE (0x0083): 拦截 Windows 非客户区计算，
+  // 让整个窗口都是客户区，彻底消除白色标题栏/边框渲染
+  win.hookWindowMessage(0x0083, () => {})
 
   win.once('ready-to-show', () => {
     win.showInactive()
@@ -226,16 +226,6 @@ function createPetWindow() {
 
   win.webContents.once('did-finish-load', () => {
     syncPetFlip()
-  })
-
-  // ── 鼠标进入/离开：切换穿透状态 ──
-  ipcMain.on('pet:mouse-enter', () => {
-    if (!win.isDestroyed()) win.setIgnoreMouseEvents(false)
-  })
-  ipcMain.on('pet:mouse-leave', () => {
-    if (!win.isDestroyed() && !isDragging) {
-      win.setIgnoreMouseEvents(true, { forward: true })
-    }
   })
 
   // ── 拖拽：渲染进程 mousedown → 主进程轮询光标 ──
@@ -269,7 +259,6 @@ function createPetWindow() {
   ipcMain.on('pet:drag-end', () => {
     isDragging = false
     if (dragPollTimer) { clearInterval(dragPollTimer); dragPollTimer = null }
-    if (!win.isDestroyed()) win.setIgnoreMouseEvents(true, { forward: true })
   })
 
   // 主进程驱动自动行走
@@ -295,8 +284,6 @@ function createPetWindow() {
     if (dragPollTimer) clearInterval(dragPollTimer)
     ipcMain.removeAllListeners('pet:drag-start')
     ipcMain.removeAllListeners('pet:drag-end')
-    ipcMain.removeAllListeners('pet:mouse-enter')
-    ipcMain.removeAllListeners('pet:mouse-leave')
   })
 
   if (VITE_DEV_SERVER_URL) {

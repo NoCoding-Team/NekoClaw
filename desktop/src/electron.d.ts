@@ -106,8 +106,6 @@ interface NekoBridgeSchedulerFiredTask {
 
 interface NekoBridgePet {
   onFlip(callback: (flipped: boolean) => void): () => void
-  mouseEnter(): void
-  mouseLeave(): void
   dragStart(screenX: number, screenY: number): void
   dragEnd(): void
 }

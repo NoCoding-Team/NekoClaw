@@ -25,18 +25,7 @@ export default function DesktopPet() {
     return unsub
   }, [])
 
-  // 鼠标进入猫咪区域：取消穿透以接收点击事件
-  const handleMouseEnter = useCallback(() => {
-    window.nekoBridge.pet.mouseEnter()
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    if (!dragging.current) {
-      window.nekoBridge.pet.mouseLeave()
-    }
-  }, [])
-
-  // 拖拽：mousedown → 主进程轮询光标移动窗口
+  // 拖拽：mousedown → IPC → 主进程轮询光标移动窗口
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return
     e.preventDefault()
@@ -64,8 +53,6 @@ export default function DesktopPet() {
         cursor: 'grab',
       }}
       draggable={false}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       onMouseDown={handleMouseDown}
       onDragStart={(e) => e.preventDefault()}
     >
