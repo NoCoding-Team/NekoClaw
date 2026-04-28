@@ -221,6 +221,17 @@ function ModelCenterTab() {
     }
     setSaving(true)
     setTestResult(null)
+    // 先保存配置（无论测试结果如何），再测试连接作为反馈
+    setCustomLLMConfig({
+      enabled: true,
+      provider,
+      model: model.trim(),
+      api_key: apiKey.trim(),
+      base_url: baseUrl.trim(),
+      context_limit: contextLimit,
+      temperature,
+      fallbacks: fallbacks.map(({ showKey: _sk, ...rest }) => rest),
+    })
     try {
       const result = await testLLMConfig({
         provider,
@@ -229,19 +240,6 @@ function ModelCenterTab() {
         base_url: baseUrl.trim() || undefined,
       })
       setTestResult(result)
-      if (result.ok) {
-        // Save to store/localStorage on success
-        setCustomLLMConfig({
-          enabled: true,
-          provider,
-          model: model.trim(),
-          api_key: apiKey.trim(),
-          base_url: baseUrl.trim(),
-          context_limit: contextLimit,
-          temperature,
-          fallbacks: fallbacks.map(({ showKey: _sk, ...rest }) => rest),
-        })
-      }
     } catch (e: any) {
       setTestResult({ ok: false, error: e.message })
     }
