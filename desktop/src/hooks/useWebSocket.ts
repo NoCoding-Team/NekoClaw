@@ -187,18 +187,21 @@ export function useWebSocket(sessionId: string | null) {
           source: source ?? 'chat',
           memory_policy: memoryPolicy ?? 'auto',
           ...((() => {
-            const { customLLMConfig } = useAppStore.getState()
-            if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
-            return {
-              custom_llm_config: {
-                provider: customLLMConfig.provider,
-                model: customLLMConfig.model,
-                api_key: customLLMConfig.api_key,
-                base_url: customLLMConfig.base_url || null,
-                temperature: customLLMConfig.temperature,
-                context_limit: customLLMConfig.context_limit,
-              },
+            const { customLLMConfig, selectedServerConfigId } = useAppStore.getState()
+            if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
+              return {
+                custom_llm_config: {
+                  provider: customLLMConfig.provider,
+                  model: customLLMConfig.model,
+                  api_key: customLLMConfig.api_key,
+                  base_url: customLLMConfig.base_url || null,
+                  temperature: customLLMConfig.temperature,
+                  context_limit: customLLMConfig.context_limit,
+                },
+              }
             }
+            if (selectedServerConfigId) return { llm_config_id: selectedServerConfigId }
+            return {}
           })()),
         }))
       }
@@ -252,7 +255,7 @@ export function useWebSocket(sessionId: string | null) {
                   user_message: firstUserMsg.content,
                   ai_reply: lastAiMsg?.content ?? '',
                 }
-                if (customLLMConfig.model && customLLMConfig.api_key) {
+                if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
                   body.custom_llm_config = {
                     provider: customLLMConfig.provider,
                     model: customLLMConfig.model,
@@ -707,18 +710,23 @@ export function useWebSocket(sessionId: string | null) {
         source: options?.source ?? 'chat',
         memory_policy: options?.memoryPolicy ?? 'auto',
         ...((() => {
-          const { customLLMConfig } = useAppStore.getState()
-          if (!customLLMConfig.enabled || !customLLMConfig.model || !customLLMConfig.api_key) return {}
-          return {
-            custom_llm_config: {
-              provider: customLLMConfig.provider,
-              model: customLLMConfig.model,
-              api_key: customLLMConfig.api_key,
-              base_url: customLLMConfig.base_url || null,
-              temperature: customLLMConfig.temperature,
-              context_limit: customLLMConfig.context_limit,
-            },
+          const { customLLMConfig, selectedServerConfigId } = useAppStore.getState()
+          if (customLLMConfig.enabled && customLLMConfig.model && customLLMConfig.api_key) {
+            return {
+              custom_llm_config: {
+                provider: customLLMConfig.provider,
+                model: customLLMConfig.model,
+                api_key: customLLMConfig.api_key,
+                base_url: customLLMConfig.base_url || null,
+                temperature: customLLMConfig.temperature,
+                context_limit: customLLMConfig.context_limit,
+              },
+            }
           }
+          if (selectedServerConfigId) {
+            return { llm_config_id: selectedServerConfigId }
+          }
+          return {}
         })()),
       }))
     },
