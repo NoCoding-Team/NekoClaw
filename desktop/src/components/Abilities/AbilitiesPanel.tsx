@@ -147,7 +147,7 @@ export default function AbilitiesPanel() {
                 <p className={styles.cardDesc}>{ability.desc}</p>
                 <div className={styles.toolChips}>
                   {ability.tools.map(t => (
-                    <span key={t} className={`${styles.chip} ${securityConfig.toolWhitelist.includes(t) ? styles.chipOn : ''}`}>
+                    <span key={t} className={`${styles.chip} ${ability.alwaysOn || securityConfig.toolWhitelist.includes(t) ? styles.chipOn : ''}`}>
                       {t}
                     </span>
                   ))}
