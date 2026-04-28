@@ -17,7 +17,18 @@ const APP_VERSION = '0.1.0'
 const PROVIDERS = [
   { value: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1' },
   { value: 'anthropic', label: 'Anthropic', url: 'https://api.anthropic.com' },
-  { value: 'gemini', label: 'Gemini', url: '' },
+  { value: 'gemini', label: 'Gemini (Google)', url: '' },
+  { value: 'deepseek', label: 'DeepSeek', url: 'https://api.deepseek.com/v1' },
+  { value: 'qwen', label: '通义千问 (Qwen)', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  { value: 'zhipu', label: '智谱 GLM', url: 'https://open.bigmodel.cn/api/paas/v4' },
+  { value: 'minimax', label: 'MiniMax', url: 'https://api.minimax.chat/v1' },
+  { value: 'moonshot', label: '月之暗面 (Moonshot)', url: 'https://api.moonshot.cn/v1' },
+  { value: 'yi', label: '零一万物 (Yi)', url: 'https://api.lingyiwanwu.com/v1' },
+  { value: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1' },
+  { value: 'mistral', label: 'Mistral', url: 'https://api.mistral.ai/v1' },
+  { value: 'xai', label: 'xAI (Grok)', url: 'https://api.x.ai/v1' },
+  { value: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
+  { value: 'ollama', label: 'Ollama', url: 'http://localhost:11434/v1' },
   { value: 'custom', label: '自定义', url: '' },
 ]
 
