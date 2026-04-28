@@ -176,11 +176,24 @@ function createPetWindow() {
   let petY = screenHeight - PET_SIZE
   let petDir: 1 | -1 = 1
   let isDragging = false
-  let dragPollTimer: ReturnType<typeof setInterval> | null = null
+  let mouseOverPet = false
   let dragOffsetX = 0
   let dragOffsetY = 0
 
-  // Source animation faces left by default, so moving right needs horizontal flip.
+  // 通过 koffi 调用 Win32 GetAsyncKeyState 检测鼠标按键，窗口始终保持穿透不会出白框
+  let isLeftMouseDown: () => boolean = () => false
+  if (process.platform === 'win32') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const koffi = require('koffi')
+      const user32 = koffi.load('user32.dll')
+      const GetAsyncKeyState = user32.func('short __stdcall GetAsyncKeyState(int vKey)')
+      isLeftMouseDown = () => (GetAsyncKeyState(0x01) & 0x8000) !== 0
+    } catch (e) {
+      console.warn('koffi unavailable, pet drag disabled:', e)
+    }
+  }
+
   const getFlipByDir = (dir: 1 | -1) => dir === 1
 
   const win = new BrowserWindow({
@@ -210,9 +223,9 @@ function createPetWindow() {
     },
   })
 
-  // Hook WM_NCCALCSIZE (0x0083): 拦截 Windows 非客户区计算，
-  // 让整个窗口都是客户区，彻底消除白色标题栏/边框渲染
-  win.hookWindowMessage(0x0083, () => {})
+  // 始终保持鼠标穿透 + 转发：窗口永远不可交互，绝对不会出现白框
+  // forward: true 让 mousemove/mouseenter/mouseleave 转发到渲染进程
+  win.setIgnoreMouseEvents(true, { forward: true })
 
   win.once('ready-to-show', () => {
     win.showInactive()
@@ -228,16 +241,33 @@ function createPetWindow() {
     syncPetFlip()
   })
 
-  // ── 拖拽：渲染进程 mousedown → 主进程轮询光标 ──
-  ipcMain.on('pet:drag-start', (_e, screenX: number, screenY: number) => {
-    if (win.isDestroyed()) return
-    isDragging = true
-    dragOffsetX = screenX - Math.round(petX)
-    dragOffsetY = screenY - Math.round(petY)
+  // 渲染进程通过转发事件检测鼠标悬停在猫咪上
+  ipcMain.on('pet:mouse-enter', () => { mouseOverPet = true })
+  ipcMain.on('pet:mouse-leave', () => { if (!isDragging) mouseOverPet = false })
 
-    if (dragPollTimer) clearInterval(dragPollTimer)
-    dragPollTimer = setInterval(() => {
-      if (win.isDestroyed()) { if (dragPollTimer) clearInterval(dragPollTimer); return }
+  // 统一的 tick 循环：自动行走 + 拖拽检测
+  const maxX = screenWidth - PET_SIZE
+  const tickInterval = setInterval(() => {
+    if (win.isDestroyed()) { clearInterval(tickInterval); return }
+
+    // 拖拽检测：鼠标在猫咪上 + 左键按下 → 开始拖拽
+    const mouseDown = isLeftMouseDown()
+
+    if (!isDragging && mouseOverPet && mouseDown) {
+      isDragging = true
+      const cursor = screen.getCursorScreenPoint()
+      dragOffsetX = cursor.x - Math.round(petX)
+      dragOffsetY = cursor.y - Math.round(petY)
+    }
+
+    if (isDragging) {
+      if (!mouseDown) {
+        // 松开鼠标：结束拖拽
+        isDragging = false
+        mouseOverPet = false
+        return
+      }
+      // 拖拽中：移动窗口跟随光标
       const cur = screen.getCursorScreenPoint()
       const newX = cur.x - dragOffsetX
       const newY = cur.y - dragOffsetY
@@ -253,19 +283,10 @@ function createPetWindow() {
       petX = newX
       petY = newY
       win.setPosition(newX, newY)
-    }, 16)
-  })
+      return
+    }
 
-  ipcMain.on('pet:drag-end', () => {
-    isDragging = false
-    if (dragPollTimer) { clearInterval(dragPollTimer); dragPollTimer = null }
-  })
-
-  // 主进程驱动自动行走
-  const maxX = screenWidth - PET_SIZE
-  const walkInterval = setInterval(() => {
-    if (win.isDestroyed()) { clearInterval(walkInterval); return }
-    if (isDragging) return
+    // 自动行走
     petX += petDir * SPEED
     if (petX >= maxX) {
       petX = maxX
@@ -280,10 +301,9 @@ function createPetWindow() {
   }, 16)
 
   win.on('closed', () => {
-    clearInterval(walkInterval)
-    if (dragPollTimer) clearInterval(dragPollTimer)
-    ipcMain.removeAllListeners('pet:drag-start')
-    ipcMain.removeAllListeners('pet:drag-end')
+    clearInterval(tickInterval)
+    ipcMain.removeAllListeners('pet:mouse-enter')
+    ipcMain.removeAllListeners('pet:mouse-leave')
   })
 
   if (VITE_DEV_SERVER_URL) {

@@ -89,8 +89,8 @@ export const nekoBridge = {
       ipcRenderer.on('pet:flip', handler)
       return () => { ipcRenderer.removeListener('pet:flip', handler) }
     },
-    dragStart: (screenX: number, screenY: number) => ipcRenderer.send('pet:drag-start', screenX, screenY),
-    dragEnd: () => ipcRenderer.send('pet:drag-end'),
+    mouseEnter: () => ipcRenderer.send('pet:mouse-enter'),
+    mouseLeave: () => ipcRenderer.send('pet:mouse-leave'),
   },
   scheduler: {
     sync: (tasks: Array<{

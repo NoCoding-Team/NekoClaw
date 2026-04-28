@@ -1,14 +1,12 @@
 import Lottie from 'lottie-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const CAT_SIZE = 160
 
 export default function DesktopPet() {
   const [animData, setAnimData] = useState<object | null>(null)
   const [flipped, setFlipped] = useState(true)
-  const dragging = useRef(false)
 
-  // 加载 Lottie 动画数据
   useEffect(() => {
     fetch('./animations/data-cat-walk_lottie.json')
       .then(r => (r.ok ? r.json() : null))
@@ -19,25 +17,18 @@ export default function DesktopPet() {
       .catch(() => {})
   }, [])
 
-  // 监听主进程的翻转指令
   useEffect(() => {
     const unsub = window.nekoBridge.pet.onFlip((f) => setFlipped(f))
     return unsub
   }, [])
 
-  // 拖拽：mousedown → IPC → 主进程轮询光标移动窗口
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    dragging.current = true
-    window.nekoBridge.pet.dragStart(e.screenX, e.screenY)
+  // 转发事件检测鼠标悬停，通知主进程（窗口始终穿透，拖拽由主进程处理）
+  const handleMouseEnter = useCallback(() => {
+    window.nekoBridge.pet.mouseEnter()
+  }, [])
 
-    const onMouseUp = () => {
-      dragging.current = false
-      window.nekoBridge.pet.dragEnd()
-      document.removeEventListener('mouseup', onMouseUp)
-    }
-    document.addEventListener('mouseup', onMouseUp)
+  const handleMouseLeave = useCallback(() => {
+    window.nekoBridge.pet.mouseLeave()
   }, [])
 
   if (!animData) return null
@@ -50,11 +41,9 @@ export default function DesktopPet() {
         transform: flipped ? 'scaleX(-1)' : 'none',
         background: 'transparent',
         overflow: 'hidden',
-        cursor: 'grab',
       }}
-      draggable={false}
-      onMouseDown={handleMouseDown}
-      onDragStart={(e) => e.preventDefault()}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <Lottie
         animationData={animData}
