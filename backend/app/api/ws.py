@@ -43,8 +43,9 @@ _active: dict[str, WebSocket] = {}
 # Pending tool calls waiting for PC result: call_id → asyncio.Future
 _pending_tool_calls: dict[str, asyncio.Future] = {}
 
-HEARTBEAT_INTERVAL = 30  # seconds
-HEARTBEAT_TIMEOUT = 90   # seconds
+HEARTBEAT_INTERVAL = 30  # seconds — how often server sends ping
+PING_TIMEOUT = 45        # seconds — how long to wait for any message before sending server ping
+DEAD_TIMEOUT = 90        # seconds — max silence before treating connection as dead
 
 
 async def _authenticate(websocket: WebSocket) -> str:
@@ -94,7 +95,21 @@ async def websocket_session(session_id: str, websocket: WebSocket):
 
     try:
         while True:
-            raw = await asyncio.wait_for(websocket.receive_text(), timeout=HEARTBEAT_TIMEOUT)
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=PING_TIMEOUT)
+            except asyncio.TimeoutError:
+                # No message received in PING_TIMEOUT seconds — send a server-side ping.
+                # The client should respond with a pong; if the underlying TCP connection
+                # is dead this send will raise and we'll fall through to the except below.
+                try:
+                    await websocket.send_text('{"event":"ping"}')
+                except Exception:
+                    break  # Connection is dead — exit the loop cleanly
+                # Give the client DEAD_TIMEOUT seconds to prove it's alive
+                try:
+                    raw = await asyncio.wait_for(websocket.receive_text(), timeout=DEAD_TIMEOUT)
+                except asyncio.TimeoutError:
+                    break  # Truly dead — exit cleanly
             data = json.loads(raw)
             event = data.get("event")
 
@@ -119,7 +134,9 @@ async def websocket_session(session_id: str, websocket: WebSocket):
                     if not future.done():
                         future.set_result(data)
 
-    except (WebSocketDisconnect, asyncio.TimeoutError):
+    except (WebSocketDisconnect, asyncio.CancelledError):
+        pass
+    except Exception:
         pass
     finally:
         heartbeat_task.cancel()
@@ -148,13 +165,30 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
     """Process incoming user message: persist, run LangGraph agent."""
     import traceback
     from app.services.agent import run_agent
+    from app.services.quota import check_message_quota, consume_message
 
     try:
         content = data.get("content", "")
         allowed_tools: list[str] | None = data.get("allowed_tools")  # None=all, []=none, [...]= specified list
         custom_llm_config: dict | None = data.get("custom_llm_config")  # optional user-supplied LLM config
+        llm_config_id: str | None = data.get("llm_config_id")  # optional server config ID override
         source = data.get("source")
         memory_policy = data.get("memory_policy")
+        quota_exempt_sources = {"scheduled_task", "daily_note"}
+
+        # ── Quota check (only for chat Q&A) ───────────────────────────────
+        if source not in quota_exempt_sources:
+            async with AsyncSessionLocal() as db:
+                user_obj = await db.get(User, user_id)
+                if user_obj:
+                    allowed, limit, used = await check_message_quota(user_obj, db)
+                    if not allowed:
+                        await send_event(ws, "quota_exceeded", {
+                            "type": "message",
+                            "limit": limit,
+                            "used": used,
+                        })
+                        return
 
         # Persist user message
         async with AsyncSessionLocal() as db:
@@ -189,7 +223,12 @@ async def _handle_message(session_id: str, user_id: str, data: dict, ws: WebSock
                 ws=ws,
                 allowed_tools_override=allowed_tools,
                 custom_llm_config=custom_llm_config,
+                llm_config_id=llm_config_id,
             )
+            # Consume message quota only for chat (Q&A)
+            if source not in quota_exempt_sources:
+                async with AsyncSessionLocal() as db:
+                    await consume_message(user_id, db)
         except Exception as exc:
             traceback.print_exc()
             err_msg = f"⚠️ Agent 执行出错: {exc}"
