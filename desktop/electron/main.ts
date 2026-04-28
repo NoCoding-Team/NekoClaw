@@ -208,6 +208,9 @@ function createPetWindow() {
     },
   })
 
+  // 清除窗口标题，防止 Windows 鼠标悬停时显示 tooltip
+  win.setTitle('')
+
   win.once('ready-to-show', () => {
     win.showInactive()
   })
