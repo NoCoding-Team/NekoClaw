@@ -66,7 +66,7 @@ function ProviderIcon({ value, size = 20 }: { value: string; size?: number }) {
   if (slug) {
     return (
       <img
-        src={`https://unpkg.com/@lobehub/icons-static-png@latest/dark/${slug}.png`}
+        src={`https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/dark/${slug}.png`}
         width={size} height={size}
         alt={value}
         style={{ display: 'block', borderRadius: 4, flexShrink: 0 }}
