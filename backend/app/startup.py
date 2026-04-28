@@ -5,7 +5,7 @@ import re
 import shutil
 from datetime import date, datetime, timedelta, timezone
 from app.models.base import engine, Base, AsyncSessionLocal
-from app.models import user, session, message, llm_config, memory, scheduled_task, scheduled_task_run, skill_config  # noqa: F401 - ensure all models are registered
+from app.models import user, session, message, llm_config, memory, scheduled_task, scheduled_task_run, skill_config, daily_usage  # noqa: F401 - ensure all models are registered
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +222,50 @@ async def create_tables():
                 """
             )
         )
+        # Admin panel: user daily quota fields
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_message_limit INTEGER NOT NULL DEFAULT 100"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_creation_limit INTEGER NOT NULL DEFAULT 50"
+            )
+        )
+        # Keep DB defaults aligned with runtime quota reset values
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE users ALTER COLUMN daily_message_limit SET DEFAULT 100"
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE users ALTER COLUMN daily_creation_limit SET DEFAULT 50"
+            )
+        )
+        # Admin panel: per-user daily usage tracking table
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                """
+                CREATE TABLE IF NOT EXISTS user_daily_usage (
+                    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    date DATE NOT NULL,
+                    messages_used INTEGER NOT NULL DEFAULT 0,
+                    creation_used INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    deleted_at TIMESTAMPTZ NULL,
+                    PRIMARY KEY (user_id, date)
+                )
+                """
+            )
+        )
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "CREATE INDEX IF NOT EXISTS idx_user_daily_usage_user_id ON user_daily_usage (user_id)"
+            )
+        )
 
 
 _DATE_FILE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\.md$")
@@ -319,8 +363,45 @@ async def _backfill_scheduled_task_state() -> None:
             await db.commit()
 
 
+async def _ensure_admin_user() -> None:
+    """如果 .env 配置了 ADMIN_USERNAME/ADMIN_PASSWORD，首次启动时自动创建管理员账号。"""
+    from app.core.config import settings
+    from app.core.security import hash_password
+    from app.models.user import User
+    from sqlalchemy import select
+
+    username = settings.ADMIN_USERNAME.strip()
+    password = settings.ADMIN_PASSWORD.strip()
+    if not username or not password:
+        return
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.username == username))
+        existing = result.scalar_one_or_none()
+        if existing is not None:
+            # 已存在：仅确保 is_admin=True
+            if not existing.is_admin:
+                existing.is_admin = True
+                await db.commit()
+                logger.info("ensure_admin: upgraded '%s' to admin", username)
+            else:
+                logger.info("ensure_admin: admin user '%s' already exists, skipped", username)
+            return
+        admin = User(
+            id=str(uuid.uuid4()),
+            username=username,
+            hashed_password=hash_password(password),
+            is_admin=True,
+        )
+        db.add(admin)
+        await db.commit()
+        logger.info("ensure_admin: created admin user '%s'", username)
+
+
 async def on_startup():
     await create_tables()
+    # 自动创建初始管理员账号（.env ADMIN_USERNAME / ADMIN_PASSWORD）
+    await _ensure_admin_user()
     # Backfill scheduled task derived state for older databases.
     await _backfill_scheduled_task_state()
     # Migrate daily notes from root to notes/ subfolder
@@ -340,6 +421,11 @@ async def on_startup():
     # Start daily note generation cron (23:50 local time)
     from app.services.daily_note import start_daily_note_cron
     start_daily_note_cron()
+    # Apply quota defaults immediately and then reset daily at 00:00
+    from app.services.quota import apply_daily_quota_limits_now, start_daily_quota_reset_background
+    updated = await apply_daily_quota_limits_now()
+    logger.info("quota_reset: startup applied users=%d message_limit=100 creation_limit=50", updated)
+    start_daily_quota_reset_background()
     # Pre-load jieba dictionary to avoid first-search delay
     import jieba
     jieba.initialize()

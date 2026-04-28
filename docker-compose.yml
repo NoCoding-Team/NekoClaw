@@ -10,10 +10,11 @@ services:
     volumes:
       - ./backend/app:/app/app:ro
       - ./backend/skills:/app/skills:ro
+      - ./admin/dist:/app/static/admin:ro
       - ./memory:/app/data/memory
       - ./skills:/app/data/skills
     env_file:
-      - ./backend/.env
+      - ./.env
     environment:
       MEMORY_FILES_DIR: /app/data/memory
       SKILLS_FILES_DIR: /app/data/skills

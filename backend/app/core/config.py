@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     # Milvus 向量数据库
     MILVUS_URI: str = ""
     MILVUS_COLLECTION: str = "memory_vectors"
+    # 初始管理员账号（首次启动时自动创建，已存在则跳过）
+    ADMIN_USERNAME: str = ""
+    ADMIN_PASSWORD: str = ""
+    # 每日配额重置配置
+    QUOTA_TIMEZONE: str = "Asia/Shanghai"
+    DAILY_MESSAGE_RESET_LIMIT: int = 100
+    DAILY_CREATION_RESET_LIMIT: int = 50
     # 桌面 Electron 应用从 file:// 加载时 Origin 为 null，使用 * 放行所有来源
     # 生产环境可在 .env 中设置为具体域名，如 https://yourdomain.com
     CORS_ORIGINS: str = "*"

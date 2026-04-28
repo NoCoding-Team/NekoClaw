@@ -1,6 +1,7 @@
 ---
 name: chart-analysis
 description: 使用 Python 分析数据并生成图表
+default_enabled: true
 triggers:
   - 画图
   - 图表

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, Boolean, Text, UniqueConstraint
+from sqlalchemy import String, Boolean, Text, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import BaseModel
@@ -15,3 +15,6 @@ class User(BaseModel):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     nickname: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     avatar_data: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    # -1 means unlimited
+    daily_message_limit: Mapped[int] = mapped_column(Integer, default=100, nullable=False, server_default="100")
+    daily_creation_limit: Mapped[int] = mapped_column(Integer, default=50, nullable=False, server_default="50")

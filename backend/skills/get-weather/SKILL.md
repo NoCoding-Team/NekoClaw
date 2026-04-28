@@ -1,6 +1,7 @@
 ---
 name: get-weather
 description: 获取指定城市的实时天气信息
+default_enabled: true
 triggers:
   - 天气
   - weather

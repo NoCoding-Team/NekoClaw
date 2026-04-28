@@ -31,6 +31,7 @@ class SkillMeta:
     version: str = "1.0"
     path: str = ""  # absolute path to the skill directory
     source: str = "builtin"  # "builtin" | "user"
+    default_enabled: bool = True  # default enabled state for new users
 
 
 # ── Scanning ───────────────────────────────────────────────────────────────
@@ -108,15 +109,15 @@ async def ensure_user_skill_configs(user_id: str, db: AsyncSession) -> None:
     if not builtin:
         return
 
-    # Batch insert with conflict ignore
-    for name in builtin:
+    # Batch insert with conflict ignore, respecting default_enabled from frontmatter
+    for name, meta in builtin.items():
         await db.execute(
             text(
                 "INSERT INTO skills_config (user_id, skill_name, enabled, source, created_at, updated_at) "
-                "VALUES (:uid, :name, true, 'builtin', NOW(), NOW()) "
+                "VALUES (:uid, :name, :enabled, 'builtin', NOW(), NOW()) "
                 "ON CONFLICT (user_id, skill_name) DO NOTHING"
             ),
-            {"uid": user_id, "name": name},
+            {"uid": user_id, "name": name, "enabled": meta.default_enabled},
         )
     await db.commit()
 
@@ -284,6 +285,7 @@ def _parse_frontmatter(skill_file: Path, name: str, source: str = "builtin") -> 
         version=str(fm.get("version", "1.0")),
         path=str(skill_file.parent),
         source=source,
+        default_enabled=bool(fm.get("default_enabled", True)),
     )
 
 

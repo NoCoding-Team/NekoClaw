@@ -9,6 +9,7 @@ const STORAGE_SECURITY = 'neko_security'
 const STORAGE_SYNC_ENABLED = 'neko_sync_enabled'
 const STORAGE_CUSTOM_LLM = 'neko_custom_llm'
 const STORAGE_TOOLS_CONFIG = 'neko_tools_config'
+const STORAGE_SELECTED_CONFIG = 'neko_selected_config_id'
 
 function loadServerUrl(): string {
   return localStorage.getItem(STORAGE_SERVER) ?? 'http://localhost:8000'
@@ -290,6 +291,10 @@ export interface AppState {
   customLLMConfig: CustomLLMConfig
   setCustomLLMConfig: (cfg: Partial<CustomLLMConfig>) => void
 
+  // Selected server-managed LLM config ID (null = use default)
+  selectedServerConfigId: string | null
+  setSelectedServerConfigId: (id: string | null) => void
+
   // Tools config (API keys for local tool execution)
   toolsConfig: ToolsConfig
   setToolsConfig: (cfg: Partial<ToolsConfig>) => void
@@ -463,6 +468,13 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.setItem(STORAGE_CUSTOM_LLM, JSON.stringify(next))
       return { customLLMConfig: next }
     }),
+
+  selectedServerConfigId: localStorage.getItem(STORAGE_SELECTED_CONFIG) ?? null,
+  setSelectedServerConfigId: (id) => {
+    if (id) localStorage.setItem(STORAGE_SELECTED_CONFIG, id)
+    else localStorage.removeItem(STORAGE_SELECTED_CONFIG)
+    set({ selectedServerConfigId: id })
+  },
 
   toolsConfig: loadToolsConfig(),
   setToolsConfig: (patch) =>

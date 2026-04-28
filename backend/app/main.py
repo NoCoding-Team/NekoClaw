@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
 import logging
+import os
 import time
 import collections
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.core.config import settings
 from app.api.router import api_router
@@ -53,6 +54,28 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
+
+# Mount admin SPA (built output from admin/dist/)
+_admin_dir = os.path.join(os.path.dirname(__file__), "..", "static", "admin")
+_admin_index = os.path.join(_admin_dir, "index.html")
+
+
+@app.get("/admin", include_in_schema=False)
+@app.get("/admin/{full_path:path}", include_in_schema=False)
+async def admin_spa_fallback(full_path: str = ""):
+    """Serve admin SPA: return actual static file if exists, otherwise return index.html."""
+    if not os.path.isfile(_admin_index):
+        return JSONResponse(status_code=503, content={"detail": "Admin panel not deployed. Please build admin/dist first."})
+    # Try to serve a real static asset (js/css/images etc.)
+    if full_path:
+        file_path = os.path.join(_admin_dir, full_path)
+        # Prevent path traversal
+        real_file = os.path.realpath(file_path)
+        real_admin = os.path.realpath(_admin_dir)
+        if real_file.startswith(real_admin) and os.path.isfile(real_file):
+            return FileResponse(real_file)
+    # All other paths → SPA entry point
+    return FileResponse(_admin_index)
 
 
 @app.get("/", include_in_schema=False)

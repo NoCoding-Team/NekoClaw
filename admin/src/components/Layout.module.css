@@ -1,0 +1,87 @@
+.layout {
+  display: flex;
+  height: 100%;
+}
+
+.sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.logoIcon {
+  font-size: 20px;
+}
+
+.nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.navItem:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.navItemActive {
+  background: var(--accent-light);
+  color: var(--accent-hover);
+}
+
+.navIcon {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.logoutBtn {
+  margin: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.logoutBtn:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg-primary);
+}

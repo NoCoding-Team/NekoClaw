@@ -46,6 +46,7 @@ async def run_agent(
     ws: Any,
     allowed_tools_override: list[str] | None = None,
     custom_llm_config: dict | None = None,
+    llm_config_id: str | None = None,
 ) -> None:
     """Invoke the LangGraph agent for a single user-message turn.
 
@@ -61,5 +62,6 @@ async def run_agent(
         "user_turn_count": 0,
         "allowed_tools": allowed_tools_override,
         "custom_llm_config": custom_llm_config,
+        "llm_config_id": llm_config_id,
     }
     await _graph.ainvoke(initial_state)

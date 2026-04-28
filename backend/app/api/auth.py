@@ -14,6 +14,7 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UpdateProfileRequest, UserResponse
+from app.services.quota import get_or_create_usage, quota_today
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -108,4 +109,19 @@ async def update_profile(
         nickname=current_user.nickname,
         avatar_data=current_user.avatar_data,
     )
+
+
+@router.get("/me/quota")
+async def get_my_quota(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    today = quota_today()
+    usage = await get_or_create_usage(current_user.id, today, db)
+    return {
+        "daily_message_limit": current_user.daily_message_limit,
+        "daily_creation_limit": current_user.daily_creation_limit,
+        "messages_used_today": usage.messages_used,
+        "creation_used_today": usage.creation_used,
+    }
 

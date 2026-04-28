@@ -32,3 +32,5 @@ class AgentState(TypedDict):
     # Keys: provider, model, api_key, base_url, temperature, context_limit.
     # When present, overrides DB-looked-up config in the prepare node.
     custom_llm_config: dict | None
+    # Optional: ID of a server-managed LLMConfig to use (overrides default selection).
+    llm_config_id: str | None

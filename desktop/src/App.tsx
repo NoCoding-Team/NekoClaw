@@ -13,18 +13,27 @@ import { apiFetch } from './api/apiFetch'
 import { WebSocketManager } from './components/WebSocketManager'
 
 export default function App() {
-  const { token, serverConnected, serverUrl, setSessions, setActiveSession, setProfile } = useAppStore()
+  const { token, serverConnected, serverUrl, setSessions, setActiveSession, setProfile, clearAuth } = useAppStore()
 
   // 旧版本地记忆迁移弹窗状态
   const [migrateEntries, setMigrateEntries] = useState<Array<{ id: string; category: string; content: string; created_at: string }> | null>(null)
   const [migrating, setMigrating] = useState(false)
+  const [adminError, setAdminError] = useState('')
 
   // 登录状态恢复时拉取用户信息
   useEffect(() => {
     if (!token) return
     apiFetch(`${serverUrl}/api/auth/me`)
       .then(r => r.ok ? r.json() : null)
-      .then(me => { if (me) setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null) })
+      .then(me => {
+        if (!me) return
+        if (me.is_admin) {
+          clearAuth()
+          setAdminError(`管理员账号请访问 Web 管理端：${serverUrl}/admin/`)
+          return
+        }
+        setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null)
+      })
       .catch(() => {})
   }, [token]) // eslint-disable-line
 
@@ -88,6 +97,13 @@ export default function App() {
   }, [token])
 
   if (!serverConnected) return <ConnectForm />
+  if (!token && adminError) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 16, background: '#0d0d14', color: '#e0e0f0' }}>
+      <div style={{ fontSize: 20 }}>🐾</div>
+      <div style={{ color: '#e74c3c', fontSize: 14 }}>{adminError}</div>
+      <button onClick={() => setAdminError('')} style={{ padding: '6px 16px', borderRadius: 6, background: '#7c5cbf', color: 'white', border: 'none', cursor: 'pointer' }}>返回登录</button>
+    </div>
+  )
   if (!token) return <LoginForm />
   return (
     <div className={styles.layout}>
@@ -292,6 +308,10 @@ function LoginForm() {
         })
         if (meRes.ok) {
           const me = await meRes.json()
+          if (me.is_admin) {
+            setAuth('', '', '', '')
+            throw new Error(`管理员账号请访问 Web 管理端：${serverUrl}/admin/`)
+          }
           setProfile(me.id, me.username, me.nickname ?? null, me.avatar_data ?? null)
         }
       } else {

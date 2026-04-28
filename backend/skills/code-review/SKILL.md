@@ -1,6 +1,7 @@
 ---
 name: code-review
 description: 审查代码文件，找出问题并给出改进建议
+default_enabled: true
 triggers:
   - 代码审查
   - review

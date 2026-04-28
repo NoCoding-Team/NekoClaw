@@ -1,6 +1,7 @@
 ---
 name: summarize-webpage
 description: 获取网页内容并生成摘要
+default_enabled: true
 triggers:
   - 总结网页
   - 网页摘要
