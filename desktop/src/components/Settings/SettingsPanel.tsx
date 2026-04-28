@@ -15,21 +15,21 @@ const APP_VERSION = '0.1.0'
 
 // ── ModelCenterTab ────────────────────────────────────────────────────────────
 const PROVIDERS = [
-  { value: 'openai',     label: 'OpenAI',               abbr: 'OA', url: 'https://api.openai.com/v1' },
-  { value: 'anthropic',  label: 'Anthropic',             abbr: 'AN', url: 'https://api.anthropic.com' },
-  { value: 'gemini',     label: 'Gemini (Google)',        abbr: 'G',  url: '' },
-  { value: 'deepseek',   label: 'DeepSeek',              abbr: 'DS', url: 'https://api.deepseek.com/v1' },
-  { value: 'qwen',       label: '通义千问 (Qwen)',      abbr: 'QW', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-  { value: 'zhipu',      label: '智谱 GLM',             abbr: 'GL', url: 'https://open.bigmodel.cn/api/paas/v4' },
-  { value: 'minimax',    label: 'MiniMax',               abbr: 'MM', url: 'https://api.minimax.chat/v1' },
-  { value: 'moonshot',   label: '月之暗面 (Moonshot)',  abbr: 'KI', url: 'https://api.moonshot.cn/v1' },
-  { value: 'yi',         label: '零一万物 (Yi)',        abbr: 'Yi', url: 'https://api.lingyiwanwu.com/v1' },
-  { value: 'groq',       label: 'Groq',                  abbr: 'GQ', url: 'https://api.groq.com/openai/v1' },
-  { value: 'mistral',    label: 'Mistral',               abbr: 'MI', url: 'https://api.mistral.ai/v1' },
-  { value: 'xai',        label: 'xAI (Grok)',            abbr: 'xI', url: 'https://api.x.ai/v1' },
-  { value: 'openrouter', label: 'OpenRouter',            abbr: 'OR', url: 'https://openrouter.ai/api/v1' },
-  { value: 'ollama',     label: 'Ollama',                abbr: 'OL', url: 'http://localhost:11434/v1' },
-  { value: 'custom',     label: '自定义',               abbr: '··', url: '' },
+  { value: 'openai',     label: 'OpenAI',      abbr: 'OA', url: 'https://api.openai.com/v1' },
+  { value: 'anthropic',  label: 'Claude',      abbr: 'AN', url: 'https://api.anthropic.com' },
+  { value: 'gemini',     label: 'Gemini',      abbr: 'G',  url: '' },
+  { value: 'deepseek',   label: 'DeepSeek',    abbr: 'DS', url: 'https://api.deepseek.com/v1' },
+  { value: 'qwen',       label: 'Qwen',        abbr: 'QW', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  { value: 'zhipu',      label: 'GLM',         abbr: 'GL', url: 'https://open.bigmodel.cn/api/paas/v4' },
+  { value: 'minimax',    label: 'MiniMax',     abbr: 'MM', url: 'https://api.minimax.chat/v1' },
+  { value: 'moonshot',   label: 'Moonshot',    abbr: 'KI', url: 'https://api.moonshot.cn/v1' },
+  { value: 'yi',         label: 'Yi',          abbr: 'Yi', url: 'https://api.lingyiwanwu.com/v1' },
+  { value: 'groq',       label: 'Groq',        abbr: 'GQ', url: 'https://api.groq.com/openai/v1' },
+  { value: 'mistral',    label: 'Mistral',     abbr: 'MI', url: 'https://api.mistral.ai/v1' },
+  { value: 'xai',        label: 'Grok',        abbr: 'xI', url: 'https://api.x.ai/v1' },
+  { value: 'openrouter', label: 'OpenRouter',  abbr: 'OR', url: 'https://openrouter.ai/api/v1' },
+  { value: 'ollama',     label: 'Ollama',      abbr: 'OL', url: 'http://localhost:11434/v1' },
+  { value: 'custom',     label: '自定义',      abbr: '··', url: '' },
 ]
 
 const PROVIDER_ICON_META: Record<string, { bg: string }> = {

@@ -8,17 +8,17 @@ import styles from './ModelsPage.module.css'
 // ── Provider icon data ─────────────────────────────────────────────────────
 const PROVIDERS_LIST = [
   { value: 'openai',     label: 'OpenAI' },
-  { value: 'anthropic',  label: 'Anthropic' },
-  { value: 'gemini',     label: 'Gemini (Google)' },
+  { value: 'anthropic',  label: 'Claude' },
+  { value: 'gemini',     label: 'Gemini' },
   { value: 'deepseek',   label: 'DeepSeek' },
-  { value: 'qwen',       label: '通义千问 (Qwen)' },
-  { value: 'zhipu',      label: '智谱 GLM' },
+  { value: 'qwen',       label: 'Qwen' },
+  { value: 'zhipu',      label: 'GLM' },
   { value: 'minimax',    label: 'MiniMax' },
-  { value: 'moonshot',   label: '月之暗面 (Moonshot)' },
-  { value: 'yi',         label: '零一万物 (Yi)' },
+  { value: 'moonshot',   label: 'Moonshot' },
+  { value: 'yi',         label: 'Yi' },
   { value: 'groq',       label: 'Groq' },
   { value: 'mistral',    label: 'Mistral' },
-  { value: 'xai',        label: 'xAI (Grok)' },
+  { value: 'xai',        label: 'Grok' },
   { value: 'openrouter', label: 'OpenRouter' },
   { value: 'ollama',     label: 'Ollama' },
   { value: 'custom',     label: '自定义' },
@@ -244,10 +244,10 @@ function ConfigModal({
           名称
           <input className={styles.input} value={form.name} onChange={field('name')} />
         </label>
-        <label className={styles.label}>
+        <div className={styles.label}>
           提供商
           <ProviderSelect value={form.provider} onChange={v => setForm(f => ({ ...f, provider: v }))} />
-        </label>
+        </div>
         <label className={styles.label}>
           模型 ID
           <input className={styles.input} value={form.model} onChange={field('model')} placeholder="gpt-4o" />
