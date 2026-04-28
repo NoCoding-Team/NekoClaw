@@ -34,7 +34,6 @@ from app.models.session import Session
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-COMPRESS_RATIO = 0.70       # trigger compression when history > 70% of context_limit
 MAX_TOOL_RESULT_CHARS = 8000
 
 # ── Tool groups for dynamic tool rules ────────────────────────────────────
@@ -518,66 +517,6 @@ def _iter_extra_memory_markdown_files(user_dir: str) -> list[tuple[str, str]]:
                 continue
             files.append((rel_path, abs_path))
     return sorted(files, key=lambda item: item[0])
-
-
-# ── History compression ─────────────────────────────────────────────────────
-
-
-async def compress_history(
-    session_id: str,
-    history: list[Any],  # list[Message ORM]
-    context_limit: int,
-    llm_config: Any | None,
-) -> list[Any]:
-    """Compress the earliest messages into a summary. Returns new ORM list."""
-    to_compress = history[:-20]
-    to_keep = history[-20:]
-
-    if not to_compress or not llm_config:
-        return history
-
-    conversation_text = "\n".join(f"{m.role}: {m.content or ''}" for m in to_compress)
-    summary_prompt = [
-        SystemMessage(content="请将以下对话历史压缩为简洁摘要，保留关键信息和决策："),
-        HumanMessage(content=conversation_text),
-    ]
-
-    try:
-        from app.services.agent.provider import get_chat_model
-
-        model = get_chat_model(llm_config)
-        resp = await model.ainvoke(summary_prompt)
-        summary = resp.content if isinstance(resp.content, str) else "（历史对话摘要）"
-    except Exception:
-        summary = "（历史对话已压缩）"
-
-    now = datetime.now(timezone.utc)
-    async with AsyncSessionLocal() as db:
-        # Soft-delete compressed messages
-        for m in to_compress:
-            db_msg = await db.get(Message, m.id)
-            if db_msg:
-                db_msg.deleted_at = now
-
-        result = await db.execute(
-            select(func.coalesce(func.max(Message.seq), 0)).where(
-                Message.session_id == session_id
-            )
-        )
-        next_seq = (result.scalar() or 0) + 1
-
-        summary_msg = Message(
-            id=str(uuid.uuid4()),
-            session_id=session_id,
-            role="system",
-            content=f"[对话历史摘要]\n{summary}",
-            seq=next_seq,
-        )
-        db.add(summary_msg)
-        await db.commit()
-        await db.refresh(summary_msg)
-
-    return [summary_msg] + list(to_keep)
 
 
 # ── Memory refresh ──────────────────────────────────────────────────────────

@@ -22,7 +22,6 @@ from app.models.session import Session
 from app.services.agent.callbacks import WebSocketStreamHandler
 from app.services.agent.context import (
     build_system_prompt,
-    compress_history,
     estimate_tokens,
     memory_refresh,
     prune_tool_results,
@@ -147,12 +146,13 @@ async def prepare(state: AgentState) -> dict:
     session_id = state["session_id"]
     user_id = state["user_id"]
     custom_llm_cfg = state.get("custom_llm_config")
+    llm_config_id: str | None = state.get("llm_config_id")  # type: ignore[assignment]
 
     async with AsyncSessionLocal() as db:
         # Session
         session = await db.get(Session, session_id)
 
-        # LLM config: custom (from client) > user-owned default > global default
+        # LLM config: custom (from client) > specific config by ID > user-owned default > global default
         llm_config = None
         if custom_llm_cfg:
             # Build a duck-typed config object from client-supplied data.
@@ -169,7 +169,18 @@ async def prepare(state: AgentState) -> dict:
                 api_key_encrypted = _enc(custom_llm_cfg.get("api_key", ""))
 
             llm_config = _CustomConfig()
-        else:
+        elif llm_config_id:
+            # User selected a specific server-managed config by ID
+            result = await db.execute(
+                select(LLMConfig).where(
+                    LLMConfig.id == llm_config_id,
+                    LLMConfig.deleted_at.is_(None),
+                )
+            )
+            llm_config = result.scalar_one_or_none()
+            # Fall back to defaults if ID not found
+        
+        if not llm_config:
             result = await db.execute(
                 select(LLMConfig).where(
                     LLMConfig.owner_id == user_id,
