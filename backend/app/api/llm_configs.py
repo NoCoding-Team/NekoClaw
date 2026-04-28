@@ -31,13 +31,13 @@ async def test_llm_connection(
 
         if provider == "anthropic":
             from langchain_anthropic import ChatAnthropic  # type: ignore[import-untyped]
-            model = ChatAnthropic(model=body.model, api_key=api_key, temperature=0.7, streaming=False)  # type: ignore[call-arg]
+            model = ChatAnthropic(model=body.model, api_key=api_key, temperature=body.temperature, streaming=False)  # type: ignore[call-arg]
         elif provider in ("gemini", "google"):
             from langchain_google_genai import ChatGoogleGenerativeAI  # type: ignore[import-untyped]
-            model = ChatGoogleGenerativeAI(model=body.model, google_api_key=api_key, temperature=0.7)  # type: ignore[call-arg]
+            model = ChatGoogleGenerativeAI(model=body.model, google_api_key=api_key, temperature=body.temperature)  # type: ignore[call-arg]
         else:
             from langchain_openai import ChatOpenAI  # type: ignore[import-untyped]
-            kwargs: dict = {"model": body.model, "api_key": api_key, "temperature": 0.7, "streaming": False}
+            kwargs: dict = {"model": body.model, "api_key": api_key, "temperature": body.temperature, "streaming": False}
             if body.base_url:
                 kwargs["base_url"] = body.base_url
             model = ChatOpenAI(**kwargs)  # type: ignore[call-arg]
@@ -138,7 +138,7 @@ async def update_my_llm_config(
         config.name = body.name
     if body.model is not None:
         config.model = body.model
-    if body.api_key is not None:
+    if body.api_key is not None and body.api_key.strip() != "":
         config.api_key_encrypted = encrypt_api_key(body.api_key)
     if body.base_url is not None:
         config.base_url = body.base_url
@@ -230,7 +230,7 @@ async def update_llm_config(
         config.name = body.name
     if body.model is not None:
         config.model = body.model
-    if body.api_key is not None:
+    if body.api_key is not None and body.api_key.strip() != "":
         config.api_key_encrypted = encrypt_api_key(body.api_key)
     if body.base_url is not None:
         config.base_url = body.base_url
@@ -317,7 +317,7 @@ async def update_llm_config(
         config.name = body.name
     if body.model is not None:
         config.model = body.model
-    if body.api_key is not None:
+    if body.api_key is not None and body.api_key.strip() != "":
         config.api_key_encrypted = encrypt_api_key(body.api_key)
     if body.base_url is not None:
         config.base_url = body.base_url

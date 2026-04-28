@@ -202,7 +202,7 @@ function ConfigModal({
     setTesting(true)
     setTestResult(null)
     try {
-      const res = await testLLMConfig({ provider: form.provider, model: form.model, api_key: apiKey, base_url: form.base_url })
+      const res = await testLLMConfig({ provider: form.provider, model: form.model, api_key: apiKey, base_url: form.base_url, temperature: form.temperature })
       setTestResult(res)
     } catch {
       setTestResult({ ok: false, latency_ms: null, error: '请求失败' })
