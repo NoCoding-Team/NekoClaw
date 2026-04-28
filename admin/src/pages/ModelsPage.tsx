@@ -7,7 +7,7 @@ import styles from './ModelsPage.module.css'
 
 // ── Provider icon data ─────────────────────────────────────────────────────
 const PROVIDERS_LIST = [
-  { value: 'openai',     label: 'OpenAI' },
+  { value: 'openai',     label: 'ChatGPT' },
   { value: 'anthropic',  label: 'Claude' },
   { value: 'gemini',     label: 'Gemini' },
   { value: 'deepseek',   label: 'DeepSeek' },
@@ -49,7 +49,7 @@ const LOBE_ICONS: Record<string, string> = {
   gemini:     'gemini',
   deepseek:   'deepseek',
   qwen:       'qwen',
-  zhipu:      'zhipu',
+  zhipu:      'chatglm',
   minimax:    'minimax',
   moonshot:   'kimi',
   yi:         'yi',

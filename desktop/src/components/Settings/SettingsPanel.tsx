@@ -15,12 +15,12 @@ const APP_VERSION = '0.1.0'
 
 // ── ModelCenterTab ────────────────────────────────────────────────────────────
 const PROVIDERS = [
-  { value: 'openai',     label: 'OpenAI',      abbr: 'OA', url: 'https://api.openai.com/v1' },
+  { value: 'openai',     label: 'ChatGPT',     abbr: 'GP', url: 'https://api.openai.com/v1' },
   { value: 'anthropic',  label: 'Claude',      abbr: 'CL', url: 'https://api.anthropic.com' },
   { value: 'gemini',     label: 'Gemini',      abbr: 'GE', url: '' },
   { value: 'deepseek',   label: 'DeepSeek',    abbr: 'DS', url: 'https://api.deepseek.com/v1' },
   { value: 'qwen',       label: 'Qwen',        abbr: 'QW', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-  { value: 'zhipu',      label: '智谱AI',      abbr: 'ZP', url: 'https://open.bigmodel.cn/api/paas/v4' },
+  { value: 'zhipu',      label: 'ChatGLM',     abbr: 'GL', url: 'https://open.bigmodel.cn/api/paas/v4' },
   { value: 'minimax',    label: 'MiniMax',     abbr: 'MM', url: 'https://api.minimax.chat/v1' },
   { value: 'moonshot',   label: 'Kimi',        abbr: 'KI', url: 'https://api.moonshot.cn/v1' },
   { value: 'yi',         label: 'Yi',          abbr: 'Yi', url: 'https://api.lingyiwanwu.com/v1' },
@@ -57,7 +57,7 @@ const LOBE_ICONS: Record<string, string> = {
   gemini:     'gemini',
   deepseek:   'deepseek',
   qwen:       'qwen',
-  zhipu:      'zhipu',
+  zhipu:      'chatglm',
   minimax:    'minimax',
   moonshot:   'kimi',
   yi:         'yi',
