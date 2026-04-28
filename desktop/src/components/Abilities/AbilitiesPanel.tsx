@@ -86,6 +86,16 @@ const ABILITIES: Ability[] = [
     tools: ['memory_read', 'memory_write', 'search_memory'],
     alwaysOn: true,
   },
+  {
+    id: 'skill_read',
+    icon: '🧩',
+    name: '技能读取',
+    desc: '读取猫技库中的技能文件（SKILL.md），让 Agent 按需加载完整的任务操作指南',
+    executor: 'server',
+    executorLabel: '服务端执行',
+    tools: ['read_skill'],
+    alwaysOn: true,
+  },
 ]
 
 export default function AbilitiesPanel() {
