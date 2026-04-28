@@ -1,12 +1,11 @@
 import Lottie from 'lottie-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const CAT_SIZE = 160
 
 export default function DesktopPet() {
   const [animData, setAnimData] = useState<object | null>(null)
   const [flipped, setFlipped] = useState(true)
-  const isDragging = useRef(false)
 
   // 加载 Lottie 动画数据
   useEffect(() => {
@@ -25,63 +24,19 @@ export default function DesktopPet() {
     return unsub
   }, [])
 
-  // ── 拖拽逻辑 ──
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    isDragging.current = true
-    window.nekoBridge.pet.dragStart()
-
-    const onMouseMove = () => {
-      if (isDragging.current) {
-        window.nekoBridge.pet.dragMove()
-      }
-    }
-
-    const onMouseUp = () => {
-      isDragging.current = false
-      window.nekoBridge.pet.dragEnd()
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
-    }
-
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
-  }, [])
-
-  // 鼠标进入/离开通知主进程切换穿透状态
-  const handleMouseEnter = useCallback(() => {
-    window.nekoBridge.pet.mouseEnter()
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    if (!isDragging.current) {
-      window.nekoBridge.pet.mouseLeave()
-    }
-  }, [])
-
-  // 双击恢复自动行走
-  const handleDoubleClick = useCallback(() => {
-    window.nekoBridge.pet.resumeWalk()
-  }, [])
-
   if (!animData) return null
 
   return (
     <div
+      className="pet-draggable"
       style={{
         width: CAT_SIZE,
         height: CAT_SIZE,
         transform: flipped ? 'scaleX(-1)' : 'none',
         background: 'transparent',
         overflow: 'hidden',
-        cursor: 'grab',
       }}
       draggable={false}
-      onMouseDown={handleMouseDown}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onDoubleClick={handleDoubleClick}
       onDragStart={(e) => e.preventDefault()}
     >
       <Lottie

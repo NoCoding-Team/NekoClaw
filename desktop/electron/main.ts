@@ -176,7 +176,7 @@ function createPetWindow() {
   let petY = screenHeight - PET_SIZE
   let petDir: 1 | -1 = 1
   let isDragging = false
-  let walkingEnabled = true
+  let dragTimer: ReturnType<typeof setTimeout> | null = null
 
   // Source animation faces left by default, so moving right needs horizontal flip.
   const getFlipByDir = (dir: 1 | -1) => dir === 1
@@ -194,12 +194,12 @@ function createPetWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    movable: false,
     fullscreenable: false,
     thickFrame: false,
     hasShadow: false,
     roundedCorners: false,
     focusable: false,
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -207,9 +207,6 @@ function createPetWindow() {
       sandbox: false,
     },
   })
-
-  // 默认穿透鼠标事件，但转发到渲染进程以检测鼠标进入
-  win.setIgnoreMouseEvents(true, { forward: true })
 
   win.once('ready-to-show', () => {
     win.showInactive()
@@ -225,61 +222,33 @@ function createPetWindow() {
     syncPetFlip()
   })
 
-  // ── 拖拽处理 ──
-  // 渲染进程鼠标进入猫咪区域时取消穿透，离开时恢复
-  ipcMain.on('pet:mouse-enter', () => {
-    if (!win.isDestroyed()) win.setIgnoreMouseEvents(false)
-  })
-  ipcMain.on('pet:mouse-leave', () => {
-    if (!win.isDestroyed() && !isDragging) win.setIgnoreMouseEvents(true, { forward: true })
-  })
-
-  // 拖拽开始：记录鼠标在屏幕的初始位置
-  let dragStartCursorX = 0
-  let dragStartCursorY = 0
-  let dragStartWinX = 0
-  let dragStartWinY = 0
-
-  ipcMain.on('pet:drag-start', () => {
-    if (win.isDestroyed()) return
+  // 检测用户拖拽 —— will-move 仅在用户交互时触发，setPosition 不会触发
+  win.on('will-move', (_event, newBounds) => {
     isDragging = true
-    walkingEnabled = false
-    const cursor = screen.getCursorScreenPoint()
-    dragStartCursorX = cursor.x
-    dragStartCursorY = cursor.y
-    const [wx, wy] = win.getPosition()
-    dragStartWinX = wx
-    dragStartWinY = wy
+
+    // 根据拖拽方向翻转猫咪
+    const prevX = Math.round(petX)
+    if (newBounds.x !== prevX) {
+      const newDir: 1 | -1 = newBounds.x > prevX ? 1 : -1
+      if (newDir !== petDir) {
+        petDir = newDir
+        syncPetFlip()
+      }
+    }
+
+    petX = newBounds.x
+    petY = newBounds.y
+
+    // 最后一次 will-move 后 300ms 无事件视为拖拽结束，恢复自动行走
+    if (dragTimer) clearTimeout(dragTimer)
+    dragTimer = setTimeout(() => { isDragging = false }, 300)
   })
 
-  ipcMain.on('pet:drag-move', () => {
-    if (win.isDestroyed() || !isDragging) return
-    const cursor = screen.getCursorScreenPoint()
-    const newX = dragStartWinX + (cursor.x - dragStartCursorX)
-    const newY = dragStartWinY + (cursor.y - dragStartCursorY)
-    petX = newX
-    petY = newY
-    win.setPosition(newX, newY)
-  })
-
-  ipcMain.on('pet:drag-end', () => {
-    isDragging = false
-    // 拖拽结束后恢复鼠标穿透
-    if (!win.isDestroyed()) win.setIgnoreMouseEvents(true, { forward: true })
-  })
-
-  // 双击恢复自动行走
-  ipcMain.on('pet:resume-walk', () => {
-    walkingEnabled = true
-    petY = screenHeight - PET_SIZE
-    if (!win.isDestroyed()) win.setPosition(Math.round(petX), petY)
-  })
-
-  // 主进程驱动位移，避免全宽透明窗口的白色背景问题
+  // 主进程驱动位移
   const maxX = screenWidth - PET_SIZE
   const interval = setInterval(() => {
     if (win.isDestroyed()) { clearInterval(interval); return }
-    if (!walkingEnabled || isDragging) return
+    if (isDragging) return
     petX += petDir * SPEED
     if (petX >= maxX) {
       petX = maxX
@@ -290,10 +259,13 @@ function createPetWindow() {
       petDir = 1
       syncPetFlip()
     }
-    win.setPosition(Math.round(petX), petY)
+    win.setPosition(Math.round(petX), Math.round(petY))
   }, 16)
 
-  win.on('closed', () => clearInterval(interval))
+  win.on('closed', () => {
+    clearInterval(interval)
+    if (dragTimer) clearTimeout(dragTimer)
+  })
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(`${VITE_DEV_SERVER_URL}pet.html`)
