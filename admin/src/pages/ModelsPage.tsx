@@ -43,15 +43,18 @@ const PROVIDER_ICON_META: Record<string, { abbr: string; bg: string }> = {
 }
 
 // Simple Icons CDN slugs for providers that have official icons
-const SIMPLE_ICONS: Record<string, string> = {
+const LOBE_ICONS: Record<string, string> = {
   openai:     'openai',
   anthropic:  'anthropic',
-  gemini:     'googlegemini',
+  gemini:     'gemini',
   deepseek:   'deepseek',
   qwen:       'qwen',
+  zhipu:      'zhipu',
   minimax:    'minimax',
+  moonshot:   'moonshot',
+  yi:         'yi',
   groq:       'groq',
-  mistral:    'mistralai',
+  mistral:    'mistral',
   xai:        'xai',
   openrouter: 'openrouter',
   ollama:     'ollama',
@@ -59,22 +62,15 @@ const SIMPLE_ICONS: Record<string, string> = {
 
 function ProviderIcon({ value, size = 20 }: { value: string; size?: number }) {
   const meta = PROVIDER_ICON_META[value] ?? { abbr: '?', bg: '#888' }
-  const slug = SIMPLE_ICONS[value]
-  const iconSize = Math.round(size * 0.72)
+  const slug = LOBE_ICONS[value]
   if (slug) {
     return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: size, height: size, borderRadius: 4,
-        background: meta.bg, flexShrink: 0, overflow: 'hidden',
-      }}>
-        <img
-          src={`https://cdn.simpleicons.org/${slug}/FFFFFF`}
-          width={iconSize} height={iconSize}
-          alt={value}
-          style={{ display: 'block' }}
-        />
-      </span>
+      <img
+        src={`https://unpkg.com/@lobehub/icons-static-png@latest/dark/${slug}.png`}
+        width={size} height={size}
+        alt={value}
+        style={{ display: 'block', borderRadius: 4, flexShrink: 0 }}
+      />
     )
   }
   return (
