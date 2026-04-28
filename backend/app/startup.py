@@ -118,6 +118,12 @@ async def create_tables():
                 "DROP TABLE IF EXISTS skills"
             )
         )
+        # DeepSeek thinking-mode: store reasoning_content for assistant messages
+        await conn.execute(
+            __import__("sqlalchemy").text(
+                "ALTER TABLE messages ADD COLUMN IF NOT EXISTS reasoning_content TEXT NULL"
+            )
+        )
         # Create memory_chunks table for LlamaIndex BM25 (text only, vectors in Milvus)
         await conn.execute(
             __import__("sqlalchemy").text("""

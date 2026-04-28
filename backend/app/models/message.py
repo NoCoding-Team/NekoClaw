@@ -15,5 +15,6 @@ class Message(BaseModel):
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     tool_calls: Mapped[Any | None] = mapped_column(JSON, nullable=True)  # serialized tool call list
     tool_call_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # OpenAI tool_call_id for role='tool'
+    reasoning_content: Mapped[str | None] = mapped_column(Text, nullable=True)  # DeepSeek thinking-mode reasoning
     token_count: Mapped[int] = mapped_column(default=0, nullable=False)
     seq: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # deterministic ordering within session

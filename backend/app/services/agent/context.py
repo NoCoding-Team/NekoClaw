@@ -277,7 +277,13 @@ def to_lc_message(m: Any) -> BaseMessage:
     if m.role == "tool":
         return ToolMessage(content=content, tool_call_id=m.tool_call_id or "")
 
-    # assistant
+    # assistant — restore reasoning_content into additional_kwargs so provider can
+    # inject it back into the serialized payload for DeepSeek thinking-mode.
+    additional_kwargs: dict[str, Any] = {}
+    rc = getattr(m, "reasoning_content", None)
+    if rc:
+        additional_kwargs["reasoning_content"] = rc
+
     if m.tool_calls:
         lc_tool_calls: list[dict[str, Any]] = []
         for tc in m.tool_calls:
@@ -296,9 +302,9 @@ def to_lc_message(m: Any) -> BaseMessage:
                     }
                 )
         if lc_tool_calls:
-            return AIMessage(content=content, tool_calls=lc_tool_calls)
+            return AIMessage(content=content, tool_calls=lc_tool_calls, additional_kwargs=additional_kwargs)
 
-    return AIMessage(content=content)
+    return AIMessage(content=content, additional_kwargs=additional_kwargs)
 
 
 # ── System prompt construction ─────────────────────────────────────────────

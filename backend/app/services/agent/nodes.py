@@ -64,6 +64,7 @@ async def _persist_message(
     content: str | None,
     tool_calls: list | None,
     tool_call_id: str | None = None,
+    reasoning_content: str | None = None,
 ) -> None:
     async with AsyncSessionLocal() as db:
         seq = await _next_seq(db, session_id)
@@ -74,6 +75,7 @@ async def _persist_message(
             content=content,
             tool_calls=tool_calls,
             tool_call_id=tool_call_id,
+            reasoning_content=reasoning_content,
             seq=seq,
             token_count=estimate_tokens(content or ""),
         )
@@ -371,6 +373,7 @@ async def tools_node(state: AgentState) -> dict:
         role="assistant",
         content=ai_message.content if isinstance(ai_message.content, str) else "",
         tool_calls=_lc_tool_calls_to_openai(ai_message.tool_calls),
+        reasoning_content=ai_message.additional_kwargs.get("reasoning_content"),
     )
 
     tool_messages: list[ToolMessage] = []
@@ -474,7 +477,10 @@ async def finalize(state: AgentState) -> dict:
     ai_message: AIMessage = state["messages"][-1]  # type: ignore[assignment]
 
     content = ai_message.content if isinstance(ai_message.content, str) else str(ai_message.content)
-    await _persist_message(session_id=session_id, role="assistant", content=content, tool_calls=None)
+    await _persist_message(
+        session_id=session_id, role="assistant", content=content, tool_calls=None,
+        reasoning_content=ai_message.additional_kwargs.get("reasoning_content"),
+    )
     await send_event(ws, "cat_state", {"state": "success"})
 
     return {}
