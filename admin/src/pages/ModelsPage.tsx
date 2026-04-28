@@ -383,7 +383,10 @@ export default function ModelsPage() {
           {configs.map(c => (
             <div key={c.id} className={`${styles.card} ${c.is_default ? styles.cardDefault : ''}`}>
               <div className={styles.cardHead}>
-                <span className={styles.cardName}>{c.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <ProviderIcon value={c.provider} size={20} />
+                  <span className={styles.cardName}>{c.name}</span>
+                </div>
                 {c.is_default && <span className={styles.tagDefault}>默认</span>}
               </div>
               <div className={styles.cardMeta}>

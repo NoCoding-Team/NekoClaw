@@ -93,6 +93,73 @@ function ProviderIcon({ value, size = 18 }: { value: string; size?: number }) {
   )
 }
 
+function ConfigSelect({ configs, value, onChange }: {
+  configs: LLMConfig[]
+  value: string | null
+  onChange: (id: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = configs.find(c => c.id === value) ?? configs[0]
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  if (!selected) return null
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '9px 12px', borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border)', background: 'var(--bg-surface)',
+          color: 'var(--text-primary)', fontSize: 13, cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <ProviderIcon value={selected.provider} size={18} />
+        <span style={{ flex: 1 }}>{selected.name}</span>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+          marginTop: 4, background: 'var(--bg-surface)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        }}>
+          {configs.map(cfg => (
+            <div
+              key={cfg.id}
+              onClick={() => { onChange(cfg.id); setOpen(false) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px', cursor: 'pointer', fontSize: 13,
+                background: cfg.id === value ? 'var(--bg-hover)' : 'transparent',
+                color: 'var(--text-primary)',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.background = cfg.id === value ? 'var(--bg-hover)' : 'transparent')}
+            >
+              <ProviderIcon value={cfg.provider} size={16} />
+              <span>{cfg.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface FallbackFormRow extends FallbackLLMConfig {
   showKey: boolean
 }
@@ -218,18 +285,11 @@ function ModelCenterTab() {
             <>
               <div className={styles.formRow}>
                 <label className={styles.formLabel}>模型</label>
-                <select
-                  className={styles.formInput}
-                  value={pendingConfigId ?? ''}
-                  onChange={e => setPendingConfigId(e.target.value || null)}
-                  style={{ appearance: 'auto' }}
-                >
-                  {serverConfigs.map(cfg => (
-                    <option key={cfg.id} value={cfg.id}>
-                      {cfg.name}
-                    </option>
-                  ))}
-                </select>
+                <ConfigSelect
+                  configs={serverConfigs}
+                  value={pendingConfigId}
+                  onChange={setPendingConfigId}
+                />
               </div>
               {pendingConfigId && (() => {
                 const cfg = serverConfigs.find(c => c.id === pendingConfigId)
