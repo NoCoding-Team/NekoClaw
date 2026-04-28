@@ -104,6 +104,16 @@ interface NekoBridgeSchedulerFiredTask {
   scheduled_for: string
 }
 
+interface NekoBridgePet {
+  onFlip(callback: (flipped: boolean) => void): () => void
+  mouseEnter(): void
+  mouseLeave(): void
+  dragStart(): void
+  dragMove(): void
+  dragEnd(): void
+  resumeWalk(): void
+}
+
 interface NekoBridgeScheduler {
   sync(tasks: NekoBridgeSchedulerTask[]): Promise<{ scheduled: number }>
   validateCron(expr: string): Promise<{ valid: boolean }>
@@ -121,6 +131,7 @@ interface NekoBridge {
   net: NekoBridgeNet
   memory: NekoBridgeMemory
   scheduler: NekoBridgeScheduler
+  pet: NekoBridgePet
   db?: NekoBridgeDb
 }
 

@@ -83,6 +83,19 @@ export const nekoBridge = {
     deleteLegacyLocalMemories: (): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('db:deleteLegacyLocalMemories'),
   },
+  pet: {
+    onFlip: (callback: (flipped: boolean) => void) => {
+      const handler = (_e: any, flipped: boolean) => callback(flipped)
+      ipcRenderer.on('pet:flip', handler)
+      return () => { ipcRenderer.removeListener('pet:flip', handler) }
+    },
+    mouseEnter: () => ipcRenderer.send('pet:mouse-enter'),
+    mouseLeave: () => ipcRenderer.send('pet:mouse-leave'),
+    dragStart: () => ipcRenderer.send('pet:drag-start'),
+    dragMove: () => ipcRenderer.send('pet:drag-move'),
+    dragEnd: () => ipcRenderer.send('pet:drag-end'),
+    resumeWalk: () => ipcRenderer.send('pet:resume-walk'),
+  },
   scheduler: {
     sync: (tasks: Array<{
       id: string; title: string; description: string
