@@ -349,21 +349,6 @@ function ModelCenterTab() {
               <div key={i} className={styles.fallbackCard}>
                 <div className={styles.fallbackCardHead}>
                   <span className={styles.fallbackIdx}>{i + 1}</span>
-                  <div className={styles.fallbackProvTabs}>
-                    {PROVIDERS.map(p => (
-                      <button
-                        key={p.value}
-                        className={`${styles.fallbackProvTab} ${fb.provider === p.value ? styles.fallbackProvTabActive : ''}`}
-                        title={p.label}
-                        onClick={() => updateFallback(i, {
-                          provider: p.value,
-                          base_url: p.url || fb.base_url,
-                        })}>
-                        <ProviderIcon value={p.value} size={14} />
-                        {p.abbr}
-                      </button>
-                    ))}
-                  </div>
                   <button className={styles.fallbackCardRemove} onClick={() => removeFallback(i)}>×</button>
                 </div>
 
