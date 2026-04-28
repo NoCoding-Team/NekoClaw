@@ -42,8 +42,39 @@ const PROVIDER_ICON_META: Record<string, { abbr: string; bg: string }> = {
   custom:     { abbr: '··', bg: '#64748B' },
 }
 
+// Simple Icons CDN slugs for providers that have official icons
+const SIMPLE_ICONS: Record<string, string> = {
+  openai:     'openai',
+  anthropic:  'anthropic',
+  gemini:     'googlegemini',
+  deepseek:   'deepseek',
+  groq:       'groq',
+  mistral:    'mistralai',
+  xai:        'xai',
+  openrouter: 'openrouter',
+  ollama:     'ollama',
+}
+
 function ProviderIcon({ value, size = 20 }: { value: string; size?: number }) {
   const meta = PROVIDER_ICON_META[value] ?? { abbr: '?', bg: '#888' }
+  const slug = SIMPLE_ICONS[value]
+  const iconSize = Math.round(size * 0.72)
+  if (slug) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: size, height: size, borderRadius: 4,
+        background: meta.bg, flexShrink: 0, overflow: 'hidden',
+      }}>
+        <img
+          src={`https://cdn.simpleicons.org/${slug}/FFFFFF`}
+          width={iconSize} height={iconSize}
+          alt={value}
+          style={{ display: 'block' }}
+        />
+      </span>
+    )
+  }
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
