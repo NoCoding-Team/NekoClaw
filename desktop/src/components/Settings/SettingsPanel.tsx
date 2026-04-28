@@ -26,12 +26,14 @@ interface FallbackFormRow extends FallbackLLMConfig {
 }
 
 function ModelCenterTab() {
-  const { customLLMConfig, setCustomLLMConfig } = useAppStore()
+  const { customLLMConfig, setCustomLLMConfig, selectedServerConfigId, setSelectedServerConfigId } = useAppStore()
   const [modelSubTab, setModelSubTab] = useState<'default' | 'custom'>('default')
 
   // ── 默认配置 state
   const [serverConfigs, setServerConfigs] = useState<LLMConfig[]>([])
   const [loadingConfigs, setLoadingConfigs] = useState(true)
+  const [pendingConfigId, setPendingConfigId] = useState<string | null>(selectedServerConfigId)
+  const [savedMsg, setSavedMsg] = useState('')
 
   // ── 自定义配置 form state（与 store 同步，编辑后点保存才写入）
   const [provider, setProvider] = useState(customLLMConfig.provider)
@@ -49,10 +51,17 @@ function ModelCenterTab() {
 
   useEffect(() => {
     fetchLLMConfigs()
-      .then(setServerConfigs)
+      .then(cfgs => {
+        setServerConfigs(cfgs)
+        // If no selection saved yet, auto-pick the default config
+        if (!selectedServerConfigId && cfgs.length > 0) {
+          const def = cfgs.find(c => c.is_default) ?? cfgs[0]
+          setPendingConfigId(def.id)
+        }
+      })
       .catch(() => {})
       .finally(() => setLoadingConfigs(false))
-  }, [])
+  }, []) // eslint-disable-line
 
   // Quick-select provider and auto-fill base URL
   const selectProvider = (val: string) => {
@@ -119,7 +128,10 @@ function ModelCenterTab() {
         <button
           className={`${styles.modeTab} ${modelSubTab === 'default' ? styles.modeTabActive : ''}`}
           onClick={() => setModelSubTab('default')}>
-          默认配置
+          云端配置
+          {!customLLMConfig.enabled && (
+            <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)' }}>● 启用中</span>
+          )}
         </button>
         <button
           className={`${styles.modeTab} ${modelSubTab === 'custom' ? styles.modeTabActive : ''}`}
@@ -133,40 +145,55 @@ function ModelCenterTab() {
 
       {/* ── 默认配置 ── */}
       {modelSubTab === 'default' && (
-        <div>
+        <div className={styles.customForm}>
           {loadingConfigs ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>加载中…</p>
           ) : serverConfigs.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>暂无服务端模型配置，请联系管理员添加。</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {serverConfigs.map(cfg => (
-                <div key={cfg.id} className={styles.fallbackCard}>
-                  <div className={styles.fallbackCardHead}>
-                    <span className={styles.fallbackProviderBadge}>{providerLabel(cfg.provider)}</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+            <>
+              <div className={styles.formRow}>
+                <label className={styles.formLabel}>模型</label>
+                <select
+                  className={styles.formInput}
+                  value={pendingConfigId ?? ''}
+                  onChange={e => setPendingConfigId(e.target.value || null)}
+                  style={{ appearance: 'auto' }}
+                >
+                  {serverConfigs.map(cfg => (
+                    <option key={cfg.id} value={cfg.id}>
                       {cfg.name}
-                    </span>
-                    {cfg.is_default && (
-                      <span style={{
-                        fontSize: 11, padding: '2px 8px', borderRadius: 999,
-                        background: 'rgba(82,200,120,0.12)', color: '#52c878',
-                        border: '1px solid rgba(82,200,120,0.3)',
-                      }}>默认</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {pendingConfigId && (() => {
+                const cfg = serverConfigs.find(c => c.id === pendingConfigId)
+                return cfg ? (
+                  <p className={styles.formHint}>
                     {cfg.model}{cfg.context_limit ? ` · ${(cfg.context_limit / 1000).toFixed(0)}k ctx` : ''}
                     {cfg.base_url ? ` · ${cfg.base_url}` : ''}
-                  </div>
-                </div>
-              ))}
-            </div>
+                  </p>
+                ) : null
+              })()}
+              {savedMsg && <p style={{ color: 'var(--accent)', fontSize: 12, marginBottom: 8 }}>{savedMsg}</p>}
+              <div className={styles.saveRow}>
+                <button
+                  className={styles.saveConnectBtn}
+                  onClick={() => {
+                    setSelectedServerConfigId(pendingConfigId)
+                    setSavedMsg('✓ 已保存')
+                    setTimeout(() => setSavedMsg(''), 2000)
+                  }}
+                >
+                  保存
+                </button>
+              </div>
+              <p className={styles.formHint} style={{ marginTop: 8 }}>
+                服务端管理员配置的模型，连接账号后即可使用，无需填写 API Key。
+              </p>
+            </>
           )}
-          <p className={styles.formHint} style={{ marginTop: 14 }}>
-            以上模型由服务端管理员统一配置，连接账号后即可使用，无需填写 API Key。
-            若需使用自己的密钥，请切换到「自定义配置」标签页。
-          </p>
         </div>
       )}
 
@@ -230,15 +257,21 @@ function ModelCenterTab() {
           {/* 最大 Tokens + Temperature */}
           <div className={styles.formRowDouble}>
             <div className={styles.formCol}>
-              <label className={styles.formLabel}>最大 Tokens</label>
-              <input
-                className={styles.formInput}
-                type="number"
-                min={1024}
-                step={1024}
-                value={contextLimit}
-                onChange={e => setContextLimit(Number(e.target.value))}
-              />
+              <label className={styles.formLabel}>最大 Tokens（k）</label>
+              <div className={styles.inputWithUnit}>
+                <input
+                  className={styles.formInput}
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={Math.round(contextLimit / 1000)}
+                  onChange={e => {
+                    const k = Number(e.target.value)
+                    setContextLimit((Number.isFinite(k) && k > 0 ? k : 1) * 1000)
+                  }}
+                />
+                <span className={styles.inputUnit}>k</span>
+              </div>
             </div>
             <div className={styles.formCol}>
               <label className={styles.formLabel}>Temperature</label>
@@ -336,13 +369,6 @@ function ModelCenterTab() {
 
           {/* 底部操作 */}
           <div className={styles.saveRow} style={{ gap: 8 }}>
-            {customLLMConfig.enabled && (
-              <button
-                style={{ padding: '9px 16px', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-                onClick={handleDisable}>
-                停用自定义
-              </button>
-            )}
             <button
               className={styles.saveConnectBtn}
               onClick={handleSaveAndConnect}
@@ -392,7 +418,7 @@ const DEFAULT_DAILY_NOTE_CONFIG: DailyNoteConfig = {
 }
 
 function GeneralTab() {
-  const { token, serverUrl, customLLMConfig, setAppTimezone } = useAppStore()
+  const { token, serverUrl, customLLMConfig, setAppTimezone, setCustomLLMConfig } = useAppStore()
   const [config, setConfig] = useState<DailyNoteConfig>(DEFAULT_DAILY_NOTE_CONFIG)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -523,6 +549,23 @@ function GeneralTab() {
           />
           <span className={styles.secRowDesc}>次</span>
         </div>
+      </div>
+
+      {/* 默认模型来源 */}
+      <div className={styles.secRow}>
+        <div className={styles.secRowLeft}>
+          <div className={styles.secRowTitle}>默认模型</div>
+          <div className={styles.secRowDesc}>对话默认使用云端配置的模型还是自定义配置的模型</div>
+        </div>
+        <select
+          className={styles.limitInput}
+          style={{ width: 120 }}
+          value={customLLMConfig.enabled ? 'custom' : 'server'}
+          onChange={e => setCustomLLMConfig({ enabled: e.target.value === 'custom' })}
+        >
+          <option value="server">云端配置</option>
+          <option value="custom">自定义配置</option>
+        </select>
       </div>
 
       {/* 保存 */}
@@ -1026,6 +1069,22 @@ function AccountTab({ userId, username, nickname, avatarData, serverUrl, token, 
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [quota, setQuota] = useState<{ msgLimit: number; msgUsed: number; createLimit: number; createUsed: number } | null>(null)
+
+  useEffect(() => {
+    if (!token || !serverUrl) return
+    apiFetch(`${serverUrl}/api/auth/me/quota`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setQuota({ msgLimit: data.daily_message_limit, msgUsed: data.messages_used_today, createLimit: data.daily_creation_limit, createUsed: data.creation_used_today })
+      })
+      .catch(() => {})
+  }, [token, serverUrl]) // eslint-disable-line
+
+  function formatQuota(used: number, limit: number) {
+    if (limit === -1) return `${used} / 不限`
+    return `${used} / ${limit}`
+  }
 
   const shortId = userId ? userId.replace(/-/g, '').slice(0, 8) : '—'
   const displayName = nickname || username || '—'
@@ -1119,11 +1178,15 @@ function AccountTab({ userId, username, nickname, avatarData, serverUrl, token, 
         </div>
         <div className={styles.infoRow}>
           <span className={styles.infoKey}>积分</span>
-          <span className={`${styles.infoVal} ${styles.highlight}`}>—</span>
+          <span className={`${styles.infoVal} ${styles.highlight}`}>
+            {quota ? formatQuota(quota.msgUsed, quota.msgLimit) : '—'}
+          </span>
         </div>
         <div className={styles.infoRow}>
           <span className={styles.infoKey}>创作点</span>
-          <span className={`${styles.infoVal} ${styles.highlight}`}>—</span>
+          <span className={`${styles.infoVal} ${styles.highlight}`}>
+            {quota ? formatQuota(quota.createUsed, quota.createLimit) : '—'}
+          </span>
         </div>
       </div>
     </div>

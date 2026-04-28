@@ -376,6 +376,21 @@
 .formInput:focus { outline: none; border-color: var(--accent); }
 .formInput::placeholder { color: var(--text-muted); }
 
+.inputWithUnit {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.inputWithUnit .formInput { padding-right: 28px; }
+.inputUnit {
+  position: absolute;
+  right: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  user-select: none;
+}
+
 .formHint {
   font-size: 11px;
   color: var(--text-muted);
