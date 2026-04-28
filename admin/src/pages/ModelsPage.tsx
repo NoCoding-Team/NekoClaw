@@ -19,6 +19,7 @@ const PROVIDERS_LIST = [
   { value: 'groq',       label: 'Groq' },
   { value: 'mistral',    label: 'Mistral AI' },
   { value: 'xai',        label: 'Grok' },
+  { value: 'stepfun',    label: 'Stepfun' },
   { value: 'openrouter', label: 'OpenRouter' },
   { value: 'ollama',     label: 'Ollama' },
   { value: 'custom',     label: '自定义' },
@@ -37,6 +38,7 @@ const PROVIDER_ICON_META: Record<string, { abbr: string; bg: string }> = {
   groq:       { abbr: 'GQ', bg: '#F55036' },
   mistral:    { abbr: 'MI', bg: '#FF7000' },
   xai:        { abbr: 'xI', bg: '#111111' },
+  stepfun:    { abbr: 'SF', bg: '#3B6FE8' },
   openrouter: { abbr: 'OR', bg: '#8B5CF6' },
   ollama:     { abbr: 'OL', bg: '#3B3B3B' },
   custom:     { abbr: '··', bg: '#64748B' },
@@ -56,6 +58,7 @@ const LOBE_ICONS: Record<string, string> = {
   groq:       'groq',
   mistral:    'mistral',
   xai:        'grok',
+  stepfun:    'stepfun',
   openrouter: 'openrouter',
   ollama:     'ollama',
 }
