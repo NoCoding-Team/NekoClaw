@@ -13,6 +13,7 @@ class LLMConfigCreate(BaseModel):
 
 
 class LLMConfigUpdate(BaseModel):
+    provider: str | None = None
     name: str | None = None
     model: str | None = None
     api_key: str | None = None
