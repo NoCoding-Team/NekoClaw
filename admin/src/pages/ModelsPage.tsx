@@ -132,6 +132,7 @@ const BLANK: CreateLLMConfigBody = {
   base_url: '',
   is_default: false,
   context_limit: 128000,
+  temperature: 0.7,
 }
 
 function ConfigModal({
@@ -151,6 +152,7 @@ function ConfigModal({
     base_url: initial.base_url ?? '',
     is_default: initial.is_default,
     context_limit: initial.context_limit,
+    temperature: initial.temperature ?? 0.7,
   } : { ...BLANK })
   const [contextLimitK, setContextLimitK] = useState<number>(
     initial ? Math.max(1, Math.round(initial.context_limit / 1000)) : 128
@@ -305,6 +307,24 @@ function ConfigModal({
         <label className={styles.label}>
           Base URL（可选）
           <input className={styles.input} value={form.base_url ?? ''} onChange={field('base_url')} placeholder="https://api.openai.com/v1" />
+        </label>
+        <label className={styles.label}>
+          温度
+          <div className={styles.inputWithUnit}>
+            <input
+              className={styles.input}
+              type="number"
+              min={0}
+              max={2}
+              step={0.1}
+              value={form.temperature ?? 0.7}
+              onChange={e => {
+                const v = parseFloat(e.target.value)
+                setForm(f => ({ ...f, temperature: Number.isFinite(v) ? Math.min(2, Math.max(0, v)) : 0.7 }))
+              }}
+            />
+            <span className={styles.inputUnit}>0–2</span>
+          </div>
         </label>
         <label className={styles.checkboxLabel}>
           <input type="checkbox" checked={form.is_default ?? false} onChange={field('is_default')} />
