@@ -224,9 +224,8 @@ function ModelCenterTab() {
     }
     setSaving(true)
     setTestResult(null)
-    // 先保存配置（无论测试结果如何），再测试连接作为反馈
+    // 保存配置字段（不改变 enabled，启用状态由猫窝设置中的下拉框控制）
     setCustomLLMConfig({
-      enabled: true,
       provider,
       model: model.trim(),
       api_key: apiKey.trim(),
@@ -262,7 +261,7 @@ function ModelCenterTab() {
       <div className={styles.modeTabs}>
         <button
           className={`${styles.modeTab} ${modelSubTab === 'default' ? styles.modeTabActive : ''}`}
-          onClick={() => { setModelSubTab('default'); handleDisable() }}>
+          onClick={() => setModelSubTab('default')}>
           云端配置
           {!customLLMConfig.enabled && (
             <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)' }}>● 启用中</span>
@@ -310,7 +309,6 @@ function ModelCenterTab() {
                   className={styles.saveConnectBtn}
                   onClick={() => {
                     setSelectedServerConfigId(pendingConfigId)
-                    handleDisable()
                     setSavedMsg('✓ 已保存')
                     setTimeout(() => setSavedMsg(''), 2000)
                   }}
