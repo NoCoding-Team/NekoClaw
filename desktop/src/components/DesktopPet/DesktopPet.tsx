@@ -25,25 +25,30 @@ export default function DesktopPet() {
     return unsub
   }, [])
 
-  // 通过转发的 mousemove 检测鼠标左键状态，实现拖拽
-  // 窗口始终 setIgnoreMouseEvents(true, { forward: true })
-  // 转发事件包含 buttons 属性，可以判断是否按住左键
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const leftPressed = (e.buttons & 1) !== 0
-    if (leftPressed && !dragging.current) {
-      dragging.current = true
-      window.nekoBridge.pet.dragStart(e.screenX, e.screenY)
-    } else if (!leftPressed && dragging.current) {
-      dragging.current = false
-      window.nekoBridge.pet.dragEnd()
-    }
+  // 鼠标进入猫咪区域：取消穿透以接收点击事件
+  const handleMouseEnter = useCallback(() => {
+    window.nekoBridge.pet.mouseEnter()
   }, [])
 
   const handleMouseLeave = useCallback(() => {
-    if (dragging.current) {
+    if (!dragging.current) {
+      window.nekoBridge.pet.mouseLeave()
+    }
+  }, [])
+
+  // 拖拽：mousedown → 主进程轮询光标移动窗口
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    dragging.current = true
+    window.nekoBridge.pet.dragStart(e.screenX, e.screenY)
+
+    const onMouseUp = () => {
       dragging.current = false
       window.nekoBridge.pet.dragEnd()
+      document.removeEventListener('mouseup', onMouseUp)
     }
+    document.addEventListener('mouseup', onMouseUp)
   }, [])
 
   if (!animData) return null
@@ -56,10 +61,12 @@ export default function DesktopPet() {
         transform: flipped ? 'scaleX(-1)' : 'none',
         background: 'transparent',
         overflow: 'hidden',
+        cursor: 'grab',
       }}
       draggable={false}
-      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onMouseDown={handleMouseDown}
       onDragStart={(e) => e.preventDefault()}
     >
       <Lottie

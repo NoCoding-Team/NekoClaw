@@ -198,7 +198,7 @@ function createPetWindow() {
     maximizable: false,
     movable: false,
     fullscreenable: false,
-    thickFrame: false,
+    // thickFrame 保持默认 true，确保 DWM 正确合成透明窗口
     hasShadow: false,
     roundedCorners: false,
     focusable: false,
@@ -210,7 +210,8 @@ function createPetWindow() {
     },
   })
 
-  // 始终保持鼠标穿透 + 转发，避免 Windows DWM 渲染白色非客户区
+  win.setTitle('')
+  // 默认穿透 + 转发，鼠标进入时切为可交互
   win.setIgnoreMouseEvents(true, { forward: true })
 
   win.once('ready-to-show', () => {
@@ -227,7 +228,17 @@ function createPetWindow() {
     syncPetFlip()
   })
 
-  // ── 拖拽：渲染进程通过转发的 mousemove 检测 buttons，主进程轮询光标 ──
+  // ── 鼠标进入/离开：切换穿透状态 ──
+  ipcMain.on('pet:mouse-enter', () => {
+    if (!win.isDestroyed()) win.setIgnoreMouseEvents(false)
+  })
+  ipcMain.on('pet:mouse-leave', () => {
+    if (!win.isDestroyed() && !isDragging) {
+      win.setIgnoreMouseEvents(true, { forward: true })
+    }
+  })
+
+  // ── 拖拽：渲染进程 mousedown → 主进程轮询光标 ──
   ipcMain.on('pet:drag-start', (_e, screenX: number, screenY: number) => {
     if (win.isDestroyed()) return
     isDragging = true
@@ -258,6 +269,7 @@ function createPetWindow() {
   ipcMain.on('pet:drag-end', () => {
     isDragging = false
     if (dragPollTimer) { clearInterval(dragPollTimer); dragPollTimer = null }
+    if (!win.isDestroyed()) win.setIgnoreMouseEvents(true, { forward: true })
   })
 
   // 主进程驱动自动行走
@@ -283,6 +295,8 @@ function createPetWindow() {
     if (dragPollTimer) clearInterval(dragPollTimer)
     ipcMain.removeAllListeners('pet:drag-start')
     ipcMain.removeAllListeners('pet:drag-end')
+    ipcMain.removeAllListeners('pet:mouse-enter')
+    ipcMain.removeAllListeners('pet:mouse-leave')
   })
 
   if (VITE_DEV_SERVER_URL) {
