@@ -156,11 +156,18 @@ async def update_task_run(
     if not run:
         raise HTTPException(status_code=404, detail="执行记录不存在")
 
+    prev_status = run.status
     run.status = body.status
     run.session_id = body.session_id
     run.error_message = body.error_message
     run.summary = body.summary
     _apply_run_status(task, run)
+
+    # 定时任务成功完成时消耗一次积分（失败/超时不消耗）
+    if body.status == "success" and prev_status != "success":
+        from app.services.quota import consume_message
+        await consume_message(current_user.id, db)
+
     await db.commit()
     await db.refresh(run)
     return run
