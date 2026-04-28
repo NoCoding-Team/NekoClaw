@@ -179,15 +179,44 @@ function createPetWindow() {
   let dragOffsetX = 0
   let dragOffsetY = 0
 
-  // 通过 koffi 调用 Win32 GetAsyncKeyState 检测鼠标按键，窗口始终保持穿透不会出白框
+  // 通过 koffi 调用 Win32 API
   let isLeftMouseDown: () => boolean = () => false
+  let setClickThrough: (enable: boolean) => void = () => {}
   if (process.platform === 'win32') {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const koffi = require('koffi')
       const user32 = koffi.load('user32.dll')
+
+      // 检测鼠标左键状态
       const GetAsyncKeyState = user32.func('short __stdcall GetAsyncKeyState(int vKey)')
       isLeftMouseDown = () => (GetAsyncKeyState(0x01) & 0x8000) !== 0
+
+      // 直接操作 WS_EX_TRANSPARENT 样式位，不调用 SWP_FRAMECHANGED，不触发 DWM 重绘 → 不出白框
+      const GetWindowLongPtrW = user32.func('intptr_t __stdcall GetWindowLongPtrW(intptr_t hwnd, int nIndex)')
+      const SetWindowLongPtrW = user32.func('intptr_t __stdcall SetWindowLongPtrW(intptr_t hwnd, int nIndex, intptr_t dwNewLong)')
+      const GWL_EXSTYLE = -20
+      const WS_EX_TRANSPARENT = 0x00000020
+
+      // 延迟到窗口创建后再获取 HWND
+      let hwndVal = 0
+      let _isThrough = true
+      const ensureHwnd = () => {
+        if (hwndVal === 0) {
+          const buf = win.getNativeWindowHandle()
+          hwndVal = buf.readUInt32LE(0)
+        }
+      }
+      setClickThrough = (enable: boolean) => {
+        if (enable === _isThrough) return
+        ensureHwnd()
+        const exStyle = Number(GetWindowLongPtrW(hwndVal, GWL_EXSTYLE))
+        const newStyle = enable
+          ? (exStyle | WS_EX_TRANSPARENT)
+          : (exStyle & ~WS_EX_TRANSPARENT)
+        SetWindowLongPtrW(hwndVal, GWL_EXSTYLE, newStyle)
+        _isThrough = enable
+      }
     } catch (e) {
       console.warn('koffi unavailable, pet drag disabled:', e)
     }
@@ -239,36 +268,36 @@ function createPetWindow() {
     syncPetFlip()
   })
 
-  // 判断光标是否在窗口范围内（直接用坐标比较，不依赖任何转发事件）
-  const isCursorOverPet = () => {
-    const cursor = screen.getCursorScreenPoint()
-    return cursor.x >= petX && cursor.x <= petX + PET_SIZE
-      && cursor.y >= petY && cursor.y <= petY + PET_SIZE
-  }
-
   // 统一的 tick 循环：自动行走 + 拖拽检测
   const maxX = screenWidth - PET_SIZE
   const tickInterval = setInterval(() => {
     if (win.isDestroyed()) { clearInterval(tickInterval); return }
 
+    const cursor = screen.getCursorScreenPoint()
+    const overPet = cursor.x >= petX && cursor.x <= petX + PET_SIZE
+      && cursor.y >= petY && cursor.y <= petY + PET_SIZE
     const mouseDown = isLeftMouseDown()
 
-    // 拖拽检测：光标在猫咪范围内 + 左键按下 → 开始拖拽
-    if (!isDragging && mouseDown && isCursorOverPet()) {
-      isDragging = true
-      const cursor = screen.getCursorScreenPoint()
-      dragOffsetX = cursor.x - Math.round(petX)
-      dragOffsetY = cursor.y - Math.round(petY)
+    if (!isDragging) {
+      // 光标在猫咪上时移除 WS_EX_TRANSPARENT（让点击到窗口而非桌面），离开时恢复
+      // 直接操作样式位不触发 SWP_FRAMECHANGED，所以不会出白框
+      setClickThrough(!overPet)
+
+      if (overPet && mouseDown) {
+        isDragging = true
+        dragOffsetX = cursor.x - Math.round(petX)
+        dragOffsetY = cursor.y - Math.round(petY)
+      }
     }
 
     if (isDragging) {
       if (!mouseDown) {
         isDragging = false
+        setClickThrough(true)
         return
       }
-      const cur = screen.getCursorScreenPoint()
-      const newX = cur.x - dragOffsetX
-      const newY = cur.y - dragOffsetY
+      const newX = cursor.x - dragOffsetX
+      const newY = cursor.y - dragOffsetY
 
       if (newX !== Math.round(petX)) {
         const newDir: 1 | -1 = newX > petX ? 1 : -1
