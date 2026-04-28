@@ -176,7 +176,11 @@ function createPetWindow() {
   let petY = screenHeight - PET_SIZE
   let petDir: 1 | -1 = 1
   let isDragging = false
-  let dragTimer: ReturnType<typeof setTimeout> | null = null
+  let dragInterval: ReturnType<typeof setInterval> | null = null
+  let dragStartCursorX = 0
+  let dragStartCursorY = 0
+  let dragStartWinX = 0
+  let dragStartWinY = 0
 
   // Source animation faces left by default, so moving right needs horizontal flip.
   const getFlipByDir = (dir: 1 | -1) => dir === 1
@@ -194,6 +198,7 @@ function createPetWindow() {
     resizable: false,
     minimizable: false,
     maximizable: false,
+    movable: false,
     fullscreenable: false,
     thickFrame: false,
     hasShadow: false,
@@ -208,7 +213,6 @@ function createPetWindow() {
     },
   })
 
-  // 清除窗口标题，防止 Windows 鼠标悬停时显示 tooltip
   win.setTitle('')
 
   win.once('ready-to-show', () => {
@@ -225,32 +229,48 @@ function createPetWindow() {
     syncPetFlip()
   })
 
-  // 检测用户拖拽 —— will-move 仅在用户交互时触发，setPosition 不会触发
-  win.on('will-move', (_event, newBounds) => {
+  // ── IPC 拖拽：渲染进程 mousedown → 主进程轮询光标位置移动窗口 ──
+  ipcMain.on('pet:drag-start', () => {
+    if (win.isDestroyed()) return
     isDragging = true
+    const cursor = screen.getCursorScreenPoint()
+    dragStartCursorX = cursor.x
+    dragStartCursorY = cursor.y
+    dragStartWinX = Math.round(petX)
+    dragStartWinY = Math.round(petY)
 
-    // 根据拖拽方向翻转猫咪
-    const prevX = Math.round(petX)
-    if (newBounds.x !== prevX) {
-      const newDir: 1 | -1 = newBounds.x > prevX ? 1 : -1
-      if (newDir !== petDir) {
-        petDir = newDir
-        syncPetFlip()
+    // 用 setInterval 轮询光标位置来移动窗口
+    if (dragInterval) clearInterval(dragInterval)
+    dragInterval = setInterval(() => {
+      if (win.isDestroyed()) { if (dragInterval) clearInterval(dragInterval); return }
+      const cur = screen.getCursorScreenPoint()
+      const newX = dragStartWinX + (cur.x - dragStartCursorX)
+      const newY = dragStartWinY + (cur.y - dragStartCursorY)
+
+      // 根据拖拽方向翻转猫咪
+      if (newX !== Math.round(petX)) {
+        const newDir: 1 | -1 = newX > petX ? 1 : -1
+        if (newDir !== petDir) {
+          petDir = newDir
+          syncPetFlip()
+        }
       }
-    }
 
-    petX = newBounds.x
-    petY = newBounds.y
-
-    // 最后一次 will-move 后 300ms 无事件视为拖拽结束，恢复自动行走
-    if (dragTimer) clearTimeout(dragTimer)
-    dragTimer = setTimeout(() => { isDragging = false }, 300)
+      petX = newX
+      petY = newY
+      win.setPosition(newX, newY)
+    }, 16)
   })
 
-  // 主进程驱动位移
+  ipcMain.on('pet:drag-end', () => {
+    isDragging = false
+    if (dragInterval) { clearInterval(dragInterval); dragInterval = null }
+  })
+
+  // 主进程驱动自动行走
   const maxX = screenWidth - PET_SIZE
-  const interval = setInterval(() => {
-    if (win.isDestroyed()) { clearInterval(interval); return }
+  const walkInterval = setInterval(() => {
+    if (win.isDestroyed()) { clearInterval(walkInterval); return }
     if (isDragging) return
     petX += petDir * SPEED
     if (petX >= maxX) {
@@ -266,8 +286,10 @@ function createPetWindow() {
   }, 16)
 
   win.on('closed', () => {
-    clearInterval(interval)
-    if (dragTimer) clearTimeout(dragTimer)
+    clearInterval(walkInterval)
+    if (dragInterval) clearInterval(dragInterval)
+    ipcMain.removeAllListeners('pet:drag-start')
+    ipcMain.removeAllListeners('pet:drag-end')
   })
 
   if (VITE_DEV_SERVER_URL) {

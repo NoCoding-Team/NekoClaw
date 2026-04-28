@@ -1,5 +1,5 @@
 import Lottie from 'lottie-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const CAT_SIZE = 160
 
@@ -24,19 +24,33 @@ export default function DesktopPet() {
     return unsub
   }, [])
 
+  // ── 拖拽：mousedown 通知主进程开始，mouseup 结束 ──
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    window.nekoBridge.pet.dragStart()
+
+    const onMouseUp = () => {
+      window.nekoBridge.pet.dragEnd()
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+    document.addEventListener('mouseup', onMouseUp)
+  }, [])
+
   if (!animData) return null
 
   return (
     <div
-      className="pet-draggable"
       style={{
         width: CAT_SIZE,
         height: CAT_SIZE,
         transform: flipped ? 'scaleX(-1)' : 'none',
         background: 'transparent',
         overflow: 'hidden',
+        cursor: 'grab',
       }}
       draggable={false}
+      onMouseDown={handleMouseDown}
       onDragStart={(e) => e.preventDefault()}
     >
       <Lottie
