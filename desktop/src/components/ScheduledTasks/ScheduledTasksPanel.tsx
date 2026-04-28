@@ -192,13 +192,17 @@ export default function ScheduledTasksPanel() {
       && t.run_count === 0
       && t.last_status !== 'missed'
     ))
-    const missedCron = tasks.filter(t => (
-      t.is_enabled
-      && t.schedule_type === 'cron'
-      && t.next_run_at
-      && new Date(t.next_run_at) < now
-      && t.last_status !== 'missed'
-    ))
+    const missedCron = tasks.filter(t => {
+      if (!t.is_enabled || t.schedule_type !== 'cron' || !t.next_run_at) return false
+      if (new Date(t.next_run_at) >= now) return false
+      if (t.last_status === 'missed') return false
+      // 如果 last_run_at 距 next_run_at 不足 12h，说明任务实际已执行（时区偏差导致触发时间差异），不应标记为错过
+      if (t.last_run_at) {
+        const gap = new Date(t.next_run_at).getTime() - new Date(t.last_run_at).getTime()
+        if (gap >= 0 && gap < 12 * 3600 * 1000) return false
+      }
+      return true
+    })
     if (missedOnce.length > 0) {
       showToast(`检测到 ${missedOnce.length} 个错过的一次性任务，可点击立即执行补跑`)
       missedOnce.forEach(t => createRun(t, { scheduled_for: t.run_at, trigger_type: 'missed', status: 'missed' }).catch(() => {}))

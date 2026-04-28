@@ -213,7 +213,7 @@ function fireTask(task: ScheduledTaskInfo) {
       description: task.description,
       skill_id: task.skill_id,
       allowed_tools: task.allowed_tools ?? [],
-      scheduled_for: task.run_at ?? task.next_run_at ?? new Date().toISOString(),
+      scheduled_for: new Date().toISOString(),
     })
   }
 }
@@ -224,7 +224,9 @@ function scheduleTask(task: ScheduledTaskInfo) {
 
   if (task.cron_expr) {
     if (!cron.validate(task.cron_expr)) return
-    const job = cron.schedule(task.cron_expr, () => fireTask(task))
+    const job = cron.schedule(task.cron_expr, () => fireTask(task), {
+      timezone: task.timezone || 'UTC',
+    })
     _cronJobs.set(task.id, job)
   } else if (task.run_at) {
     const target = task.next_run_at ?? task.run_at
