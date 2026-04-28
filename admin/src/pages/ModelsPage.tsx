@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import {
   listLLMConfigs, createLLMConfig, updateLLMConfig, deleteLLMConfig, testLLMConfig, getLLMConfigApiKey,
   type LLMConfig, type CreateLLMConfigBody, type UpdateLLMConfigBody,
@@ -12,7 +12,7 @@ const PROVIDERS_LIST = [
   { value: 'gemini',     label: 'Gemini' },
   { value: 'deepseek',   label: 'DeepSeek' },
   { value: 'qwen',       label: 'Qwen' },
-  { value: 'zhipu',      label: '\u667a\u8c31AI' },
+  { value: 'zhipu',      label: 'ChatGLM' },
   { value: 'minimax',    label: 'MiniMax' },
   { value: 'moonshot',   label: 'Kimi' },
   { value: 'yi',         label: 'Yi' },
