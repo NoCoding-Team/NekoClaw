@@ -269,7 +269,7 @@ function ConfigModal({
             <span className={styles.inputUnit}>k</span>
           </div>
         </label>
-        <label className={styles.label}>
+        <div className={styles.label}>
           API Key
           <div className={styles.apiKeyField}>
             <input
@@ -301,7 +301,7 @@ function ConfigModal({
               )}
             </button>
           </div>
-        </label>
+        </div>
         <label className={styles.label}>
           Base URL（可选）
           <input className={styles.input} value={form.base_url ?? ''} onChange={field('base_url')} placeholder="https://api.openai.com/v1" />
