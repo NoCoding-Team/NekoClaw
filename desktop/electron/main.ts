@@ -176,11 +176,9 @@ function createPetWindow() {
   let petY = screenHeight - PET_SIZE
   let petDir: 1 | -1 = 1
   let isDragging = false
-  let dragInterval: ReturnType<typeof setInterval> | null = null
-  let dragStartCursorX = 0
-  let dragStartCursorY = 0
-  let dragStartWinX = 0
-  let dragStartWinY = 0
+  let dragPollTimer: ReturnType<typeof setInterval> | null = null
+  let dragOffsetX = 0
+  let dragOffsetY = 0
 
   // Source animation faces left by default, so moving right needs horizontal flip.
   const getFlipByDir = (dir: 1 | -1) => dir === 1
@@ -204,7 +202,6 @@ function createPetWindow() {
     hasShadow: false,
     roundedCorners: false,
     focusable: false,
-    backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -213,7 +210,8 @@ function createPetWindow() {
     },
   })
 
-  win.setTitle('')
+  // 始终保持鼠标穿透 + 转发，避免 Windows DWM 渲染白色非客户区
+  win.setIgnoreMouseEvents(true, { forward: true })
 
   win.once('ready-to-show', () => {
     win.showInactive()
@@ -229,25 +227,20 @@ function createPetWindow() {
     syncPetFlip()
   })
 
-  // ── IPC 拖拽：渲染进程 mousedown → 主进程轮询光标位置移动窗口 ──
-  ipcMain.on('pet:drag-start', () => {
+  // ── 拖拽：渲染进程通过转发的 mousemove 检测 buttons，主进程轮询光标 ──
+  ipcMain.on('pet:drag-start', (_e, screenX: number, screenY: number) => {
     if (win.isDestroyed()) return
     isDragging = true
-    const cursor = screen.getCursorScreenPoint()
-    dragStartCursorX = cursor.x
-    dragStartCursorY = cursor.y
-    dragStartWinX = Math.round(petX)
-    dragStartWinY = Math.round(petY)
+    dragOffsetX = screenX - Math.round(petX)
+    dragOffsetY = screenY - Math.round(petY)
 
-    // 用 setInterval 轮询光标位置来移动窗口
-    if (dragInterval) clearInterval(dragInterval)
-    dragInterval = setInterval(() => {
-      if (win.isDestroyed()) { if (dragInterval) clearInterval(dragInterval); return }
+    if (dragPollTimer) clearInterval(dragPollTimer)
+    dragPollTimer = setInterval(() => {
+      if (win.isDestroyed()) { if (dragPollTimer) clearInterval(dragPollTimer); return }
       const cur = screen.getCursorScreenPoint()
-      const newX = dragStartWinX + (cur.x - dragStartCursorX)
-      const newY = dragStartWinY + (cur.y - dragStartCursorY)
+      const newX = cur.x - dragOffsetX
+      const newY = cur.y - dragOffsetY
 
-      // 根据拖拽方向翻转猫咪
       if (newX !== Math.round(petX)) {
         const newDir: 1 | -1 = newX > petX ? 1 : -1
         if (newDir !== petDir) {
@@ -264,7 +257,7 @@ function createPetWindow() {
 
   ipcMain.on('pet:drag-end', () => {
     isDragging = false
-    if (dragInterval) { clearInterval(dragInterval); dragInterval = null }
+    if (dragPollTimer) { clearInterval(dragPollTimer); dragPollTimer = null }
   })
 
   // 主进程驱动自动行走
@@ -287,7 +280,7 @@ function createPetWindow() {
 
   win.on('closed', () => {
     clearInterval(walkInterval)
-    if (dragInterval) clearInterval(dragInterval)
+    if (dragPollTimer) clearInterval(dragPollTimer)
     ipcMain.removeAllListeners('pet:drag-start')
     ipcMain.removeAllListeners('pet:drag-end')
   })
