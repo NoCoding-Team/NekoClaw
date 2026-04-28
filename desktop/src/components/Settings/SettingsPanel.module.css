@@ -403,13 +403,16 @@
   flex-wrap: wrap;
 }
 .quickBtn {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   border: 1px solid var(--border);
   transition: border-color 0.15s, color 0.15s, background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .quickBtn:hover { border-color: var(--accent); color: var(--text-primary); }
 .quickBtnActive { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }

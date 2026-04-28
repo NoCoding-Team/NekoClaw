@@ -15,22 +15,54 @@ const APP_VERSION = '0.1.0'
 
 // ── ModelCenterTab ────────────────────────────────────────────────────────────
 const PROVIDERS = [
-  { value: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1' },
-  { value: 'anthropic', label: 'Anthropic', url: 'https://api.anthropic.com' },
-  { value: 'gemini', label: 'Gemini (Google)', url: '' },
-  { value: 'deepseek', label: 'DeepSeek', url: 'https://api.deepseek.com/v1' },
-  { value: 'qwen', label: '通义千问 (Qwen)', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-  { value: 'zhipu', label: '智谱 GLM', url: 'https://open.bigmodel.cn/api/paas/v4' },
-  { value: 'minimax', label: 'MiniMax', url: 'https://api.minimax.chat/v1' },
-  { value: 'moonshot', label: '月之暗面 (Moonshot)', url: 'https://api.moonshot.cn/v1' },
-  { value: 'yi', label: '零一万物 (Yi)', url: 'https://api.lingyiwanwu.com/v1' },
-  { value: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1' },
-  { value: 'mistral', label: 'Mistral', url: 'https://api.mistral.ai/v1' },
-  { value: 'xai', label: 'xAI (Grok)', url: 'https://api.x.ai/v1' },
-  { value: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
-  { value: 'ollama', label: 'Ollama', url: 'http://localhost:11434/v1' },
-  { value: 'custom', label: '自定义', url: '' },
+  { value: 'openai',     label: 'OpenAI',               abbr: 'OA', url: 'https://api.openai.com/v1' },
+  { value: 'anthropic',  label: 'Anthropic',             abbr: 'AN', url: 'https://api.anthropic.com' },
+  { value: 'gemini',     label: 'Gemini (Google)',        abbr: 'G',  url: '' },
+  { value: 'deepseek',   label: 'DeepSeek',              abbr: 'DS', url: 'https://api.deepseek.com/v1' },
+  { value: 'qwen',       label: '通义千问 (Qwen)',      abbr: 'QW', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  { value: 'zhipu',      label: '智谱 GLM',             abbr: 'GL', url: 'https://open.bigmodel.cn/api/paas/v4' },
+  { value: 'minimax',    label: 'MiniMax',               abbr: 'MM', url: 'https://api.minimax.chat/v1' },
+  { value: 'moonshot',   label: '月之暗面 (Moonshot)',  abbr: 'KI', url: 'https://api.moonshot.cn/v1' },
+  { value: 'yi',         label: '零一万物 (Yi)',        abbr: 'Yi', url: 'https://api.lingyiwanwu.com/v1' },
+  { value: 'groq',       label: 'Groq',                  abbr: 'GQ', url: 'https://api.groq.com/openai/v1' },
+  { value: 'mistral',    label: 'Mistral',               abbr: 'MI', url: 'https://api.mistral.ai/v1' },
+  { value: 'xai',        label: 'xAI (Grok)',            abbr: 'xI', url: 'https://api.x.ai/v1' },
+  { value: 'openrouter', label: 'OpenRouter',            abbr: 'OR', url: 'https://openrouter.ai/api/v1' },
+  { value: 'ollama',     label: 'Ollama',                abbr: 'OL', url: 'http://localhost:11434/v1' },
+  { value: 'custom',     label: '自定义',               abbr: '··', url: '' },
 ]
+
+const PROVIDER_ICON_META: Record<string, { bg: string }> = {
+  openai:     { bg: '#10a37f' },
+  anthropic:  { bg: '#d97757' },
+  gemini:     { bg: '#4285F4' },
+  deepseek:   { bg: '#4D6BFE' },
+  qwen:       { bg: '#FF6A00' },
+  zhipu:      { bg: '#2563EB' },
+  minimax:    { bg: '#7C3AED' },
+  moonshot:   { bg: '#0F172A' },
+  yi:         { bg: '#0EA5E9' },
+  groq:       { bg: '#F55036' },
+  mistral:    { bg: '#FF7000' },
+  xai:        { bg: '#111111' },
+  openrouter: { bg: '#8B5CF6' },
+  ollama:     { bg: '#3B3B3B' },
+  custom:     { bg: '#64748B' },
+}
+
+function ProviderIcon({ value, size = 18 }: { value: string; size?: number }) {
+  const p = PROVIDERS.find(x => x.value === value)
+  const meta = PROVIDER_ICON_META[value] ?? { bg: '#888' }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: size, height: size, borderRadius: 3,
+      background: meta.bg, color: '#fff',
+      fontSize: Math.round(size * 0.42), fontWeight: 700,
+      fontFamily: 'system-ui, monospace', letterSpacing: '-0.5px', flexShrink: 0,
+    }}>{p?.abbr ?? '?'}</span>
+  )
+}
 
 interface FallbackFormRow extends FallbackLLMConfig {
   showKey: boolean
@@ -219,13 +251,17 @@ function ModelCenterTab() {
                 <button
                   key={p.value}
                   className={`${styles.quickBtn} ${provider === p.value ? styles.quickBtnActive : ''}`}
+                  title={p.label}
                   onClick={() => selectProvider(p.value)}>
-                  {p.label}
+                  <ProviderIcon value={p.value} size={14} />
+                  {p.abbr}
                 </button>
               ))}
               <button
                 className={`${styles.quickBtn} ${provider === 'custom' ? styles.quickBtnActive : ''}`}
+                title="自定义"
                 onClick={() => selectProvider('custom')}>
+                <ProviderIcon value="custom" size={14} />
                 自定义
               </button>
             </div>
@@ -314,11 +350,13 @@ function ModelCenterTab() {
                       <button
                         key={p.value}
                         className={`${styles.fallbackProvTab} ${fb.provider === p.value ? styles.fallbackProvTabActive : ''}`}
+                        title={p.label}
                         onClick={() => updateFallback(i, {
                           provider: p.value,
                           base_url: p.url || fb.base_url,
                         })}>
-                        {p.label}
+                        <ProviderIcon value={p.value} size={14} />
+                        {p.abbr}
                       </button>
                     ))}
                   </div>

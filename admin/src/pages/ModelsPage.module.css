@@ -1,0 +1,298 @@
+.page { padding: 32px; }
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.title { font-size: 20px; font-weight: 600; }
+.loading { color: var(--text-secondary); padding: 32px 0; text-align: center; }
+.error { color: #e74c3c; margin-bottom: 16px; }
+.testOk { color: #27ae60; background: #eafaf1; border: 1px solid #a9dfbf; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
+.testFail { color: #c0392b; background: #fdedec; border: 1px solid #f5c6cb; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; word-break: break-all; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardDefault {
+  border-color: var(--accent);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.cardName {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tagDefault {
+  background: var(--accent-light);
+  color: var(--accent-hover);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.cardMeta {
+  display: flex;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.cardUrl {
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btnAction {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btnAction:hover {
+  background: var(--accent-light);
+  color: var(--accent-hover);
+  border-color: var(--accent);
+}
+
+.btnDanger {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  padding: 4px 12px;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btnDanger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: white;
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.btnPrimary:hover:not(:disabled) { background: var(--accent-hover); }
+.btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btnSecondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.btnSecondary:hover { background: var(--bg-tertiary); }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modalCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modalTitle { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.modalActions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.input {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: border-color 0.15s;
+}
+
+.input:focus { border-color: var(--accent); }
+
+.inputWithUnit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inputWithUnit .input {
+  flex: 1;
+}
+
+.inputUnit {
+  color: var(--text-muted);
+  font-size: 13px;
+  min-width: 10px;
+}
+
+.apiKeyField {
+  position: relative;
+}
+
+.apiKeyInput {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.eyeBtn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.eyeBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+}
+
+.eyeBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.eyeBtn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Custom provider dropdown ── */
+.providerSelect {
+  position: relative;
+  user-select: none;
+}
+
+.providerSelectTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: border-color 0.15s;
+}
+.providerSelectTrigger:hover { border-color: var(--accent); }
+
+.providerChevron {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+
+.providerDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  z-index: 200;
+  max-height: 260px;
+  overflow-y: auto;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+.providerOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background 0.1s;
+}
+.providerOption:hover { background: var(--bg-hover); }
+.providerOptionActive { background: var(--accent-light); color: var(--accent-hover); }

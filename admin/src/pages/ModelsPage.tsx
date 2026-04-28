@@ -1,9 +1,99 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   listLLMConfigs, createLLMConfig, updateLLMConfig, deleteLLMConfig, testLLMConfig, getLLMConfigApiKey,
   type LLMConfig, type CreateLLMConfigBody, type UpdateLLMConfigBody,
 } from '../api/models'
 import styles from './ModelsPage.module.css'
+
+// ── Provider icon data ─────────────────────────────────────────────────────
+const PROVIDERS_LIST = [
+  { value: 'openai',     label: 'OpenAI' },
+  { value: 'anthropic',  label: 'Anthropic' },
+  { value: 'gemini',     label: 'Gemini (Google)' },
+  { value: 'deepseek',   label: 'DeepSeek' },
+  { value: 'qwen',       label: '通义千问 (Qwen)' },
+  { value: 'zhipu',      label: '智谱 GLM' },
+  { value: 'minimax',    label: 'MiniMax' },
+  { value: 'moonshot',   label: '月之暗面 (Moonshot)' },
+  { value: 'yi',         label: '零一万物 (Yi)' },
+  { value: 'groq',       label: 'Groq' },
+  { value: 'mistral',    label: 'Mistral' },
+  { value: 'xai',        label: 'xAI (Grok)' },
+  { value: 'openrouter', label: 'OpenRouter' },
+  { value: 'ollama',     label: 'Ollama' },
+  { value: 'custom',     label: '自定义' },
+]
+
+const PROVIDER_ICON_META: Record<string, { abbr: string; bg: string }> = {
+  openai:     { abbr: 'OA', bg: '#10a37f' },
+  anthropic:  { abbr: 'AN', bg: '#d97757' },
+  gemini:     { abbr: 'G',  bg: '#4285F4' },
+  deepseek:   { abbr: 'DS', bg: '#4D6BFE' },
+  qwen:       { abbr: 'QW', bg: '#FF6A00' },
+  zhipu:      { abbr: 'GL', bg: '#2563EB' },
+  minimax:    { abbr: 'MM', bg: '#7C3AED' },
+  moonshot:   { abbr: 'KI', bg: '#0F172A' },
+  yi:         { abbr: 'Yi', bg: '#0EA5E9' },
+  groq:       { abbr: 'GQ', bg: '#F55036' },
+  mistral:    { abbr: 'MI', bg: '#FF7000' },
+  xai:        { abbr: 'xI', bg: '#111111' },
+  openrouter: { abbr: 'OR', bg: '#8B5CF6' },
+  ollama:     { abbr: 'OL', bg: '#3B3B3B' },
+  custom:     { abbr: '··', bg: '#64748B' },
+}
+
+function ProviderIcon({ value, size = 20 }: { value: string; size?: number }) {
+  const meta = PROVIDER_ICON_META[value] ?? { abbr: '?', bg: '#888' }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: size, height: size, borderRadius: 4,
+      background: meta.bg, color: '#fff',
+      fontSize: Math.round(size * 0.42), fontWeight: 700,
+      fontFamily: 'system-ui, monospace', letterSpacing: '-0.5px', flexShrink: 0,
+    }}>{meta.abbr}</span>
+  )
+}
+
+function ProviderSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const selected = PROVIDERS_LIST.find(p => p.value === value) ?? PROVIDERS_LIST[0]
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  return (
+    <div ref={ref} className={styles.providerSelect}>
+      <div className={styles.providerSelectTrigger} onClick={() => setOpen(o => !o)}>
+        <ProviderIcon value={value} size={18} />
+        <span style={{ flex: 1 }}>{selected.label}</span>
+        <svg className={styles.providerChevron} viewBox="0 0 24 24">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
+      {open && (
+        <div className={styles.providerDropdown}>
+          {PROVIDERS_LIST.map(p => (
+            <div
+              key={p.value}
+              className={`${styles.providerOption} ${p.value === value ? styles.providerOptionActive : ''}`}
+              onClick={() => { onChange(p.value); setOpen(false) }}
+            >
+              <ProviderIcon value={p.value} size={16} />
+              <span>{p.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const BLANK: CreateLLMConfigBody = {
   name: '',
@@ -127,23 +217,7 @@ function ConfigModal({
         </label>
         <label className={styles.label}>
           提供商
-          <select className={styles.input} value={form.provider} onChange={field('provider')}>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="gemini">Gemini (Google)</option>
-            <option value="deepseek">DeepSeek</option>
-            <option value="qwen">通义千问 (Qwen)</option>
-            <option value="zhipu">智谱 GLM</option>
-            <option value="minimax">MiniMax</option>
-            <option value="moonshot">月之暗面 (Moonshot)</option>
-            <option value="yi">零一万物 (Yi)</option>
-            <option value="groq">Groq</option>
-            <option value="mistral">Mistral</option>
-            <option value="xai">xAI (Grok)</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="ollama">Ollama</option>
-            <option value="custom">自定义</option>
-          </select>
+          <ProviderSelect value={form.provider} onChange={v => setForm(f => ({ ...f, provider: v }))} />
         </label>
         <label className={styles.label}>
           模型 ID
