@@ -6,7 +6,7 @@ interface Ability {
   icon: string
   name: string
   desc: string
-  executor: 'client' | 'server' | 'memory'
+  executor: 'client' | 'server' | 'memory' | 'skill'
   executorLabel: string
   tools: string[]
   alwaysOn?: boolean
@@ -91,8 +91,8 @@ const ABILITIES: Ability[] = [
     icon: '🧩',
     name: '技能读取',
     desc: '读取猫技库中的技能文件（SKILL.md），让 Agent 按需加载完整的任务操作指南',
-    executor: 'server',
-    executorLabel: '服务端执行',
+    executor: 'skill',
+    executorLabel: '技能系统',
     tools: ['read_skill'],
     alwaysOn: true,
   },
@@ -140,7 +140,7 @@ export default function AbilitiesPanel() {
               <div className={styles.cardBody}>
                 <div className={styles.cardHead}>
                   <span className={styles.cardName}>{ability.name}</span>
-                  <span className={`${styles.executorBadge} ${ability.executor === 'client' ? styles.badgeClient : ability.executor === 'memory' ? styles.badgeMemory : styles.badgeServer}`}>
+                  <span className={`${styles.executorBadge} ${ability.executor === 'client' ? styles.badgeClient : ability.executor === 'memory' ? styles.badgeMemory : ability.executor === 'skill' ? styles.badgeSkill : styles.badgeServer}`}>
                     {ability.executorLabel}
                   </span>
                 </div>
