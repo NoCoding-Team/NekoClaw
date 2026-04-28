@@ -259,7 +259,7 @@ function ModelCenterTab() {
       <div className={styles.modeTabs}>
         <button
           className={`${styles.modeTab} ${modelSubTab === 'default' ? styles.modeTabActive : ''}`}
-          onClick={() => setModelSubTab('default')}>
+          onClick={() => { setModelSubTab('default'); handleDisable() }}>
           云端配置
           {!customLLMConfig.enabled && (
             <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--accent)' }}>● 启用中</span>
@@ -307,6 +307,7 @@ function ModelCenterTab() {
                   className={styles.saveConnectBtn}
                   onClick={() => {
                     setSelectedServerConfigId(pendingConfigId)
+                    handleDisable()
                     setSavedMsg('✓ 已保存')
                     setTimeout(() => setSavedMsg(''), 2000)
                   }}
