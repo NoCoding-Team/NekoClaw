@@ -66,8 +66,19 @@ class ScheduledTaskRunCreate(BaseModel):
     status: str = Field("running", pattern="^(running|missed)$")
 
 
+class ClientLLMConfig(BaseModel):
+    """Optional client-side LLM config sent when no server-side config is available."""
+    provider: str
+    model: str
+    api_key: str
+    base_url: str = ""
+    temperature: float = 0.7
+    context_limit: int = 128000
+
+
 class InferToolsRequest(BaseModel):
     description: str = Field(..., min_length=1, max_length=2000)
+    llm_config: Optional[ClientLLMConfig] = None
 
 
 class InferToolsResponse(BaseModel):

@@ -64,6 +64,7 @@ async def infer_tools_for_task(
     description: str,
     user_id: str,
     db: AsyncSession,
+    client_llm: dict | None = None,
 ) -> dict[str, Any]:
     """Infer allowed_tools and skill_id from a task description using LLM.
 
@@ -96,7 +97,21 @@ async def infer_tools_for_task(
         llm_config = result.scalar_one_or_none()
 
     if not llm_config:
-        raise ValueError("没有可用的 LLM 配置")
+        if not client_llm:
+            raise ValueError("没有可用的 LLM 配置")
+        # Build model from client-provided config
+        from types import SimpleNamespace
+        from app.core.security import encrypt_api_key
+        fake_config = SimpleNamespace(
+            provider=client_llm.get("provider", "openai"),
+            model=client_llm.get("model", ""),
+            api_key_encrypted=encrypt_api_key(client_llm.get("api_key", "")),
+            base_url=client_llm.get("base_url") or None,
+            temperature=float(client_llm.get("temperature", 0.7)),
+        )
+        model = get_chat_model(fake_config)
+    else:
+        model = get_chat_model(llm_config)
 
     # Build tool & skill context
     tool_list_text = _build_tool_list_text()
@@ -109,7 +124,6 @@ async def infer_tools_for_task(
         f"可用技能：\n{skill_list_text}"
     )
 
-    model = get_chat_model(llm_config)
     messages = [
         SystemMessage(content=_INFER_SYSTEM_PROMPT),
         HumanMessage(content=user_prompt),

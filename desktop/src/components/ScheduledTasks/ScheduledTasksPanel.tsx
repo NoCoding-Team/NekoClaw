@@ -72,6 +72,7 @@ export default function ScheduledTasksPanel() {
     serverUrl,
     securityConfig,
     appTimezone,
+    customLLMConfig,
     addSession,
     setActiveSession,
     appendMessage,
@@ -245,10 +246,21 @@ export default function ScheduledTasksPanel() {
     if (!form.description.trim()) return
     setInferring(true)
     try {
+      const body: Record<string, unknown> = { description: form.description }
+      if (customLLMConfig?.enabled) {
+        body.llm_config = {
+          provider: customLLMConfig.provider,
+          model: customLLMConfig.model,
+          api_key: customLLMConfig.api_key,
+          base_url: customLLMConfig.base_url || '',
+          temperature: customLLMConfig.temperature,
+          context_limit: customLLMConfig.context_limit,
+        }
+      }
       const res = await apiFetch(`${serverUrl}/api/scheduled-tasks/infer-tools`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: form.description }),
+        body: JSON.stringify(body),
       })
       await throwIfError(res)
       const data: { allowed_tools: string[]; skill_id: string | null; reasoning: string } = await res.json()

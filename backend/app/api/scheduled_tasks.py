@@ -33,7 +33,8 @@ async def infer_tools(
     from ..services.task_tool_inference import infer_tools_for_task
 
     try:
-        result = await infer_tools_for_task(body.description, current_user.id, db)
+        client_llm = body.llm_config.model_dump() if body.llm_config else None
+        result = await infer_tools_for_task(body.description, current_user.id, db, client_llm)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     return InferToolsResponse(**result)
