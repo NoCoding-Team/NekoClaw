@@ -112,6 +112,7 @@ export const ALL_TOOL_NAMES: string[] = [
   'browser_navigate', 'browser_screenshot', 'browser_click', 'browser_type',
   'http_request',
   'memory_read', 'memory_write', 'search_memory',
+  'read_skill',
 ]
 
 const ALWAYS_ENABLED_TOOL_NAMES = ['memory_read', 'memory_write', 'search_memory']
