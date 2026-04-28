@@ -169,7 +169,10 @@ interface FallbackFormRow extends FallbackLLMConfig {
 
 function ModelCenterTab() {
   const { customLLMConfig, setCustomLLMConfig, selectedServerConfigId, setSelectedServerConfigId } = useAppStore()
-  const [modelSubTab, setModelSubTab] = useState<'default' | 'custom'>('default')
+  // 初始 tab 根据当前启用状态决定，保持与实际状态一致
+  const [modelSubTab, setModelSubTab] = useState<'default' | 'custom'>(
+    customLLMConfig.enabled ? 'custom' : 'default'
+  )
 
   // ── 默认配置 state
   const [serverConfigs, setServerConfigs] = useState<LLMConfig[]>([])
