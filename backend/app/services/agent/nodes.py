@@ -293,6 +293,19 @@ async def llm_call(state: AgentState) -> dict:
             non_system = [m for m in messages if not isinstance(m, SystemMessage)]
             messages = system_msgs + non_system[-20:]
 
+    # Normalize AIMessages: some providers (e.g. DeepSeek) reject replayed assistant
+    # messages that have both non-empty content AND tool_calls. Strip content when
+    # tool_calls are present to ensure compatibility.
+    normalized: list = []
+    for m in messages:
+        if isinstance(m, AIMessage) and m.tool_calls and m.content:
+            try:
+                m = m.model_copy(update={"content": ""})
+            except AttributeError:
+                m = m.copy(update={"content": ""})
+        normalized.append(m)
+    messages = normalized
+
     # Resolve tools
     allowed = state.get("allowed_tools")
     tools = get_tools(allowed, ws, state["user_id"])
@@ -318,6 +331,7 @@ async def llm_call(state: AgentState) -> dict:
             break
         except Exception as exc:
             last_exc = exc
+            print(f"[llm_error] session={state['session_id']} attempt={attempt} error={exc}", flush=True)
             if attempt == 0:
                 # 只在第一次失败时推送提示，后续重试静默等待
                 await send_event(ws, "llm_token", {"token": _RETRY_MSG})
