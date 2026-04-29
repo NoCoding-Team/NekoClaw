@@ -6,8 +6,12 @@ interface Ability {
   icon: string
   name: string
   desc: string
-  executor: 'client' | 'server' | 'memory' | 'skill'
-  executorLabel: string
+  /** Where the tool runs */
+  runtime: 'client' | 'server'
+  runtimeLabel: string
+  /** Internal (system plumbing) vs external (user-facing action) */
+  scope: 'internal' | 'external'
+  scopeLabel: string
   tools: string[]
   alwaysOn?: boolean
 }
@@ -18,8 +22,10 @@ const ABILITIES: Ability[] = [
     icon: '📁',
     name: '文件操作',
     desc: '读取、写入、列举和删除本机文件与目录，让 Agent 直接操作你的本地文件系统',
-    executor: 'client',
-    executorLabel: '本机执行',
+    runtime: 'client',
+    runtimeLabel: '本机执行',
+    scope: 'external',
+    scopeLabel: '外部能力',
     tools: ['file_read', 'file_write', 'file_list', 'file_delete'],
   },
   {
@@ -27,8 +33,10 @@ const ABILITIES: Ability[] = [
     icon: '💻',
     name: '命令行执行',
     desc: '在宿主机或沙箱容器中运行 Shell 命令，支持脚本、包管理器、系统操作等',
-    executor: 'client',
-    executorLabel: '本机执行',
+    runtime: 'client',
+    runtimeLabel: '本机执行',
+    scope: 'external',
+    scopeLabel: '外部能力',
     tools: ['shell_exec'],
   },
   {
@@ -36,8 +44,10 @@ const ABILITIES: Ability[] = [
     icon: '🐍',
     name: 'Python 执行',
     desc: '在安全沙盒容器中运行 Python 代码，预装 numpy、pandas、matplotlib 等科学计算库',
-    executor: 'server',
-    executorLabel: '服务端执行',
+    runtime: 'server',
+    runtimeLabel: '服务端执行',
+    scope: 'external',
+    scopeLabel: '外部能力',
     tools: ['python_repl'],
   },
   {
@@ -45,8 +55,10 @@ const ABILITIES: Ability[] = [
     icon: '🌐',
     name: '网页搜索',
     desc: '通过 Tavily 搜索引擎获取互联网实时信息，支持新闻、文档、技术内容等',
-    executor: 'server',
-    executorLabel: '服务端执行',
+    runtime: 'server',
+    runtimeLabel: '服务端执行',
+    scope: 'external',
+    scopeLabel: '外部能力',
     tools: ['web_search'],
   },
   {
@@ -54,8 +66,10 @@ const ABILITIES: Ability[] = [
     icon: '🔌',
     name: 'HTTP 请求',
     desc: '发送 HTTP 请求，支持自定义方法/Header/Body 和 REST API 调用；parse_html=true 时自动清洗网页为 Markdown',
-    executor: 'server',
-    executorLabel: '服务端执行',
+    runtime: 'server',
+    runtimeLabel: '服务端执行',
+    scope: 'external',
+    scopeLabel: '外部能力',
     tools: ['http_request'],
   },
   {
@@ -63,8 +77,10 @@ const ABILITIES: Ability[] = [
     icon: '🖥️',
     name: '浏览器自动化',
     desc: '控制本地浏览器进行页面导航、截图、元素点击和文字输入，可操作任意网页',
-    executor: 'client',
-    executorLabel: '本机执行',
+    runtime: 'client',
+    runtimeLabel: '本机执行',
+    scope: 'external',
+    scopeLabel: '外部能力',
     tools: ['browser_navigate', 'browser_screenshot', 'browser_click', 'browser_type'],
   },
   {
@@ -72,8 +88,10 @@ const ABILITIES: Ability[] = [
     icon: '🧠',
     name: '记忆管理',
     desc: '读取、写入和检索个人记忆文件，让 Agent 把长期记忆保存到记忆库面板可见的位置',
-    executor: 'memory',
-    executorLabel: '记忆系统',
+    runtime: 'server',
+    runtimeLabel: '服务端执行',
+    scope: 'internal',
+    scopeLabel: '内部能力',
     tools: ['memory_read', 'memory_write', 'search_memory'],
     alwaysOn: true,
   },
@@ -82,8 +100,10 @@ const ABILITIES: Ability[] = [
     icon: '🧩',
     name: '技能读取',
     desc: '读取猫技库中的技能文件（SKILL.md），让 Agent 按需加载完整的任务操作指南',
-    executor: 'skill',
-    executorLabel: '技能系统',
+    runtime: 'server',
+    runtimeLabel: '服务端执行',
+    scope: 'internal',
+    scopeLabel: '内部能力',
     tools: ['read_skill'],
     alwaysOn: true,
   },
@@ -131,8 +151,11 @@ export default function AbilitiesPanel() {
               <div className={styles.cardBody}>
                 <div className={styles.cardHead}>
                   <span className={styles.cardName}>{ability.name}</span>
-                  <span className={`${styles.executorBadge} ${ability.executor === 'client' ? styles.badgeClient : ability.executor === 'memory' ? styles.badgeMemory : ability.executor === 'skill' ? styles.badgeSkill : styles.badgeServer}`}>
-                    {ability.executorLabel}
+                  <span className={`${styles.executorBadge} ${ability.runtime === 'client' ? styles.badgeClient : styles.badgeServer}`}>
+                    {ability.runtimeLabel}
+                  </span>
+                  <span className={`${styles.executorBadge} ${ability.scope === 'internal' ? styles.badgeInternal : styles.badgeExternal}`}>
+                    {ability.scopeLabel}
                   </span>
                 </div>
                 <p className={styles.cardDesc}>{ability.desc}</p>

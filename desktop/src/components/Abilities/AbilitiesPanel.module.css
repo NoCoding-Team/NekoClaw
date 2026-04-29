@@ -101,16 +101,16 @@
   color: #64a0f4;
 }
 
-.badgeMemory {
+.badgeExternal {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.badgeInternal {
   background: rgba(192, 132, 252, 0.1);
   border-color: rgba(192, 132, 252, 0.35);
   color: #c084fc;
-}
-
-.badgeSkill {
-  background: rgba(52, 211, 153, 0.1);
-  border-color: rgba(52, 211, 153, 0.35);
-  color: #34d399;
 }
 
 .cardDesc {
