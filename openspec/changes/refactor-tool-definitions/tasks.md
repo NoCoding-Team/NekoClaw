@@ -27,8 +27,8 @@
 
 ## 6. 技能文件更新
 
-- [ ] 6.1 更新 `backend/skills/get-weather/SKILL.md`：将 `fetch_url` 引用改为 `http_request` + `parse_html=true`
-- [ ] 6.2 更新 `backend/skills/summarize-webpage/SKILL.md`：将 `fetch_url` 引用改为 `http_request` + `parse_html=true`
+- [x] 6.1 更新 `backend/skills/get-weather/SKILL.md`：将 `fetch_url` 引用改为 `http_request` + `parse_html=true`
+- [x] 6.2 更新 `backend/skills/summarize-webpage/SKILL.md`：将 `fetch_url` 引用改为 `http_request` + `parse_html=true`
 
 ## 7. 验证
 

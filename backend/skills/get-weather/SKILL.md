@@ -9,7 +9,7 @@ triggers:
   - 温度
   - 天气预报
 requires_tools:
-  - fetch_url
+  - http_request
 author: system
 version: "1.0"
 ---
@@ -22,9 +22,9 @@ version: "1.0"
 ## 步骤
 
 1. 从用户消息中提取城市名称。如果用户没有指定城市，请询问用户。
-2. 使用 `fetch_url` 访问 wttr.in 获取天气数据：
+2. 使用 `http_request` 访问 wttr.in 获取天气数据：
    ```
-   fetch_url(url="https://wttr.in/{城市名}?format=j1&lang=zh")
+   http_request(url="https://wttr.in/{城市名}?format=j1&lang=zh", parse_html=true)
    ```
    - 将 `{城市名}` 替换为英文城市名（如 Beijing, Shanghai, Tokyo）
    - `format=j1` 返回 JSON 格式

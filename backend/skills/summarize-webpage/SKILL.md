@@ -9,7 +9,7 @@ triggers:
   - 帮我看看这个链接
   - 这个网页讲了什么
 requires_tools:
-  - fetch_url
+  - http_request
 author: system
 version: "1.0"
 ---
@@ -23,9 +23,9 @@ version: "1.0"
 
 1. 从用户消息中提取目标 URL。
 
-2. 使用 `fetch_url` 获取网页内容：
+2. 使用 `http_request` 获取网页内容：
    ```
-   fetch_url(url="<目标URL>")
+   http_request(url="<目标URL>", parse_html=true)
    ```
 
 3. 分析获取到的内容，生成结构化摘要：
