@@ -56,6 +56,15 @@ const nekoBridge = {
     readLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:readLegacyLocalMemories"),
     deleteLegacyLocalMemories: () => electron.ipcRenderer.invoke("db:deleteLegacyLocalMemories")
   },
+  pet: {
+    onFlip: (callback) => {
+      const handler = (_e, flipped) => callback(flipped);
+      electron.ipcRenderer.on("pet:flip", handler);
+      return () => {
+        electron.ipcRenderer.removeListener("pet:flip", handler);
+      };
+    }
+  },
   scheduler: {
     sync: (tasks) => electron.ipcRenderer.invoke("scheduler:sync", tasks),
     validateCron: (expr) => electron.ipcRenderer.invoke("scheduler:validate-cron", expr),

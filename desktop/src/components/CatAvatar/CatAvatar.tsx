@@ -17,12 +17,10 @@ import { useEffect, useState } from 'react'
 import { CatState } from '../../store/app'
 import { NekoCat } from './NekoCat'
 
-const WALK_ANIM = '/animations/data-cat-walk_lottie.json'
-
 const ANIM_MAP: Record<CatState, string> = {
-  idle:     WALK_ANIM,
+  idle:     '/animations/cat-idle.json',
   thinking: '/animations/cat-thinking.json',
-  working:  WALK_ANIM,
+  working:  '/animations/cat-working.json',
   success:  '/animations/cat-success.json',
   error:    '/animations/cat-error.json',
 }
@@ -43,17 +41,6 @@ export function CatAvatar({ state, size = 180 }: Props) {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!cancelled) {
-          // Fix relative asset paths: lottie-web resolves `u` relative to the
-          // page origin when loaded via animationData, not the JSON location.
-          if (data?.assets) {
-            const base = ANIM_MAP[state].replace(/[^/]+$/, '') // e.g. "/animations/"
-            data.assets = (data.assets as Array<Record<string, unknown>>).map((a) => {
-              if (typeof a.u === 'string' && a.u && !/^(https?:\/\/|\/)/.test(a.u)) {
-                return { ...a, u: base + a.u }
-              }
-              return a
-            })
-          }
           setAnimData(data)
           setCurrentState(state)
         }

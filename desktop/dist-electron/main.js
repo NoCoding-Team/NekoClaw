@@ -1522,9 +1522,151 @@ function createWindow() {
   }
   return win;
 }
+function createPetWindow() {
+  const { width: screenWidth, height: screenHeight } = electron.screen.getPrimaryDisplay().workAreaSize;
+  const PET_SIZE = 160;
+  const SPEED = 2;
+  let petX = 0;
+  let petY = screenHeight - PET_SIZE;
+  let petDir = 1;
+  let isDragging = false;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+  let isLeftMouseDown = () => false;
+  let setClickThrough = () => {
+  };
+  if (process.platform === "win32") {
+    try {
+      const koffi = require("koffi");
+      const user32 = koffi.load("user32.dll");
+      const GetAsyncKeyState = user32.func("short __stdcall GetAsyncKeyState(int vKey)");
+      isLeftMouseDown = () => (GetAsyncKeyState(1) & 32768) !== 0;
+      const GetWindowLongPtrW = user32.func("intptr_t __stdcall GetWindowLongPtrW(intptr_t hwnd, int nIndex)");
+      const SetWindowLongPtrW = user32.func("intptr_t __stdcall SetWindowLongPtrW(intptr_t hwnd, int nIndex, intptr_t dwNewLong)");
+      const GWL_EXSTYLE = -20;
+      const WS_EX_TRANSPARENT = 32;
+      let hwndVal = 0;
+      let _isThrough = true;
+      const ensureHwnd = () => {
+        if (hwndVal === 0) {
+          const buf = win.getNativeWindowHandle();
+          hwndVal = buf.readUInt32LE(0);
+        }
+      };
+      setClickThrough = (enable) => {
+        if (enable === _isThrough) return;
+        ensureHwnd();
+        const exStyle = Number(GetWindowLongPtrW(hwndVal, GWL_EXSTYLE));
+        const newStyle = enable ? exStyle | WS_EX_TRANSPARENT : exStyle & ~WS_EX_TRANSPARENT;
+        SetWindowLongPtrW(hwndVal, GWL_EXSTYLE, newStyle);
+        _isThrough = enable;
+      };
+    } catch (e) {
+      console.warn("koffi unavailable, pet drag disabled:", e);
+    }
+  }
+  const getFlipByDir = (dir) => dir === 1;
+  const win = new electron.BrowserWindow({
+    width: PET_SIZE,
+    height: PET_SIZE,
+    x: petX,
+    y: petY,
+    transparent: true,
+    frame: false,
+    show: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    movable: false,
+    fullscreenable: false,
+    thickFrame: false,
+    hasShadow: false,
+    roundedCorners: false,
+    focusable: false,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  });
+  win.setIgnoreMouseEvents(true);
+  win.once("ready-to-show", () => {
+    win.showInactive();
+  });
+  const syncPetFlip = () => {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send("pet:flip", getFlipByDir(petDir));
+    }
+  };
+  win.webContents.once("did-finish-load", () => {
+    syncPetFlip();
+  });
+  const maxX = screenWidth - PET_SIZE;
+  const tickInterval = setInterval(() => {
+    if (win.isDestroyed()) {
+      clearInterval(tickInterval);
+      return;
+    }
+    const cursor = electron.screen.getCursorScreenPoint();
+    const overPet = cursor.x >= petX && cursor.x <= petX + PET_SIZE && cursor.y >= petY && cursor.y <= petY + PET_SIZE;
+    const mouseDown = isLeftMouseDown();
+    if (!isDragging) {
+      setClickThrough(!overPet);
+      if (overPet && mouseDown) {
+        isDragging = true;
+        dragOffsetX = cursor.x - Math.round(petX);
+        dragOffsetY = cursor.y - Math.round(petY);
+      }
+    }
+    if (isDragging) {
+      if (!mouseDown) {
+        isDragging = false;
+        setClickThrough(true);
+        return;
+      }
+      const newX = cursor.x - dragOffsetX;
+      const newY = cursor.y - dragOffsetY;
+      if (newX !== Math.round(petX)) {
+        const newDir = newX > petX ? 1 : -1;
+        if (newDir !== petDir) {
+          petDir = newDir;
+          syncPetFlip();
+        }
+      }
+      petX = newX;
+      petY = newY;
+      win.setPosition(newX, newY);
+      return;
+    }
+    petX += petDir * SPEED;
+    if (petX >= maxX) {
+      petX = maxX;
+      petDir = -1;
+      syncPetFlip();
+    } else if (petX <= 0) {
+      petX = 0;
+      petDir = 1;
+      syncPetFlip();
+    }
+    win.setPosition(Math.round(petX), Math.round(petY));
+  }, 16);
+  win.on("closed", () => {
+    clearInterval(tickInterval);
+  });
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(`${VITE_DEV_SERVER_URL}pet.html`);
+  } else {
+    win.loadFile(path.join(__dirname, "../dist/pet.html"));
+  }
+  return win;
+}
 electron.app.whenReady().then(() => {
   electron.app.setName("NekoClaw");
   createWindow();
+  createPetWindow();
   electron.app.on("activate", () => {
     if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
   });

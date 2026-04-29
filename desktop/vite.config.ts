@@ -37,6 +37,10 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        pet: path.resolve(__dirname, 'pet.html'),
+      },
       external: ['playwright-core'],
     },
   },
