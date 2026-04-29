@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage'
 import UsersPage from './pages/UsersPage'
 import ModelsPage from './pages/ModelsPage'
 import SkillsPage from './pages/SkillsPage'
+import ToolsPage from './pages/ToolsPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!getToken()) return <Navigate to="/login" replace />
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="users" element={<UsersPage />} />
           <Route path="models" element={<ModelsPage />} />
           <Route path="skills" element={<SkillsPage />} />
+          <Route path="tools" element={<ToolsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

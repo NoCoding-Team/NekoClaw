@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/users', label: '用户管理', icon: '◉' },
   { to: '/models', label: '模型配置', icon: '◆' },
   { to: '/skills', label: 'Skills 管理', icon: '◇' },
+  { to: '/tools', label: '工具管理', icon: '⚙' },
 ]
 
 export default function Layout() {
