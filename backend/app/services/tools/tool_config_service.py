@@ -39,9 +39,13 @@ async def _load_all_configs() -> dict[str, ToolConfig]:
     if _cache is not None and (now - _cache_ts) < _CACHE_TTL:
         return _cache
 
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(ToolConfig))
-        rows = {tc.tool_name: tc for tc in result.scalars().all()}
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(ToolConfig))
+            rows = {tc.tool_name: tc for tc in result.scalars().all()}
+    except Exception:
+        # Table may not exist yet (before first restart after migration)
+        rows = {}
 
     _cache = rows
     _cache_ts = now
