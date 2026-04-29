@@ -85,6 +85,7 @@ def get_tools(
     allowed_tools: list[str] | None,
     ws: Any,  # noqa: ARG001 – kept for API symmetry; needed by nodes.py context
     user_id: str | None,  # noqa: ARG001
+    globally_disabled: set[str] | None = None,
 ) -> list[BaseTool]:
     """Return BaseTool instances for bind_tools(), filtered by allowlist.
 
@@ -95,16 +96,23 @@ def get_tools(
         allowed_tools: None → all tools, [] → no tools, [...] → specific tools.
         ws: passed for API symmetry (used by nodes.py).
         user_id: passed for API symmetry (used by nodes.py).
+        globally_disabled: set of tool names disabled by admin (from tool_config_service).
     """
+    _disabled = globally_disabled or set()
+
     if allowed_tools is not None and len(allowed_tools) == 0:
         # Even when no tools are allowed, still inject always-include tools
-        tools_to_use = [t for t in TOOL_DEFINITIONS if t["name"] in _ALWAYS_INCLUDE]
+        tools_to_use = [
+            t for t in TOOL_DEFINITIONS
+            if t["name"] in _ALWAYS_INCLUDE and t["name"] not in _disabled
+        ]
     elif allowed_tools is None:
-        tools_to_use = TOOL_DEFINITIONS
+        tools_to_use = [t for t in TOOL_DEFINITIONS if t["name"] not in _disabled]
     else:
         tools_to_use = [
             t for t in TOOL_DEFINITIONS
-            if t["name"] in allowed_tools or t["name"] in _ALWAYS_INCLUDE
+            if (t["name"] in allowed_tools or t["name"] in _ALWAYS_INCLUDE)
+            and t["name"] not in _disabled
         ]
 
     return [

@@ -219,6 +219,8 @@ async def prepare(state: AgentState) -> dict:
 
         session_source = session.source if session else "chat"
         memory_policy = session.memory_policy if session else "auto"
+        from app.services.tools.tool_config_service import get_globally_disabled_tools as _get_disabled
+        _globally_disabled = await _get_disabled()
         system_prompt = await build_system_prompt(
             user_id,
             allowed_tools,
@@ -226,6 +228,7 @@ async def prepare(state: AgentState) -> dict:
             query_hint=query_hint,
             session_source=session_source,
             memory_policy=memory_policy,
+            globally_disabled=_globally_disabled,
         )
     print(f"[system_prompt] session={session_id} length={len(system_prompt)}\n{system_prompt}\n{'='*60}", flush=True)
     messages = [SystemMessage(content=system_prompt)]
@@ -310,7 +313,9 @@ async def llm_call(state: AgentState) -> dict:
 
     # Resolve tools
     allowed = state.get("allowed_tools")
-    tools = get_tools(allowed, ws, state["user_id"])
+    from app.services.tools.tool_config_service import get_globally_disabled_tools
+    globally_disabled = await get_globally_disabled_tools()
+    tools = get_tools(allowed, ws, state["user_id"], globally_disabled=globally_disabled)
 
     # Build model
     model = get_chat_model(llm_config)

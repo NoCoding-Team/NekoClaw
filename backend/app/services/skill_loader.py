@@ -145,6 +145,7 @@ async def build_available_skills_prompt(
     user_id: str,
     allowed_tools: list[str] | None,
     db: AsyncSession,
+    globally_disabled: set[str] | None = None,
 ) -> str:
     """Build ``<available_skills>`` XML block filtered by enabled + allowed_tools."""
     await ensure_user_skill_configs(user_id, db)
@@ -154,7 +155,7 @@ async def build_available_skills_prompt(
 
     lines: list[str] = ["<available_skills>"]
     for skill_key, meta in skills.items():
-        if not _skill_is_available(meta, allowed_tools):
+        if not _skill_is_available(meta, allowed_tools, globally_disabled=globally_disabled):
             continue
         skill_md_path = str(Path(meta.path) / "SKILL.md")
         lines.append("  <skill>")
@@ -289,10 +290,14 @@ def _parse_frontmatter(skill_file: Path, name: str, source: str = "builtin") -> 
     )
 
 
-def _skill_is_available(meta: SkillMeta, allowed_tools: list[str] | None) -> bool:
+def _skill_is_available(meta: SkillMeta, allowed_tools: list[str] | None, globally_disabled: set[str] | None = None) -> bool:
     """Check if all tools required by a skill are within allowed_tools."""
-    if allowed_tools is None:
-        return True
     if not meta.requires_tools:
+        return True
+    _disabled = globally_disabled or set()
+    # If any required tool is globally disabled, skill is unavailable
+    if any(t in _disabled for t in meta.requires_tools):
+        return False
+    if allowed_tools is None:
         return True
     return all(t in allowed_tools for t in meta.requires_tools)

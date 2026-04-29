@@ -95,7 +95,7 @@ _TOOL_RULES_SUFFIX = (
 )
 
 
-def _build_tool_rules(allowed_tools: list[str] | None) -> str:
+def _build_tool_rules(allowed_tools: list[str] | None, globally_disabled: set[str] | None = None) -> str:
     """Build tool rules dynamically based on the enabled tool list.
 
     When ``allowed_tools`` is ``None`` (full-access mode) all tool groups are
@@ -107,12 +107,16 @@ def _build_tool_rules(allowed_tools: list[str] | None) -> str:
     """
     from app.services.tools.definitions import TOOL_DEFINITIONS
 
+    _disabled = globally_disabled or set()
+
     # Build a set of categories that have enabled tools
     enabled_categories: set[str] = set()
     for tdef in TOOL_DEFINITIONS:
         cat = tdef.get("category", "")
         name = tdef["name"]
         if cat == "internal":
+            continue
+        if name in _disabled:
             continue
         if cat == "memory":
             # Memory tools are always enabled
@@ -356,6 +360,7 @@ async def build_system_prompt(
     query_hint: str = "",
     session_source: str = "chat",
     memory_policy: str = "auto",
+    globally_disabled: set[str] | None = None,
 ) -> str:
     """Build the system prompt including persona files, tool rules, skill catalog, and injected memories."""
     from app.services.skill_loader import build_available_skills_prompt
@@ -378,12 +383,12 @@ async def build_system_prompt(
         + "\n\n## 身份\n" + identity
         + "\n\n## 用户画像\n" + user_profile
         + "\n\n" + agents
-        + "\n\n" + _build_tool_rules(allowed_tools)
+        + "\n\n" + _build_tool_rules(allowed_tools, globally_disabled=globally_disabled)
     )
 
     # 5. Skill catalog and rules
     if db:
-        skills_prompt = await build_available_skills_prompt(user_id, allowed_tools, db)
+        skills_prompt = await build_available_skills_prompt(user_id, allowed_tools, db, globally_disabled=globally_disabled)
     else:
         skills_prompt = ""
     if skills_prompt:
