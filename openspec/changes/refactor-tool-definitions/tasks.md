@@ -18,8 +18,8 @@
 
 ## 4. System prompt 分组展示
 
-- [ ] 4.1 修改 `context.py` 中工具描述生成逻辑，按 category 分组输出，每组带中文标题
-- [ ] 4.2 确保 `internal` 分类（read_skill）不出现在分组展示中
+- [x] 4.1 修改 `context.py` 中工具描述生成逻辑，按 category 分组输出，每组带中文标题
+- [x] 4.2 确保 `internal` 分类（read_skill）不出现在分组展示中
 
 ## 5. 桌面端清理
 

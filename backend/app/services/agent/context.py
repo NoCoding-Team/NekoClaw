@@ -37,29 +37,33 @@ from app.models.session import Session
 MAX_TOOL_RESULT_CHARS = 8000
 
 # ── Tool groups for dynamic tool rules ────────────────────────────────────
-# Each entry: (group_tools, env_description)
-_TOOL_GROUPS: list[tuple[list[str], str]] = [
-    (
-        ["file_read", "file_write", "file_list", "file_delete"],
-        "`file_read`、`file_write`、`file_list`、`file_delete`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地文件操作权限。",
+# Category → Chinese label mapping for system prompt grouping.
+# "internal" is excluded from grouped display.
+_CATEGORY_LABELS: dict[str, str] = {
+    "memory": "记忆工具",
+    "file": "文件工具",
+    "execution": "执行工具",
+    "network": "网络工具",
+    "browser": "浏览器工具",
+}
+
+# Per-category environment descriptions injected into tool rules.
+_CATEGORY_ENV_DESCRIPTIONS: dict[str, str] = {
+    "file": (
+        "`file_read`、`file_write`、`file_list`、`file_delete`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的本地文件操作权限。"
     ),
-    (
-        ["shell_exec"],
-        "`shell_exec`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的命令行执行权限。",
+    "execution": (
+        "`shell_exec`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你有完整的命令行执行权限。\n"
+        "   - `python_repl`：在服务端 Docker 沙盒中执行 Python 代码。"
     ),
-    (
-        ["web_search"],
-        "`web_search`：在服务端执行，用于联网搜索获取实时信息。",
+    "network": (
+        "`web_search`：在服务端执行，用于联网搜索获取实时信息。\n"
+        "   - `http_request`：在服务端执行，用于发送 HTTP 请求或获取网页内容（parse_html=true 时清洗为 Markdown）。"
     ),
-    (
-        ["browser_navigate", "browser_screenshot", "browser_click", "browser_type"],
-        "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你可以控制本地浏览器进行页面导航、截图和交互操作。",
+    "browser": (
+        "`browser_navigate`、`browser_screenshot`、`browser_click`、`browser_type`：通过桌面客户端 IPC 桥接在**用户本机**直接执行，你可以控制本地浏览器进行页面导航、截图和交互操作。"
     ),
-    (
-        ["http_request"],
-        "`http_request`：在服务端执行，用于发送自定义 HTTP 请求或调用 REST API。",
-    ),
-]
+}
 
 _TOOL_RULES_PREFIX = (
     "## 工具使用规则（最高优先级，必须遵守）\n"
@@ -95,15 +99,30 @@ def _build_tool_rules(allowed_tools: list[str] | None) -> str:
     """Build tool rules dynamically based on the enabled tool list.
 
     When ``allowed_tools`` is ``None`` (full-access mode) all tool groups are
-    included, preserving the original behaviour.  Otherwise only groups that
+    included, preserving the original behaviour.  Otherwise only categories that
     have at least one tool present in ``allowed_tools`` are described so the
     LLM is not told about capabilities that have been disabled by the user.
     Memory tools (memory_read / memory_write / search_memory) are always
     included regardless of ``allowed_tools``.
     """
+    from app.services.tools.definitions import TOOL_DEFINITIONS
+
+    # Build a set of categories that have enabled tools
+    enabled_categories: set[str] = set()
+    for tdef in TOOL_DEFINITIONS:
+        cat = tdef.get("category", "")
+        name = tdef["name"]
+        if cat == "internal":
+            continue
+        if cat == "memory":
+            # Memory tools are always enabled
+            enabled_categories.add(cat)
+        elif allowed_tools is None or name in allowed_tools:
+            enabled_categories.add(cat)
+
     lines: list[str] = [_TOOL_RULES_PREFIX]
-    for group_tools, env_desc in _TOOL_GROUPS:
-        if allowed_tools is None or any(t in allowed_tools for t in group_tools):
+    for cat, env_desc in _CATEGORY_ENV_DESCRIPTIONS.items():
+        if cat in enabled_categories:
             lines.append(f"   - {env_desc}\n")
     # Memory tools are always present
     lines.append(_TOOL_RULES_MEMORY)
