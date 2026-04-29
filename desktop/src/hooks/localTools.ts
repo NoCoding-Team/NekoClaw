@@ -36,15 +36,6 @@ export async function executeLocalTool(
     case 'browser_type':
       return bridge.browser.type(args.selector as string, args.text as string)
 
-    // ── Network tools ─────────────────────────────────────────────────
-    case 'http_request':
-      return bridge.net.httpRequest({
-        method: args.method as string,
-        url: args.url as string,
-        headers: (args.headers as Record<string, string>) ?? {},
-        body: (args.body as string) ?? '',
-      })
-
     default:
       return { error: `Unknown client tool: ${toolName}` }
   }

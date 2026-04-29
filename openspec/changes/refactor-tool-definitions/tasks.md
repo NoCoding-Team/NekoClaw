@@ -23,7 +23,7 @@
 
 ## 5. 桌面端清理
 
-- [ ] 5.1 从桌面端 Electron 移除 `http_request` 的 client tool handler（该工具已改为 server 执行）
+- [x] 5.1 从桌面端 Electron 移除 `http_request` 的 client tool handler（该工具已改为 server 执行）
 
 ## 6. 技能文件更新
 

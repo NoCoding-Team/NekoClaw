@@ -109,8 +109,8 @@ export const ALL_TOOL_NAMES: string[] = [
   'file_read', 'file_write', 'file_list', 'file_delete',
   'shell_exec',
   'web_search',
-  'browser_navigate', 'browser_screenshot', 'browser_click', 'browser_type',
   'http_request',
+  'browser_navigate', 'browser_screenshot', 'browser_click', 'browser_type',
   'memory_read', 'memory_write', 'search_memory',
   'read_skill',
 ]
