@@ -32,6 +32,6 @@
 
 ## 7. 验证
 
-- [ ] 7.1 确认 `TOOL_DEFINITIONS` 剩余 15 个工具，每个都有 category
-- [ ] 7.2 确认 `TOOL_MAP` 中不含 `fetch_url`、`save_memory`、`update_memory`
-- [ ] 7.3 确认 `agent/tools.py` 中无 `fetch_url` 特殊处理残留
+- [x] 7.1 确认 `TOOL_DEFINITIONS` 剩余 15 个工具，每个都有 category
+- [x] 7.2 确认 `TOOL_MAP` 中不含 `fetch_url`、`save_memory`、`update_memory`
+- [x] 7.3 确认 `agent/tools.py` 中无 `fetch_url` 特殊处理残留

@@ -107,7 +107,7 @@ def analyze_risk(tool_name: str, args: dict[str, Any]) -> tuple[str, str]:
     elif tool_name == "file_read":
         return "LOW", ""
 
-    elif tool_name == "fetch_url":
+    elif tool_name == "http_request":
         return "LOW", ""
 
     elif tool_name == "python_repl":
