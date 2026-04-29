@@ -1,15 +1,24 @@
 """
-Tool definitions. Each tool specifies executor: "server" | "client".
+Tool definitions. Each tool specifies executor: "server" | "client" and category.
 Server tools are executed directly by the backend.
 Client tools are forwarded to the PC desktop app via WebSocket.
+
+Categories:
+  internal  – infrastructure tools not shown in grouped tool descriptions
+  memory    – memory search / read / write
+  file      – local file CRUD
+  execution – code & shell execution
+  network   – web search & HTTP requests
+  browser   – browser automation
 """
 from typing import Any
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
-    # ── Server-side tools ──────────────────────────────────────────────
+    # ── Network tools ──────────────────────────────────────────────────
     {
         "name": "web_search",
         "executor": "server",
+        "category": "network",
         "description": "Search the web for up-to-date information.",
         "parameters": {
             "type": "object",
@@ -21,23 +30,39 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "fetch_url",
+        "name": "http_request",
         "executor": "server",
+        "category": "network",
         "description": (
-            "获取网页内容，返回清洗后的 Markdown 纯文本。"
-            "当需要获取任何 URL 的内容时，优先使用此工具。"
+            "发送 HTTP 请求。设置 parse_html=true 时将 HTML 响应清洗为 Markdown 纯文本（适合读网页）；"
+            "默认返回原始响应（适合调用 REST API）。"
         ),
         "parameters": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "要获取的网页 URL"},
+                "method": {
+                    "type": "string",
+                    "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+                    "default": "GET",
+                },
+                "url": {"type": "string"},
+                "headers": {"type": "object", "default": {}},
+                "body": {"type": "string", "default": ""},
+                "parse_html": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "为 true 时将 HTML 清洗为 Markdown（原 fetch_url 行为）",
+                },
             },
             "required": ["url"],
         },
     },
+
+    # ── Execution tools ────────────────────────────────────────────────
     {
         "name": "python_repl",
         "executor": "server",
+        "category": "execution",
         "description": (
             "在安全沙盒容器中执行 Python 代码。"
             "适用于数据计算、数学运算、文本处理、生成图表（matplotlib）等场景。"
@@ -53,8 +78,25 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "shell_exec",
+        "executor": "client",
+        "category": "execution",
+        "description": "Execute a shell command on the local machine.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "command": {"type": "string"},
+                "cwd": {"type": "string", "default": "~"},
+            },
+            "required": ["command"],
+        },
+    },
+
+    # ── Memory tools ───────────────────────────────────────────────────
+    {
         "name": "search_memory",
         "executor": "server",
+        "category": "memory",
         "description": (
             "搜索用户的长期记忆和每日笔记，返回与查询最相关的片段。"
             "这是查询历史记忆、近期笔记、之前是否提过某事的默认入口；"
@@ -70,23 +112,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "http_request",
-        "executor": "client",
-        "description": "发送自定义 HTTP 请求。仅在需要自定义请求方法、Header、Body 或调用 REST API 时使用。",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "method": {"type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]},
-                "url": {"type": "string"},
-                "headers": {"type": "object", "default": {}},
-                "body": {"type": "string", "default": ""},
-            },
-            "required": ["method", "url"],
-        },
-    },
-    {
         "name": "memory_write",
         "executor": "server",
+        "category": "memory",
         "description": (
             "写入或更新一个 Markdown 记忆文件。"
             "仅在用户明确要求保存，或需要保存长期事实、稳定偏好、重要决策时使用；"
@@ -114,6 +142,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "memory_read",
         "executor": "server",
+        "category": "memory",
         "description": (
             "读取一个明确指定的记忆文件完整内容。"
             "仅当用户指定 MEMORY.md、USER.md、SOUL.md、IDENTITY.md、某个 notes/YYYY-MM-DD.md，"
@@ -132,10 +161,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
 
-    # ── Client-side tools ─────────────────────────────────────────────
+    # ── File tools ─────────────────────────────────────────────────────
     {
         "name": "file_read",
         "executor": "client",
+        "category": "file",
         "description": "Read a local file. Do not use for memory files; use memory_read for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
         "parameters": {
             "type": "object",
@@ -146,6 +176,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "file_write",
         "executor": "client",
+        "category": "file",
         "description": "Write content to a local file. Do not use for memory files; use memory_write for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
         "parameters": {
             "type": "object",
@@ -159,6 +190,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "file_list",
         "executor": "client",
+        "category": "file",
         "description": "List files in a directory.",
         "parameters": {
             "type": "object",
@@ -169,6 +201,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "file_delete",
         "executor": "client",
+        "category": "file",
         "description": "Delete a local file or directory.",
         "parameters": {
             "type": "object",
@@ -176,22 +209,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["path"],
         },
     },
-    {
-        "name": "shell_exec",
-        "executor": "client",
-        "description": "Execute a shell command on the local machine.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "command": {"type": "string"},
-                "cwd": {"type": "string", "default": "~"},
-            },
-            "required": ["command"],
-        },
-    },
+
+    # ── Browser tools ──────────────────────────────────────────────────
     {
         "name": "browser_navigate",
         "executor": "client",
+        "category": "browser",
         "description": "Navigate to a URL in the browser.",
         "parameters": {
             "type": "object",
@@ -202,12 +225,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "browser_screenshot",
         "executor": "client",
+        "category": "browser",
         "description": "Take a screenshot of the current browser page.",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "browser_click",
         "executor": "client",
+        "category": "browser",
         "description": "Click an element on the browser page.",
         "parameters": {
             "type": "object",
@@ -218,6 +243,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "browser_type",
         "executor": "client",
+        "category": "browser",
         "description": "Type text into an element on the browser page.",
         "parameters": {
             "type": "object",
@@ -228,9 +254,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["selector", "text"],
         },
     },
+
+    # ── Internal tools ─────────────────────────────────────────────────
     {
         "name": "read_skill",
         "executor": "server",
+        "category": "internal",
         "description": "Read an agent skill document by its file path. Pass the <location> value from <available_skills> to load the full SKILL.md content.",
         "parameters": {
             "type": "object",
