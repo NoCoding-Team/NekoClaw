@@ -279,6 +279,10 @@ export interface AppState {
   securityConfig: SecurityConfig
   setSecurityConfig: (cfg: Partial<SecurityConfig>) => void
 
+  // Globally enabled tools (fetched from server admin config)
+  globallyEnabledTools: string[] | null  // null = not yet fetched, treat all as enabled
+  fetchGloballyEnabledTools: () => Promise<void>
+
   // Tool call counts (session-level, not persisted)
   toolCallCounts: Record<string, number>
   incrementToolCallCount: (tool: string) => void
@@ -448,6 +452,23 @@ export const useAppStore = create<AppState>((set) => ({
       localStorage.setItem(STORAGE_SECURITY, JSON.stringify(next))
       return { securityConfig: next }
     }),
+
+  globallyEnabledTools: null,
+  fetchGloballyEnabledTools: async () => {
+    try {
+      const { serverUrl, token } = useAppStore.getState()
+      if (!serverUrl || !token) return
+      const res = await fetch(`${serverUrl}/api/tools/enabled`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const tools: string[] = await res.json()
+        set({ globallyEnabledTools: tools })
+      }
+    } catch {
+      // Silently ignore — treat as all enabled
+    }
+  },
 
   toolCallCounts: {},
   incrementToolCallCount: (tool) =>

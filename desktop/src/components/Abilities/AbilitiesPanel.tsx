@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useAppStore } from '../../store/app'
 import styles from './AbilitiesPanel.module.css'
 
@@ -110,7 +111,17 @@ const ABILITIES: Ability[] = [
 ]
 
 export default function AbilitiesPanel() {
-  const { securityConfig, setSecurityConfig } = useAppStore()
+  const { securityConfig, setSecurityConfig, globallyEnabledTools, fetchGloballyEnabledTools } = useAppStore()
+
+  useEffect(() => {
+    fetchGloballyEnabledTools()
+  }, [fetchGloballyEnabledTools])
+
+  // Filter abilities: only show those whose tools are all globally enabled
+  const visibleAbilities = ABILITIES.filter((ability) => {
+    if (globallyEnabledTools === null) return true // Not yet fetched — show all
+    return ability.tools.some((t) => globallyEnabledTools.includes(t))
+  })
 
   const isEnabled = (ability: Ability) =>
     ability.alwaysOn || ability.tools.every(t => securityConfig.toolWhitelist.includes(t))
@@ -138,7 +149,7 @@ export default function AbilitiesPanel() {
       </div>
 
       <div className={styles.list}>
-        {ABILITIES.map((ability) => {
+        {visibleAbilities.map((ability) => {
           const enabled = isEnabled(ability)
           const partial = !enabled && isSomeEnabled(ability)
 
