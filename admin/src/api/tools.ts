@@ -21,6 +21,7 @@ export interface ToolConfig {
   name: string
   category: string
   description: string
+  executor: 'server' | 'client'
   enabled: boolean
   requires: ToolRequires | null
   status: ToolStatus

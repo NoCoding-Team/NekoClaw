@@ -19,7 +19,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "web_search",
         "executor": "server",
         "category": "network",
-        "description": "Search the web for up-to-date information.",        "requires": {
+        "description": "搜索互联网获取最新信息。",        "requires": {
             "credentials": [
                 {"key": "TAVILY_API_KEY", "label": "Tavily API Key", "hint": "从 app.tavily.com 获取"}
             ],
@@ -91,7 +91,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "execution",
         "requires": None,
-        "description": "Execute a shell command on the local machine.",
+        "description": "在用户本地机器上执行 Shell 命令。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -183,7 +183,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "file",
         "requires": None,
-        "description": "Read a local file. Do not use for memory files; use memory_read for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
+        "description": "读取用户本地文件。记忆文件请使用 memory_read。",
         "parameters": {
             "type": "object",
             "properties": {"path": {"type": "string"}},
@@ -195,7 +195,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "file",
         "requires": None,
-        "description": "Write content to a local file. Do not use for memory files; use memory_write for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
+        "description": "向用户本地文件写入内容。记忆文件请使用 memory_write。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -210,7 +210,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "file",
         "requires": None,
-        "description": "List files in a directory.",
+        "description": "列出目录中的文件。",
         "parameters": {
             "type": "object",
             "properties": {"path": {"type": "string"}},
@@ -222,7 +222,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "file",
         "requires": None,
-        "description": "Delete a local file or directory.",
+        "description": "删除用户本地文件或目录。",
         "parameters": {
             "type": "object",
             "properties": {"path": {"type": "string"}},
@@ -236,7 +236,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "browser",
         "requires": None,
-        "description": "Navigate to a URL in the browser.",
+        "description": "在浏览器中导航到指定 URL。",
         "parameters": {
             "type": "object",
             "properties": {"url": {"type": "string"}},
@@ -248,7 +248,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "browser",
         "requires": None,
-        "description": "Take a screenshot of the current browser page.",
+        "description": "截取当前浏览器页面的屏幕截图。",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
     {
@@ -256,7 +256,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "browser",
         "requires": None,
-        "description": "Click an element on the browser page.",
+        "description": "点击浏览器页面上的元素。",
         "parameters": {
             "type": "object",
             "properties": {"selector": {"type": "string"}},
@@ -268,7 +268,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "client",
         "category": "browser",
         "requires": None,
-        "description": "Type text into an element on the browser page.",
+        "description": "在浏览器页面元素中输入文本。",
         "parameters": {
             "type": "object",
             "properties": {
@@ -285,7 +285,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "executor": "server",
         "category": "internal",
         "requires": None,
-        "description": "Read an agent skill document by its file path. Pass the <location> value from <available_skills> to load the full SKILL.md content.",
+        "description": "读取 Agent 技能文档。根据 <available_skills> 中的 <location> 加载完整 SKILL.md 内容。",
         "parameters": {
             "type": "object",
             "properties": {

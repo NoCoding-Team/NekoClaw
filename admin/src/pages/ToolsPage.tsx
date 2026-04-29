@@ -11,6 +11,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   internal: '内部工具',
 }
 
+const EXECUTOR_LABELS: Record<string, { text: string; cls: string }> = {
+  server: { text: '服务端', cls: 'executorServer' },
+  client: { text: '客户端', cls: 'executorClient' },
+}
+
+const EXTERNAL_CATEGORIES = new Set(['network', 'browser'])
+
 function StatusBadge({ tool }: { tool: ToolConfig }) {
   if (!tool.requires) return null
   const { status } = tool
@@ -72,6 +79,15 @@ function ToolCard({ tool, onUpdate }: { tool: ToolConfig; onUpdate: (t: ToolConf
         >
           {tool.enabled ? '已启用' : '已禁用'}
         </button>
+      </div>
+      <div className={styles.cardTags}>
+        {(() => {
+          const exec = EXECUTOR_LABELS[tool.executor] || EXECUTOR_LABELS.server
+          return <span className={`${styles.metaTag} ${styles[exec.cls]}`}>{exec.text}</span>
+        })()}
+        <span className={`${styles.metaTag} ${EXTERNAL_CATEGORIES.has(tool.category) ? styles.scopeExternal : styles.scopeInternal}`}>
+          {EXTERNAL_CATEGORIES.has(tool.category) ? '外部' : '内部'}
+        </span>
       </div>
       <div className={styles.cardDesc}>{tool.description}</div>
 

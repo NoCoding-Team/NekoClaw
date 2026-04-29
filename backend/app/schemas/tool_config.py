@@ -22,6 +22,7 @@ class ToolConfigResponse(BaseModel):
     name: str
     category: str
     description: str
+    executor: str  # "server" | "client"
     enabled: bool
     requires: ToolRequires | None
     status: ToolStatus
