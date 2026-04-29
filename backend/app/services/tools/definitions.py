@@ -19,8 +19,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "web_search",
         "executor": "server",
         "category": "network",
-        "description": "Search the web for up-to-date information.",
-        "parameters": {
+        "description": "Search the web for up-to-date information.",        "requires": {
+            "credentials": [
+                {"key": "TAVILY_API_KEY", "label": "Tavily API Key", "hint": "从 app.tavily.com 获取"}
+            ],
+            "services": [],
+        },        "parameters": {
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Search query"},
@@ -33,6 +37,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "http_request",
         "executor": "server",
         "category": "network",
+        "requires": None,
         "description": (
             "发送 HTTP 请求。设置 parse_html=true 时将 HTML 响应清洗为 Markdown 纯文本（适合读网页）；"
             "默认返回原始响应（适合调用 REST API）。"
@@ -63,6 +68,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "python_repl",
         "executor": "server",
         "category": "execution",
+        "requires": {
+            "credentials": [],
+            "services": ["docker"],
+        },
         "description": (
             "在安全沙盒容器中执行 Python 代码。"
             "适用于数据计算、数学运算、文本处理、生成图表（matplotlib）等场景。"
@@ -81,6 +90,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "shell_exec",
         "executor": "client",
         "category": "execution",
+        "requires": None,
         "description": "Execute a shell command on the local machine.",
         "parameters": {
             "type": "object",
@@ -97,6 +107,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "search_memory",
         "executor": "server",
         "category": "memory",
+        "requires": {
+            "credentials": [],
+            "services": ["milvus"],
+        },
         "description": (
             "搜索用户的长期记忆和每日笔记，返回与查询最相关的片段。"
             "这是查询历史记忆、近期笔记、之前是否提过某事的默认入口；"
@@ -115,6 +129,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "memory_write",
         "executor": "server",
         "category": "memory",
+        "requires": None,
         "description": (
             "写入或更新一个 Markdown 记忆文件。"
             "仅在用户明确要求保存，或需要保存长期事实、稳定偏好、重要决策时使用；"
@@ -143,6 +158,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "memory_read",
         "executor": "server",
         "category": "memory",
+        "requires": None,
         "description": (
             "读取一个明确指定的记忆文件完整内容。"
             "仅当用户指定 MEMORY.md、USER.md、SOUL.md、IDENTITY.md、某个 notes/YYYY-MM-DD.md，"
@@ -166,6 +182,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "file_read",
         "executor": "client",
         "category": "file",
+        "requires": None,
         "description": "Read a local file. Do not use for memory files; use memory_read for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
         "parameters": {
             "type": "object",
@@ -177,6 +194,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "file_write",
         "executor": "client",
         "category": "file",
+        "requires": None,
         "description": "Write content to a local file. Do not use for memory files; use memory_write for MEMORY.md, USER.md, or notes/YYYY-MM-DD.md.",
         "parameters": {
             "type": "object",
@@ -191,6 +209,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "file_list",
         "executor": "client",
         "category": "file",
+        "requires": None,
         "description": "List files in a directory.",
         "parameters": {
             "type": "object",
@@ -202,6 +221,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "file_delete",
         "executor": "client",
         "category": "file",
+        "requires": None,
         "description": "Delete a local file or directory.",
         "parameters": {
             "type": "object",
@@ -215,6 +235,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "browser_navigate",
         "executor": "client",
         "category": "browser",
+        "requires": None,
         "description": "Navigate to a URL in the browser.",
         "parameters": {
             "type": "object",
@@ -226,6 +247,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "browser_screenshot",
         "executor": "client",
         "category": "browser",
+        "requires": None,
         "description": "Take a screenshot of the current browser page.",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
@@ -233,6 +255,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "browser_click",
         "executor": "client",
         "category": "browser",
+        "requires": None,
         "description": "Click an element on the browser page.",
         "parameters": {
             "type": "object",
@@ -244,6 +267,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "browser_type",
         "executor": "client",
         "category": "browser",
+        "requires": None,
         "description": "Type text into an element on the browser page.",
         "parameters": {
             "type": "object",
@@ -260,6 +284,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "name": "read_skill",
         "executor": "server",
         "category": "internal",
+        "requires": None,
         "description": "Read an agent skill document by its file path. Pass the <location> value from <available_skills> to load the full SKILL.md content.",
         "parameters": {
             "type": "object",

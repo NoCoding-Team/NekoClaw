@@ -34,12 +34,15 @@ async def execute_web_search(args: dict[str, Any]) -> str:
     query = args["query"]
     max_results = args.get("max_results", 5)
 
-    if not settings.TAVILY_API_KEY:
+    from app.services.tools.tool_config_service import get_tool_credential
+    api_key = await get_tool_credential("web_search", "TAVILY_API_KEY")
+
+    if not api_key:
         return json.dumps({"error": "Web search is not configured (no TAVILY_API_KEY)"})
 
     try:
         from tavily import TavilyClient
-        client = TavilyClient(api_key=settings.TAVILY_API_KEY)
+        client = TavilyClient(api_key=api_key)
         response = client.search(query=query, max_results=max_results)
         results = [
             {"title": r.get("title"), "url": r.get("url"), "content": r.get("content")}

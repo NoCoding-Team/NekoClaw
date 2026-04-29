@@ -5,7 +5,7 @@ import re
 import shutil
 from datetime import date, datetime, timedelta, timezone
 from app.models.base import engine, Base, AsyncSessionLocal
-from app.models import user, session, message, llm_config, memory, scheduled_task, scheduled_task_run, skill_config, daily_usage  # noqa: F401 - ensure all models are registered
+from app.models import user, session, message, llm_config, memory, scheduled_task, scheduled_task_run, skill_config, daily_usage, tool_config  # noqa: F401 - ensure all models are registered
 
 logger = logging.getLogger(__name__)
 
