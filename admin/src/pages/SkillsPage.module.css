@@ -89,6 +89,26 @@
   padding: 1px 7px;
 }
 
+.toolReq {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toolReqLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.toolTag {
+  background: rgba(52, 152, 219, 0.12);
+  border: 1px solid rgba(52, 152, 219, 0.25);
+  border-radius: var(--radius-sm);
+  color: #3498db;
+  font-size: 11px;
+  padding: 1px 7px;
+}
+
 .cardActions {
   display: flex;
   gap: 8px;

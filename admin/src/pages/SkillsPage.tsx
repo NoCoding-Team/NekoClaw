@@ -106,6 +106,16 @@ export default function SkillsPage() {
                   ))}
                 </div>
               )}
+              {s.requires_tools.length > 0 && (
+                <div className={styles.toolReq}>
+                  <span className={styles.toolReqLabel}>依赖工具</span>
+                  <div className={styles.tags}>
+                    {s.requires_tools.map(t => (
+                      <span key={t} className={styles.toolTag}>{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className={styles.cardActions}>
                 <button className={styles.btnDanger} onClick={() => handleDelete(s.name)}>删除</button>
               </div>
