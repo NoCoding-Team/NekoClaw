@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_admin
 from app.core.exceptions import ConflictError, NotFoundError
-from app.core.security import hash_password
+from app.core.security import hash_password, encrypt_api_key
 from app.models.daily_usage import UserDailyUsage
 from app.models.llm_config import LLMConfig
 from app.models.message import Message
@@ -435,8 +435,6 @@ async def delete_skill(
 
 # ── Global LLM Configs (admin-scoped view) ─────────────────────────────────
 
-from app.core.security import encrypt_api_key  # noqa: E402
-
 
 @router.get("/llm-configs", response_model=list[LLMConfigResponse])
 async def admin_list_llm_configs(
@@ -484,6 +482,145 @@ async def admin_create_llm_config(
     await db.commit()
     await db.refresh(config)
     return config
+
+
+# ── Tool management ────────────────────────────────────────────────────────
+
+from app.schemas.tool_config import ToolConfigResponse, ToolConfigUpdate, ToolRequires, ToolRequiresCredential, ToolStatus
+from app.services.tools.definitions import TOOL_DEFINITIONS, TOOL_MAP
+from app.services.tools.tool_config_service import (
+    get_globally_disabled_tools,
+    get_tool_config,
+    get_tool_credential,
+    invalidate_cache,
+    set_tool_config,
+)
+
+
+async def _check_service(service: str) -> bool:
+    """Check if an external service is available."""
+    if service == "docker":
+        try:
+            from app.services.tools.container import check_docker
+            return await check_docker()
+        except Exception:
+            return False
+    if service == "milvus":
+        try:
+            from pymilvus import connections
+            connections.connect(alias="health_check", uri=str(__import__("app.core.config", fromlist=["settings"]).settings.MILVUS_URI), timeout=3)
+            connections.disconnect("health_check")
+            return True
+        except Exception:
+            return False
+    return False
+
+
+async def _build_tool_status(tdef: dict, tool_name: str) -> ToolStatus:
+    """Build status object for a tool by checking its dependencies."""
+    requires = tdef.get("requires")
+    if not requires:
+        return ToolStatus(credentials_configured=True, services_available=True, ready=True)
+
+    creds_ok = True
+    for cred in requires.get("credentials", []):
+        val = await get_tool_credential(tool_name, cred["key"])
+        if not val:
+            creds_ok = False
+            break
+
+    services_ok = True
+    for svc in requires.get("services", []):
+        if not await _check_service(svc):
+            services_ok = False
+            break
+
+    return ToolStatus(
+        credentials_configured=creds_ok,
+        services_available=services_ok,
+        ready=creds_ok and services_ok,
+    )
+
+
+@router.get("/tools", response_model=list[ToolConfigResponse])
+async def list_tools(
+    _admin: User = Depends(require_admin),
+):
+    """List all tools with their config and dependency status."""
+    disabled = await get_globally_disabled_tools()
+    results: list[ToolConfigResponse] = []
+
+    for tdef in TOOL_DEFINITIONS:
+        name = tdef["name"]
+        requires_raw = tdef.get("requires")
+        requires = None
+        if requires_raw:
+            requires = ToolRequires(
+                credentials=[ToolRequiresCredential(**c) for c in requires_raw.get("credentials", [])],
+                services=requires_raw.get("services", []),
+            )
+
+        status = await _build_tool_status(tdef, name)
+
+        results.append(ToolConfigResponse(
+            name=name,
+            category=tdef.get("category", ""),
+            description=tdef.get("description", ""),
+            enabled=name not in disabled,
+            requires=requires,
+            status=status,
+        ))
+
+    return results
+
+
+@router.patch("/tools/{name}", response_model=ToolConfigResponse)
+async def update_tool(
+    name: str,
+    body: ToolConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Update tool global enabled state and/or credentials."""
+    if name not in TOOL_MAP:
+        raise NotFoundError(f"Tool '{name}' not found")
+
+    await set_tool_config(db, name, enabled=body.enabled, credentials=body.credentials)
+    await db.commit()
+
+    tdef = TOOL_MAP[name]
+    requires_raw = tdef.get("requires")
+    requires = None
+    if requires_raw:
+        requires = ToolRequires(
+            credentials=[ToolRequiresCredential(**c) for c in requires_raw.get("credentials", [])],
+            services=requires_raw.get("services", []),
+        )
+
+    status = await _build_tool_status(tdef, name)
+    disabled = await get_globally_disabled_tools()
+
+    return ToolConfigResponse(
+        name=name,
+        category=tdef.get("category", ""),
+        description=tdef.get("description", ""),
+        enabled=name not in disabled,
+        requires=requires,
+        status=status,
+    )
+
+
+@router.get("/tools/{name}/check", response_model=ToolStatus)
+async def check_tool(
+    name: str,
+    _admin: User = Depends(require_admin),
+):
+    """Check dependency status for a specific tool."""
+    if name not in TOOL_MAP:
+        raise NotFoundError(f"Tool '{name}' not found")
+
+    invalidate_cache()  # Force fresh credential check
+    return await _build_tool_status(TOOL_MAP[name], name)
 
 
 @router.get("/llm-configs/{config_id}/api-key")

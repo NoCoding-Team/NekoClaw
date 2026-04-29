@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api import auth, sessions, ws, llm_configs, memory, scheduled_tasks, skills, admin
+from app.api import auth, sessions, ws, llm_configs, memory, scheduled_tasks, skills, admin, tools
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
@@ -11,3 +11,4 @@ api_router.include_router(memory.router)
 api_router.include_router(scheduled_tasks.router)
 api_router.include_router(skills.router)
 api_router.include_router(admin.router)
+api_router.include_router(tools.router)
