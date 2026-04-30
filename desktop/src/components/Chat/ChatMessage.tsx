@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ChatMessage — Renders user/assistant/tool messages.
  * Supports markdown + syntax highlighting for assistant,
  * and an interactive tool call card with risk level badge.
@@ -42,7 +42,7 @@ export function ChatMessage({ message }: Props) {
   if (message.role === 'assistant' && message.segments?.length) {
     return (
       <div className={styles.row}>
-        <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+        <img src="./avatar.png" className={styles.catAvatar} alt="NekoClaw" />
         <div className={styles.aiBubble + ' selectable'}>
           {message.segments.map((seg, idx) => (
             <SegmentBlock key={idx} segment={seg} isLast={idx === message.segments!.length - 1} />
@@ -61,7 +61,7 @@ export function ChatMessage({ message }: Props) {
   if (message.role === 'assistant' && message.toolCalls?.length) {
     return (
       <div className={styles.row}>
-        <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+        <img src="./avatar.png" className={styles.catAvatar} alt="NekoClaw" />
         <div className={styles.aiBubble + ' selectable'}>
           <div className={styles.toolCardListInline}>
             {message.toolCalls.map((tc) => (
@@ -85,7 +85,7 @@ export function ChatMessage({ message }: Props) {
   if (message.role === 'tool' && message.toolCalls?.length) {
     return (
       <div className={styles.row}>
-        <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+        <img src="./avatar.png" className={styles.catAvatar} alt="NekoClaw" />
         <div className={styles.toolCardList}>
           {message.toolCalls.map((tc) => (
             <ToolCallCard key={tc.callId} tc={tc} />
@@ -100,7 +100,7 @@ export function ChatMessage({ message }: Props) {
 
   return (
     <div className={styles.row}>
-      <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+      <img src="./avatar.png" className={styles.catAvatar} alt="NekoClaw" />
       <div className={styles.aiBubble + ' selectable'}>
         {message.streaming && !message.content
           ? <ThinkingDots />
@@ -244,7 +244,7 @@ function ThinkingDots() {
 export function ThinkingBubble() {
   return (
     <div className={styles.row}>
-      <img src="/avatar.png" className={styles.catAvatar} alt="NekoClaw" />
+      <img src="./avatar.png" className={styles.catAvatar} alt="NekoClaw" />
       <div className={styles.thinkingBubble}>
         <span className={styles.thinkingDot} />
         <span className={styles.thinkingDot} />

@@ -8,38 +8,41 @@
 
 /* ── Top bar ── */
 .topBar {
-  height: 44px;
+  height: 40px;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 14px;
   -webkit-app-region: drag;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg-muted);
+  border-bottom: 1px solid #e7ddf8;
   flex-shrink: 0;
 }
 .topTitle {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 800;
   color: var(--text-primary);
   -webkit-app-region: no-drag;
 }
 .windowControls {
   margin-left: auto;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   -webkit-app-region: no-drag;
 }
 .windowControls button {
-  width: 26px; height: 26px;
-  border-radius: 50%;
+  width: 30px;
+  height: 28px;
+  border-radius: 9px;
   font-size: 11px;
-  background: rgba(255,255,255,0.06);
+  background: #fff;
+  border: 1px solid #efe6f8;
   color: var(--text-secondary);
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s;
+  transition: transform 0.15s, background 0.15s;
 }
-.windowControls button:hover { background: rgba(255,255,255,0.12); }
-.closeBtn:hover { background: var(--danger) !important; color: #fff !important; }
+.windowControls button:hover { transform: translateY(-1px); }
+.closeBtn { background: #ffe0e8 !important; color: #bf5d79 !important; }
+.closeBtn:hover { background: #ffd2df !important; }
 
 /* ── Scrollable body ── */
 .body {
@@ -62,8 +65,9 @@
 .card {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 20px;
   padding: 18px 20px 20px;
+  box-shadow: 0 4px 12px rgba(201, 184, 164, 0.08);
 }
 .cardFull {
   grid-column: 1 / -1;
@@ -200,19 +204,19 @@
   color: var(--text-secondary);
 }
 .generateBtn {
-  padding: 9px 28px;
-  border-radius: var(--radius-sm);
-  background: #d4a017;
-  color: #1a1208;
+  padding: 10px 24px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #fff;
   font-size: 14px;
-  font-weight: 600;
-  transition: background 0.2s, transform 0.1s;
+  font-weight: 700;
+  transition: transform 0.15s, opacity 0.15s;
   white-space: nowrap;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
-.generateBtn:hover { background: #e0b020; }
-.generateBtn:active { transform: scale(0.97); }
+.generateBtn:hover { transform: translateY(-1px); opacity: 0.92; }
+.generateBtn:active { transform: scale(0.98); }
 .generateBtnOk {
   background: var(--success) !important;
   color: #0d1f14 !important;

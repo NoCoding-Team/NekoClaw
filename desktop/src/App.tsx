@@ -1,3 +1,4 @@
+import { PawPrint, Settings, User } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import { ChatArea } from './components/Chat/ChatArea'
@@ -98,10 +99,10 @@ export default function App() {
 
   if (!serverConnected) return <ConnectForm />
   if (!token && adminError) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 16, background: '#0d0d14', color: '#e0e0f0' }}>
-      <div style={{ fontSize: 20 }}>🐾</div>
-      <div style={{ color: '#e74c3c', fontSize: 14 }}>{adminError}</div>
-      <button onClick={() => setAdminError('')} style={{ padding: '6px 16px', borderRadius: 6, background: '#7c5cbf', color: 'white', border: 'none', cursor: 'pointer' }}>返回登录</button>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: 16, background: '#fffbf8', color: '#433850' }}>
+      <div style={{ fontSize: 20 }}><PawPrint size={24} strokeWidth={2.5} color="#C45B7A" /></div>
+      <div style={{ color: '#c56585', fontSize: 14 }}>{adminError}</div>
+      <button onClick={() => setAdminError('')} style={{ padding: '8px 16px', borderRadius: 12, background: '#ff8fab', color: 'white', border: 'none', cursor: 'pointer' }}>返回登录</button>
     </div>
   )
   if (!token) return <LoginForm />
@@ -113,24 +114,24 @@ export default function App() {
       <MainContent />
       <SettingsPanel />
       {migrateEntries && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ background: '#1e1e2a', border: '1px solid #333', borderRadius: 12, padding: '24px 28px', width: 360, color: '#e0e0e0' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(67,56,80,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: '#fff', border: '1px solid #f0e4d8', borderRadius: 20, padding: '24px 28px', width: 400, color: '#433850', boxShadow: '0 14px 36px rgba(0,0,0,0.14)' }}>
             <p style={{ margin: '0 0 8px', fontWeight: 600 }}>发现旧版本地记忆</p>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#aaa' }}>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#8e7ba3' }}>
               检测到 {migrateEntries.length} 条旧版本地记忆（neko_local_memories.json）。是否将它们导入到服务器记忆库？
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
                 onClick={handleMigrateDecline}
                 disabled={migrating}
-                style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #555', background: 'transparent', color: '#ccc', cursor: 'pointer' }}
+                style={{ padding: '8px 14px', borderRadius: 12, border: '1px solid #f0e4d8', background: '#fff8f3', color: '#7a6b88', cursor: 'pointer' }}
               >
                 跳过
               </button>
               <button
                 onClick={handleMigrateConfirm}
                 disabled={migrating}
-                style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: '#7b5ea7', color: '#fff', cursor: 'pointer' }}
+                style={{ padding: '8px 14px', borderRadius: 12, border: 'none', background: '#ff8fab', color: '#fff', cursor: 'pointer' }}
               >
                 {migrating ? '导入中…' : '导入'}
               </button>
@@ -208,6 +209,7 @@ function ConnectForm() {
 
   const TitleBar = () => (
     <div className={styles.loginTitleBar}>
+      <span className={styles.windowTitle}>NekoClaw</span>
       <div className={styles.loginWindowControls}>
         <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
         <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
@@ -221,7 +223,7 @@ function ConnectForm() {
       <div className={styles.login}>
         <TitleBar />
         <div className={styles.connectingFull}>
-          <div className={styles.connectingLogo}>🐾</div>
+          <div className={styles.connectingLogo}><PawPrint size={24} strokeWidth={2.5} color="#C45B7A" /></div>
           <div className={styles.connectingAppName}>NekoClaw</div>
           <div className={styles.connectingMsg}>
             <span className={styles.spinner} />
@@ -236,7 +238,7 @@ function ConnectForm() {
     <div className={styles.login}>
       <TitleBar />
       <div className={styles.loginCard}>
-        <div className={styles.loginLogo}>🐾 NekoClaw</div>
+        <div className={styles.loginLogo}><PawPrint size={24} strokeWidth={2.5} color="#C45B7A" /> NekoClaw</div>
         <p className={styles.connectSubtitle}>连接到后端服务器后，即可登录使用</p>
         <form onSubmit={(e) => { e.preventDefault(); tryConnect(url) }} className={styles.loginForm}>
           <input
@@ -360,6 +362,7 @@ function LoginForm() {
   return (
     <div className={styles.login}>
       <div className={styles.loginTitleBar}>
+        <span className={styles.windowTitle}>NekoClaw</span>
         <div className={styles.loginWindowControls}>
           <button onClick={() => window.nekoBridge?.window.minimize()}>─</button>
           <button onClick={() => window.nekoBridge?.window.maximize()}>□</button>
@@ -367,7 +370,7 @@ function LoginForm() {
         </div>
       </div>
       <div className={styles.loginCard}>
-        <div className={styles.loginLogo}>🐾 NekoClaw</div>
+        <div className={styles.loginLogo}><PawPrint size={24} strokeWidth={2.5} color="#C45B7A" /> NekoClaw</div>
         <div className={styles.serverBadge}>
           <span className={styles.serverBadgeUrl}>{serverUrl}</span>
           <button className={styles.serverSwitchBtn} onClick={() => setServerConnected(false)}>切换</button>
@@ -376,7 +379,7 @@ function LoginForm() {
           <div className={styles.loginAvatarPicker} onClick={() => avatarInputRef.current?.click()}>
             {avatarPreview
               ? <img src={avatarPreview} className={styles.loginAvatarImg} alt="头像预览" />
-              : <span className={styles.loginAvatarPlaceholder}>🐾</span>
+              : <span className={styles.loginAvatarPlaceholder}><PawPrint size={24} strokeWidth={2.5} color="#C45B7A" /></span>
             }
             <span className={styles.loginAvatarHint}>点击上传头像</span>
             <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }}

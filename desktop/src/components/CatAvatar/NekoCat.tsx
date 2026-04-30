@@ -40,7 +40,7 @@ export function NekoCat({ state, size = 180 }: Props) {
     <div style={{ width: size, height: size, display: 'inline-block' }}>
       <style>{CSS}</style>
       <img
-        src="/avatar.png"
+        src="./avatar.png"
         alt="NekoClaw"
         className={`nk-${state}`}
         style={{

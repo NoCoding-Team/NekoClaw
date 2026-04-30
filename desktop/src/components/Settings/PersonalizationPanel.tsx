@@ -1,3 +1,4 @@
+import { PawPrint, User } from 'lucide-react'
 import { useState, useCallback, useEffect } from 'react'
 import styles from './PersonalizationPanel.module.css'
 import { useAppStore, PersonalizationConfig } from '../../store/app'
@@ -239,8 +240,8 @@ export function PersonalizationPanel() {
               <input className={styles.input} placeholder="例如：AI、robot、familiar" value={bioType} onChange={e => setBioType(e.target.value)} />
               <label className={styles.label}>气质风格</label>
               <input className={styles.input} placeholder="例如：sharp、warm、chaotic、calm" value={vibe} onChange={e => setVibe(e.target.value)} />
-              <label className={styles.label}>代表 Emoji</label>
-              <input className={styles.input} placeholder="选一个代表猫咪的 emoji 🐾" value={catEmoji} onChange={e => setCatEmoji(e.target.value)} />
+              <label className={styles.label}>代表 Symbol</label>
+              <input className={styles.input} placeholder="选一个代表猫咪的符号或短语" value={catEmoji} onChange={e => setCatEmoji(e.target.value)} />
             </div>
           </div>
         </div>
@@ -248,7 +249,7 @@ export function PersonalizationPanel() {
         {/* 性格与行为 */}
         <div className={`${styles.card} ${styles.cardFull}`}>
           <div className={styles.cardHeader}>
-            <span className={styles.cardIcon}>🐾</span>
+            <span className={styles.cardIcon}>🐱</span>
             <div>
               <div className={styles.cardTitle}>性格与行为</div>
               <div className={styles.cardDesc}>定义猫咪的性格和回复方式。</div>

@@ -2,6 +2,9 @@
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background: var(--bg-base);
+  border-radius: 28px;
+  box-shadow: 0 12px 36px rgba(212, 196, 184, 0.35);
 }
 
 /* Login */
@@ -11,7 +14,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--bg-base);
+  background: var(--bg-surface);
   position: relative;
 }
 
@@ -24,42 +27,57 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 0 8px;
+  padding: 0 10px;
   -webkit-app-region: drag;
+  background: var(--bg-muted);
+  border-bottom: 1px solid #e6dcf7;
+}
+
+.windowTitle {
+  margin-right: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6d5d84;
+  -webkit-app-region: no-drag;
 }
 
 .loginWindowControls {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   -webkit-app-region: no-drag;
 }
 .loginWindowControls button {
-  width: 26px; height: 26px;
-  border-radius: 50%;
+  width: 30px;
+  height: 28px;
+  border-radius: 9px;
   font-size: 11px;
-  background: rgba(255,255,255,0.06);
+  background: #fff;
   color: var(--text-secondary);
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, background 0.15s;
+  border: 1px solid #efe6f8;
 }
-.loginWindowControls button:hover { background: rgba(255,255,255,0.12); }
-.loginCloseBtn:hover { background: var(--danger) !important; color: #fff !important; }
+.loginWindowControls button:hover { transform: translateY(-1px); }
+.loginCloseBtn { background: #ffe0e8 !important; color: #bf5d79 !important; }
+.loginCloseBtn:hover { background: #ffd2df !important; }
 
 .loginCard {
-  width: 360px;
-  background: var(--bg-surface);
+  width: 440px;
+  background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 32px 28px;
+  padding: 30px;
+  box-shadow: 0 10px 32px rgba(201, 184, 164, 0.22);
 }
 
 .loginLogo {
   text-align: center;
   font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 24px;
+  font-weight: 800;
+  margin-bottom: 16px;
   color: var(--text-primary);
-  letter-spacing: 0.5px;
 }
 
 .loginForm {
@@ -69,18 +87,21 @@
 }
 
 .loginInput {
-  background: var(--bg-elevated);
+  background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   color: var(--text-primary);
   font-size: 14px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   outline: none;
   font-family: inherit;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
   user-select: text;
 }
-.loginInput:focus { border-color: var(--accent); }
+.loginInput:focus {
+  border-color: #ecdccf;
+  box-shadow: 0 0 0 3px rgba(255, 143, 171, 0.14);
+}
 .loginInput::placeholder { color: var(--text-muted); }
 
 .loginError {
@@ -90,17 +111,17 @@
 }
 
 .loginBtn {
-  background: var(--accent);
+  background: var(--accent-alt);
   color: #fff;
-  padding: 10px;
-  border-radius: var(--radius-sm);
+  padding: 12px;
+  border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: transform 0.15s, opacity 0.15s;
   margin-top: 4px;
 }
-.loginBtn:hover:not(:disabled) { background: var(--accent-dim); }
+.loginBtn:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.92; }
 .loginBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .loginSwitch {
@@ -139,7 +160,7 @@
 .loginAvatarPlaceholder {
   width: 64px; height: 64px;
   border-radius: 50%;
-  background: var(--accent-glow);
+  background: #f7efff;
   border: 2px dashed var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 26px;
@@ -154,13 +175,13 @@
   text-align: center;
   font-size: 13px;
   color: var(--text-muted);
-  margin: -12px 0 16px;
+  margin: -6px 0 14px;
 }
 
 .recentServers {
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
+  margin-top: 12px;
+  border-top: 1px solid #f3e7db;
+  padding-top: 12px;
 }
 
 .recentLabel {
@@ -178,9 +199,9 @@
 }
 
 .recentItem {
-  background: var(--bg-elevated);
+  background: #f3eeff;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   color: var(--text-secondary);
   font-size: 13px;
   padding: 7px 10px;
@@ -193,7 +214,7 @@
   transition: border-color 0.15s, color 0.15s;
 }
 .recentItem:hover {
-  border-color: var(--accent);
+  border-color: #e3d6f5;
   color: var(--text-primary);
 }
 
@@ -203,9 +224,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin: -8px 0 16px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  margin: -8px 0 14px;
+  background: #f3eeff;
+  border: 1px solid #ebe0fb;
   border-radius: 20px;
   padding: 4px 10px 4px 12px;
 }
@@ -237,41 +258,46 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-base);
+  background: var(--bg-surface);
 }
 .panelTopBar {
-  height: 44px;
+  height: 40px;
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 0 14px;
   -webkit-app-region: drag;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg-muted);
+  border-bottom: 1px solid #e7ddf8;
   flex-shrink: 0;
 }
 .panelTitle {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 800;
   color: var(--text-primary);
   -webkit-app-region: no-drag;
 }
 .panelControls {
   margin-left: auto;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   -webkit-app-region: no-drag;
 }
 .panelControls button {
-  width: 26px; height: 26px;
-  border-radius: 50%;
+  width: 30px;
+  height: 28px;
+  border-radius: 9px;
   font-size: 11px;
-  background: rgba(255,255,255,0.06);
+  background: #fff;
+  border: 1px solid #efe6f8;
   color: var(--text-secondary);
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, background 0.15s;
 }
-.panelControls button:hover { background: rgba(255,255,255,0.12); }
-.panelCloseBtn:hover { background: var(--danger) !important; color: #fff !important; }
+.panelControls button:hover { transform: translateY(-1px); }
+.panelCloseBtn { background: #ffe0e8 !important; color: #bf5d79 !important; }
+.panelCloseBtn:hover { background: #ffd2df !important; }
 .panelBody { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
 /* ── Connecting full-screen state ────────────────────────────────────────── */
@@ -286,9 +312,8 @@
 .connectingLogo { font-size: 56px; }
 .connectingAppName {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: 0.5px;
 }
 .connectingMsg {
   display: flex;
@@ -300,7 +325,7 @@
 }
 .spinner {
   width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.1);
+  border: 2px solid rgba(67, 56, 80, 0.15);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

@@ -1,3 +1,4 @@
+import { ArrowUp, ImagePlus } from 'lucide-react';
 import { useRef, useEffect, KeyboardEvent, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore, ChatMessage as ChatMsg, ToolCall, TurnSegment } from '../../store/app'
@@ -178,6 +179,15 @@ export function ChatArea() {
   const [input, setInput] = useState('')
   const [showAssets, setShowAssets] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const tx = document.querySelectorAll('textarea');
+    tx.forEach(t => {
+      t.style.height = 'auto';
+      t.style.height = Math.min(t.scrollHeight, 200) + 'px';
+    });
+  }, [input])
+
   // 延迟发送：新建对话时先创建 session，等 activeSessionId 更新后再发
   const pendingMsgRef = useRef<string | null>(null)
 
@@ -275,15 +285,6 @@ export function ChatArea() {
         <div className={styles.topBar}>
           <WsStatusPill status={wsStatus} />
           <span className={styles.topBarSpacer} />
-          <button
-            className={`${styles.assetsBtn} ${showAssets ? styles.assetsBtnActive : ''}`}
-            onClick={() => setShowAssets(v => !v)}
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M2 2h5v5H2zm7 0h5v5H9zm-7 7h5v5H2zm7 0h5v5H9z" opacity=".85"/>
-            </svg>
-            资产
-          </button>
           <WindowControls />
         </div>
         {showAssets && <AssetsPanel onClose={() => setShowAssets(false)} />
@@ -303,18 +304,25 @@ export function ChatArea() {
         <div className={styles.welcomeCenter}>
           <CatAvatar state={catState} size={100} />
           <h2 className={styles.welcomeGreeting}>嗯，有什么需要我帮忙的？</h2>
-          <div className={styles.welcomeInput}>
-            <div className={styles.inputRow}>
+          <div className={styles.composer}>
+            <button 
+              className={styles.attBtn} 
+              onClick={() => setShowAssets(v => !v)}
+              title="资产和图片"
+            >
+              <ImagePlus size={18} strokeWidth={2.2} />
+            </button>
+            <div className={styles.textareaContainer}>
               <textarea
                 className={styles.textarea}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKeyDown}
-                placeholder="有什么我可以帮你的？（Enter 发送）"
-                rows={2}
+                placeholder="想说什么，慢慢打字也没关系…"
+                rows={1}
               />
-              <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim() || catState === 'thinking'}>➤</button>
             </div>
+            <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim() || catState === 'thinking'}><ArrowUp size={22} strokeWidth={2.5} /></button>
           </div>
         </div>
         )}
@@ -341,33 +349,44 @@ export function ChatArea() {
         <WindowControls />
       </div>
       {showAssets && <AssetsPanel onClose={() => setShowAssets(false)} />}
-      <div className={styles.messages}>
-        {(() => {
-          const agentBusy = catState === 'thinking' || catState === 'working'
-          const grouped = groupToolMessages(messages, agentBusy)
-          const lastHasTools = grouped.length > 0 && (grouped[grouped.length - 1].toolCalls?.length ?? 0) > 0
-          return (
-            <>
-              {grouped.map((m) => (
-                <ChatMessage key={m.id} message={m} />
-              ))}
-              {agentBusy && !messages.some(m => m.streaming) && !lastHasTools && <ThinkingBubble />}
-            </>
-          )
-        })()}
-        <div ref={bottomRef} />
-      </div>
-      <div className={styles.inputArea}>
-        <div className={styles.inputRow}>
-          <textarea
-            className={styles.textarea}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="有什么我可以帮你的？（Enter 发送）"
-            rows={3}
-          />
-          <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim() || catState === 'thinking'}>➤</button>
+      <div className={styles.mainContainer}>
+        <div className={styles.chatCard}>
+          <div className={styles.messages}>
+            {(() => {
+              const agentBusy = catState === 'thinking' || catState === 'working'
+              const grouped = groupToolMessages(messages, agentBusy)
+              const lastHasTools = grouped.length > 0 && (grouped[grouped.length - 1].toolCalls?.length ?? 0) > 0
+              return (
+                <>
+                  {grouped.map((m) => (
+                    <ChatMessage key={m.id} message={m} />
+                  ))}
+                  {agentBusy && !messages.some(m => m.streaming) && !lastHasTools && <ThinkingBubble />}
+                </>
+              )
+            })()}
+            <div ref={bottomRef} />
+          </div>
+        </div>
+        <div className={styles.composer}>
+          <button 
+            className={styles.attBtn} 
+            onClick={() => setShowAssets(v => !v)}
+            title="资产和图片"
+          >
+            <ImagePlus size={18} strokeWidth={2.2} />
+          </button>
+          <div className={styles.textareaContainer}>
+            <textarea
+              className={styles.textarea}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="想说什么，慢慢打字也没关系…"
+              rows={1}
+            />
+          </div>
+          <button className={styles.sendBtn} onClick={handleSend} disabled={!input.trim() || catState === 'thinking'}><ArrowUp size={22} strokeWidth={2.5} /></button>
         </div>
       </div>
       <Toast message={toast} onClose={dismissToast} />

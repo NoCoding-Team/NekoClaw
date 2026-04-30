@@ -3,8 +3,10 @@
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
-  padding: 28px 28px 40px;
+  scrollbar-width: thin;
+  padding: 22px 22px 32px;
   gap: 24px;
+  background: var(--bg-surface);
 }
 
 .header {
@@ -14,15 +16,15 @@
 }
 
 .title {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
 
 .subtitle {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.5;
 }
@@ -39,15 +41,21 @@
   align-items: flex-start;
   gap: 16px;
   padding: 18px 20px;
-  border-radius: var(--radius-md, 10px);
+  border-radius: 14px;
   border: 1px solid var(--border);
-  background: var(--bg-surface);
-  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg-elevated);
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 
 .cardActive {
-  border-color: rgba(124, 106, 244, 0.45);
-  background: rgba(124, 106, 244, 0.05);
+  border-color: #f2bfd4;
+  background: #ffe8ee;
+  box-shadow: inset 0 0 0 1px rgba(242, 191, 212, 0.45);
+}
+
+.card:hover {
+  border-color: #ecd5c6;
+  box-shadow: 0 6px 18px rgba(201, 184, 164, 0.14);
 }
 
 .cardLeft {
@@ -56,7 +64,14 @@
 }
 
 .cardIcon {
-  font-size: 26px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid #efe2f7;
+  background: linear-gradient(160deg, #ffffff 0%, #f7efff 100%);
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -83,34 +98,34 @@
 
 .executorBadge {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   padding: 2px 8px;
   border-radius: 99px;
   border: 1px solid transparent;
 }
 
 .badgeClient {
-  background: rgba(82, 200, 120, 0.1);
-  border-color: rgba(82, 200, 120, 0.3);
-  color: #52c878;
+  background: rgba(127, 201, 162, 0.16);
+  border-color: rgba(127, 201, 162, 0.38);
+  color: #4f9876;
 }
 
 .badgeServer {
-  background: rgba(100, 160, 244, 0.1);
-  border-color: rgba(100, 160, 244, 0.3);
-  color: #64a0f4;
+  background: rgba(126, 200, 227, 0.16);
+  border-color: rgba(126, 200, 227, 0.38);
+  color: #3f7f98;
 }
 
 .badgeExternal {
-  background: rgba(251, 191, 36, 0.1);
-  border-color: rgba(251, 191, 36, 0.3);
-  color: #fbbf24;
+  background: rgba(230, 163, 109, 0.16);
+  border-color: rgba(230, 163, 109, 0.35);
+  color: #9f5a2f;
 }
 
 .badgeInternal {
-  background: rgba(192, 132, 252, 0.1);
-  border-color: rgba(192, 132, 252, 0.35);
-  color: #c084fc;
+  background: rgba(236, 229, 255, 0.8);
+  border-color: rgba(177, 150, 210, 0.45);
+  color: #725b94;
 }
 
 .cardDesc {
@@ -131,17 +146,17 @@
   font-size: 11px;
   font-family: monospace;
   padding: 3px 8px;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--bg-input);
   color: var(--text-muted);
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .chipOn {
-  border-color: rgba(124, 106, 244, 0.4);
-  background: rgba(124, 106, 244, 0.08);
-  color: var(--accent, #7c6af4);
+  border-color: #f2bfd4;
+  background: #ffe8ee;
+  color: #7a4e62;
 }
 
 /* ── Right side: toggle ────────────────────────────────────────────────── */
@@ -150,6 +165,7 @@
   flex-direction: column;
   align-items: center;
   gap: 5px;
+  min-width: 74px;
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -162,13 +178,13 @@
 
 .alwaysOnLabel {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
-  color: #c084fc;
+  color: #725b94;
   padding: 2px 8px;
   border-radius: 99px;
-  background: rgba(192, 132, 252, 0.1);
-  border: 1px solid rgba(192, 132, 252, 0.3);
+  background: rgba(236, 229, 255, 0.8);
+  border: 1px solid rgba(177, 150, 210, 0.45);
 }
 
 /* Toggle */
@@ -185,7 +201,7 @@
 }
 
 .toggleOn {
-  background: var(--accent, #7c6af4);
+  background: var(--accent, #ff8fab);
 }
 
 .toggleThumb {
@@ -207,6 +223,8 @@
 /* ── Footer hint ───────────────────────────────────────────────────────── */
 .footer {
   margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
 }
 
 .footerHint {
@@ -221,9 +239,9 @@
   flex-direction: column;
   gap: 10px;
   padding: 16px 20px;
-  border-radius: var(--radius-md, 10px);
+  border-radius: 14px;
   border: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
 }
 
 .configTitle {
@@ -274,4 +292,38 @@
   font-size: 16px;
   padding: 4px;
   line-height: 1;
+}
+
+@media (max-width: 760px) {
+  .panel {
+    padding: 16px 14px 22px;
+    gap: 16px;
+  }
+
+  .card {
+    padding: 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .cardLeft {
+    margin-top: 0;
+  }
+
+  .cardRight {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .alwaysOnLabel {
+    margin-left: auto;
+  }
+
+  .configSection {
+    padding: 14px;
+  }
 }

@@ -1,3 +1,4 @@
+import { Zap, Sparkles, Play, Pause } from 'lucide-react'
 import { useEffect, useState, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import styles from './ScheduledTasksPanel.module.css'
@@ -452,9 +453,9 @@ export default function ScheduledTasksPanel() {
               <div className={styles.itemHeader}>
                 <span className={styles.itemTitle}>{t.title}</span>
                 <div className={styles.itemActions}>
-                  <button className={styles.icnBtn} onClick={() => handleTrigger(t)} title="立即执行">⚡</button>
+                  <button className={styles.icnBtn} onClick={() => handleTrigger(t)} title="立即执行"><Zap size={14} strokeWidth={2} /></button>
                   <button className={styles.icnBtn} onClick={() => handleToggle(t)} title={t.is_enabled ? '暂停' : '启用'}>
-                    {t.is_enabled ? '⏸️' : '▶️'}
+                      {t.is_enabled ? <Pause size={14} /> : <Play size={14} />}
                   </button>
                   <button className={styles.icnBtn} onClick={() => openHistory(t)} title="执行历史">📜</button>
                   <button className={styles.icnBtn} onClick={() => openEdit(t)} title="编辑">✏️</button>
@@ -515,7 +516,7 @@ export default function ScheduledTasksPanel() {
                   disabled={!form.description.trim() || inferring}
                   onClick={handleInferTools}
                 >
-                  {inferring ? '分析中…' : '✨ 分析所需工具'}
+                  {inferring ? '分析中…' : '<Sparkles size={14} strokeWidth={2} /> 分析所需工具'}
                 </button>
                 {inferReason && (
                   <small className={styles.hint} style={{ marginTop: 4, display: 'block' }}>
@@ -719,7 +720,7 @@ export default function ScheduledTasksPanel() {
                   setEmptyToolsTarget(null)
                   executeTask(t.task, t.runId, false)
                 }}
-              >付款执行</button>
+              >继续执行</button>
               <button
                 className={styles.btnSecondary}
                 onClick={() => {

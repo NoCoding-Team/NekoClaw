@@ -1,3 +1,4 @@
+import { X, Brain, Zap, Sparkles, User, VenetianMask, Bot, Pin } from 'lucide-react'
 import { useEffect, useState, useCallback } from 'react'
 import styles from './MemoryPanel.module.css'
 import { useToast } from '../../hooks/useToast'
@@ -21,8 +22,8 @@ const PINNED_FILES = ['SOUL.md', 'USER.md', 'IDENTITY.md', 'AGENTS.md', 'MEMORY.
 const PIN_ORDER: Record<string, number> = {
   'SOUL.md': 0, 'USER.md': 1, 'IDENTITY.md': 2, 'AGENTS.md': 3, 'MEMORY.md': 4, 'SKILLS_SNAPSHOT.md': 5,
 }
-const PIN_ICONS: Record<string, string> = {
-  'SOUL.md': '✨', 'USER.md': '👤', 'IDENTITY.md': '🎭', 'AGENTS.md': '🤖', 'MEMORY.md': '📌', 'SKILLS_SNAPSHOT.md': '⚡',
+const PIN_ICONS: Record<string, React.ReactNode> = {
+  'SOUL.md': <Sparkles size={14} strokeWidth={2} />, 'USER.md': <User size={14} strokeWidth={2} />, 'IDENTITY.md': <VenetianMask size={14} strokeWidth={2} />, 'AGENTS.md': <Bot size={14} strokeWidth={2} />, 'MEMORY.md': <Pin size={14} strokeWidth={2} />, 'SKILLS_SNAPSHOT.md': <Zap size={14} strokeWidth={2} />,
 }
 const isDateFile = (n: string) => /^(notes\/)\d{4}-\d{2}-\d{2}\.md$/.test(n)
 function displayName(name: string) {
@@ -31,8 +32,8 @@ function displayName(name: string) {
 }
 function fileIcon(name: string) {
   if (PIN_ICONS[name]) return PIN_ICONS[name]
-  if (isDateFile(name)) return '📅'
-  return '📄'
+  if (isDateFile(name)) return <Pin size={14} strokeWidth={2} />
+  return <Bot size={14} strokeWidth={2} />
 }
 
 export default function MemoryPanel() {
@@ -426,7 +427,7 @@ export default function MemoryPanel() {
       {/* ── Header ───────────────────────────────────────────────────── */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <span className={styles.headerIcon}>🧠</span>
+          <span className={styles.headerIcon}><Brain size={14} strokeWidth={2} /></span>
           <span className={styles.title}>猫脑</span>
         </div>
         <button className={styles.btnToday} onClick={createTodayNote} disabled={generatingNote}>
@@ -482,7 +483,7 @@ export default function MemoryPanel() {
                           className={`${styles.fileItem} ${selectedDbMemory?.id === m.id ? styles.fileItemActive : ''}`}
                           onClick={() => { setSelectedDbMemory(m); setSelectedFile(null); setEditing(false) }}
                         >
-                          <span className={styles.fileIcon}>🧠</span>
+                          <span className={styles.fileIcon}><Brain size={14} strokeWidth={2} /></span>
                           <div className={styles.fileInfo}>
                             <span className={styles.fileName}>{m.category}</span>
                             <span className={styles.fileMeta}>
@@ -514,7 +515,7 @@ export default function MemoryPanel() {
                 <>
                   <div className={styles.contentToolbar}>
                     <div className={styles.toolbarTitle}>
-                      <span className={styles.toolbarIcon}>🧠</span>
+                      <span className={styles.toolbarIcon}><Brain size={14} strokeWidth={2} /></span>
                       {selectedDbMemory.category}
                     </div>
                     <span className={styles.toolbarMeta}>

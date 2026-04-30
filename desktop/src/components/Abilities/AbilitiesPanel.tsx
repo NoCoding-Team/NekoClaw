@@ -1,10 +1,11 @@
+import { Brain, Puzzle, Folder, Terminal, Code, Globe, Plug, MousePointerClick } from 'lucide-react'
 import { useEffect } from 'react'
 import { useAppStore } from '../../store/app'
 import styles from './AbilitiesPanel.module.css'
 
 interface Ability {
   id: string
-  icon: string
+  icon: React.ReactNode
   name: string
   desc: string
   /** Where the tool runs */
@@ -20,7 +21,7 @@ interface Ability {
 const ABILITIES: Ability[] = [
   {
     id: 'file',
-    icon: '📁',
+    icon: <Folder size={18} strokeWidth={2} />,
     name: '文件操作',
     desc: '读取、写入、列举和删除本机文件与目录，让 Agent 直接操作你的本地文件系统',
     runtime: 'client',
@@ -31,7 +32,7 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'shell',
-    icon: '💻',
+    icon: <Terminal size={18} strokeWidth={2} />,
     name: '命令行执行',
     desc: '在宿主机或沙箱容器中运行 Shell 命令，支持脚本、包管理器、系统操作等',
     runtime: 'client',
@@ -42,7 +43,7 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'python',
-    icon: '🐍',
+    icon: <Code size={18} strokeWidth={2} />,
     name: 'Python 执行',
     desc: '在安全沙盒容器中运行 Python 代码，预装 numpy、pandas、matplotlib 等科学计算库',
     runtime: 'server',
@@ -53,7 +54,7 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'search',
-    icon: '🌐',
+    icon: <Globe size={18} strokeWidth={2} />,
     name: '网页搜索',
     desc: '通过 Tavily 搜索引擎获取互联网实时信息，支持新闻、文档、技术内容等',
     runtime: 'server',
@@ -64,7 +65,7 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'http',
-    icon: '🔌',
+    icon: <Plug size={18} strokeWidth={2} />,
     name: 'HTTP 请求',
     desc: '发送 HTTP 请求，支持自定义方法/Header/Body 和 REST API 调用；parse_html=true 时自动清洗网页为 Markdown',
     runtime: 'server',
@@ -75,7 +76,7 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'browser',
-    icon: '🖥️',
+    icon: <MousePointerClick size={18} strokeWidth={2} />,
     name: '浏览器自动化',
     desc: '控制本地浏览器进行页面导航、截图、元素点击和文字输入，可操作任意网页',
     runtime: 'client',
@@ -86,7 +87,7 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'knowledge',
-    icon: '🧠',
+    icon: <Brain size={14} strokeWidth={2} />,
     name: '记忆管理',
     desc: '读取、写入和检索个人记忆文件，让 Agent 把长期记忆保存到记忆库面板可见的位置',
     runtime: 'server',
@@ -98,7 +99,7 @@ const ABILITIES: Ability[] = [
   },
   {
     id: 'skill_read',
-    icon: '🧩',
+    icon: <Puzzle size={14} strokeWidth={2} />,
     name: '技能读取',
     desc: '读取猫技库中的技能文件（SKILL.md），让 Agent 按需加载完整的任务操作指南',
     runtime: 'server',

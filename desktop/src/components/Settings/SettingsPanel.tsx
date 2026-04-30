@@ -1,3 +1,4 @@
+import { Square, Settings, MessageSquare, User, Bot, Shield, Globe } from 'lucide-react'
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { useAppStore, SecurityConfig, FallbackLLMConfig } from '../../store/app'
 import styles from './SettingsPanel.module.css'
@@ -78,7 +79,7 @@ function ProviderIcon({ value, size = 18 }: { value: string; size?: number }) {
   if (slug) {
     return (
       <img
-        src={`/provider-icons/${slug}.png`}
+        src={`./provider-icons/${slug}.png`}
         width={size} height={size}
         alt={p?.label ?? value}
         style={{ display: 'block', borderRadius: 3, flexShrink: 0 }}
@@ -1229,7 +1230,7 @@ function AccountTab({ userId, username, nickname, avatarData, serverUrl, token, 
           <div className={styles.accountAvatarWrap} onClick={() => avatarInputRef.current?.click()} title="点击修改头像">
             {avatarData
               ? <img src={avatarData} className={styles.accountAvatarImg} alt="头像" />
-              : <div className={styles.accountAvatar}>🐾</div>
+              : <div className={styles.accountAvatar}><User size={24} strokeWidth={2.5} color="#C45B7A" /></div>
             }
             <div className={styles.accountAvatarEdit}>📷</div>
           </div>
@@ -1326,19 +1327,19 @@ export function SettingsPanel() {
           {/* Left nav */}
           <nav className={styles.nav}>
             <button className={nav('account')} onClick={() => setTab('account')}>
-              <span className={styles.navIcon}>👤</span><span>猫主档案</span>
+              <span className={styles.navIcon}><User size={14} strokeWidth={2} /></span><span>猫主档案</span>
             </button>
             <button className={nav('general')} onClick={() => setTab('general')}>
-              <span className={styles.navIcon}>⚙️</span><span>猫窝设置</span>
+              <span className={styles.navIcon}><Settings size={14} strokeWidth={2} /></span><span>猫窝设置</span>
             </button>
             <button className={nav('models')} onClick={() => setTab('models')}>
-              <span className={styles.navIcon}>🤖</span><span>猫粮站</span>
+              <span className={styles.navIcon}><Bot size={14} strokeWidth={2} /></span><span>猫粮站</span>
             </button>
             <button className={nav('mcp')} onClick={() => setTab('mcp')}>
               <span className={styles.navIcon}>🔌</span><span>MCP</span>
             </button>
             <button className={nav('im-bot')} onClick={() => setTab('im-bot')}>
-              <span className={styles.navIcon}>💬</span><span>猫道</span>
+              <span className={styles.navIcon}><MessageSquare size={14} strokeWidth={2} /></span><span>猫道</span>
             </button>
             <button className={nav('security')} onClick={() => setTab('security')}>
               <span className={styles.navIcon}>🛡️</span><span>铃铛</span>

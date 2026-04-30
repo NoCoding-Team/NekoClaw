@@ -1,24 +1,25 @@
 .panel {
   position: absolute;
-  top: 44px;
+  top: 40px;
   left: 0;
   width: 260px;
-  height: calc(100% - 44px);
-  background: var(--bg-surface);
+  height: calc(100% - 40px);
+  background: var(--bg-elevated);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   z-index: 50;
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.35);
+  box-shadow: 6px 0 18px rgba(201, 184, 164, 0.22);
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px 10px;
+  padding: 11px 14px 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  background: #f7efff;
 }
 
 .title {
@@ -31,11 +32,12 @@
 }
 
 .closeBtn {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
   font-size: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: #fff;
+  border: 1px solid #efe4fa;
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -43,8 +45,8 @@
   transition: background 0.15s, color 0.15s;
 }
 .closeBtn:hover {
-  background: var(--danger);
-  color: #fff;
+  background: #ffe0e8;
+  color: #bf5d79;
 }
 
 .tabs {
@@ -70,13 +72,13 @@
   color: var(--text-muted);
 }
 .tab:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: #f7efff;
   color: var(--text-secondary);
 }
 
 .tabActive {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+  background: #ffe8ee;
+  color: #7a4e62;
 }
 
 .searchWrap {
@@ -85,9 +87,9 @@
   gap: 7px;
   margin: 6px 14px;
   padding: 6px 10px;
-  background: var(--bg-elevated);
+  background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 10px;
   flex-shrink: 0;
 }
 
@@ -116,18 +118,18 @@
   gap: 5px;
   margin: 4px 14px 10px;
   padding: 6px 0;
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 12px;
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.04);
+  background: #fff8ff;
   border: 1px dashed var(--border);
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   flex-shrink: 0;
 }
 .uploadBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: #fff;
   color: var(--text-primary);
-  border-color: var(--accent);
+  border-color: #e4d5f6;
 }
 
 .content {
