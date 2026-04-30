@@ -24,10 +24,16 @@ htmlcov/
 node_modules/
 dist/
 dist-ssr/
+build/
 *.local
 logs/
 *.log
 npm-debug.log*
+
+# Electron 打包产物
+desktop/build/
+desktop/dist-electron/
+desktop/release/
 
 # Rust / Tauri
 target/
