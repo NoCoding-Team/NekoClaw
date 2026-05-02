@@ -1,27 +1,33 @@
-## ADDED Requirements
+## REMOVED Requirements
 
 ### Requirement: URL 内容获取与清洗
-系统 SHALL 获取指定 URL 的网页内容，清洗 HTML 为 Markdown 纯文本后返回。
-
-#### Scenario: 正常网页获取
-- **WHEN** Agent 调用 `fetch_url` 工具并提供 URL
-- **THEN** 系统 SHALL 发送 GET 请求获取页面内容，使用 BeautifulSoup 解析 + html2text 转换为 Markdown，截断至 4000 字符后返回
-
-#### Scenario: SSRF 防护
-- **WHEN** 提供的 URL 解析后指向私网 IP（192.168.*、10.*、172.16-31.*、127.0.0.1、::1）或 localhost
-- **THEN** 系统 SHALL 拒绝请求并返回安全错误，复用 `http_request` 已有的私网 IP 检查逻辑
-
-#### Scenario: 请求超时
-- **WHEN** 目标 URL 响应超过 15 秒
-- **THEN** 系统 SHALL 中断请求并返回超时错误
-
-#### Scenario: 非 HTML 内容
-- **WHEN** 响应的 Content-Type 不是 text/html（如 JSON、纯文本、PDF）
-- **THEN** 系统 SHALL 直接返回响应体文本（JSON/text 截断至 4000 字符），PDF 等二进制内容返回不支持提示
+**Reason**: `fetch_url` 作为独立工具被移除，其功能合并进 `http_request` 工具的 `parse_html=true` 模式。
+**Migration**: 使用 `http_request(method="GET", url="...", parse_html=true)` 替代 `fetch_url(url="...")`。清洗逻辑（BeautifulSoup + html2text）保持不变，在 server 端执行。
 
 ### Requirement: fetch_url 优先于 http_request
-系统 SHALL 通过工具 description 引导 LLM 在获取网页内容时优先选择 `fetch_url`。
+**Reason**: `fetch_url` 不再作为独立工具存在，优先级引导失去意义。
+**Migration**: `http_request` 的 description 中 SHALL 说明 `parse_html=true` 用于读取网页内容。
 
-#### Scenario: 描述引导
-- **WHEN** 工具注册时
-- **THEN** `fetch_url` description SHALL 包含"获取任何 URL 内容时优先使用此工具"；`http_request` description SHALL 收窄为"仅在需要自定义请求方法/Header/Body 或调用 REST API 时使用"
+## ADDED Requirements
+
+### Requirement: http_request 的 parse_html 模式
+当 `http_request` 的 `parse_html` 参数为 `true` 时，系统 SHALL 对 HTML 响应执行清洗（BeautifulSoup 去噪 + html2text 转 Markdown），行为与原 `fetch_url` 一致。
+
+#### Scenario: parse_html=true 获取网页
+- **WHEN** Agent 调用 `http_request(method="GET", url="https://example.com", parse_html=true)` 且响应 Content-Type 为 text/html
+- **THEN** 系统 SHALL 使用 BeautifulSoup 移除 script/style/nav/footer/header/noscript/iframe 标签，通过 html2text 转为 Markdown，截断至 4000 字符后返回
+
+#### Scenario: parse_html=true 但响应非 HTML
+- **WHEN** `parse_html=true` 但响应 Content-Type 不是 text/html
+- **THEN** 系统 SHALL 按原始内容处理：JSON/text 截断至 4000 字符返回，二进制类型返回不支持提示
+
+#### Scenario: parse_html=false 或未指定
+- **WHEN** `parse_html` 为 `false` 或未提供
+- **THEN** 系统 SHALL 返回原始 HTTP 响应（status_code、headers、body），与当前 `http_request` 行为一致
+
+### Requirement: http_request 的 method 默认值
+`http_request` 的 `method` 参数 SHALL 默认为 `"GET"`，不再要求必填。
+
+#### Scenario: 省略 method
+- **WHEN** Agent 调用 `http_request(url="https://example.com")` 未指定 method
+- **THEN** 系统 SHALL 使用 GET 方法发送请求

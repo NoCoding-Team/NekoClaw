@@ -66,3 +66,33 @@
 #### Scenario: 内置优先于用户同名技能
 - **WHEN** 内置目录和用户目录同时存在同名技能
 - **THEN** 系统 SHALL 返回内置目录中的版本
+
+## MODIFIED Requirements
+
+### Requirement: 内置 Skill 对新用户的初始启用状态由 frontmatter 决定
+`ensure_user_skill_configs` 在为新用户初始化 SkillConfig 时，SHALL 读取内置 Skill 的 SKILL.md frontmatter 中的 `default_enabled` 字段作为初始 `enabled` 值。若字段不存在则默认 `true`。
+
+#### Scenario: 新用户注册后内置 Skill 按默认值初始化
+- **WHEN** 新用户首次请求 Skills 列表，触发 `ensure_user_skill_configs`
+- **THEN** 系统为每个内置 Skill 创建 SkillConfig，`enabled` 值取自该 Skill 的 `default_enabled` frontmatter 字段（缺失时默认 true）
+
+#### Scenario: 用户可覆盖默认开关
+- **WHEN** 用户在客户端手动切换某 Skill 的开关
+- **THEN** 用户的 SkillConfig 记录被更新，与 frontmatter 中的 default_enabled 无关
+
+## ADDED Requirements
+
+### Requirement: 全局工具状态影响技能可用性
+技能可用性判断 SHALL 考虑全局工具状态——如果技能的 `requires_tools` 中有工具被 Admin 全局禁用，该技能 SHALL 视为不可用。
+
+#### Scenario: 依赖工具被全局禁用
+- **WHEN** 技能 `get-weather` 的 `requires_tools` 包含 `http_request`，且 Admin 已全局禁用 `http_request`
+- **THEN** 系统 SHALL 不将 `get-weather` 注入到 `<available_skills>` 列表中
+
+#### Scenario: 依赖工具全部启用
+- **WHEN** 技能的 `requires_tools` 中所有工具均为全局启用状态
+- **THEN** 系统 SHALL 正常判断技能可用性（继续检查用户级 skills_config）
+
+#### Scenario: 无 requires_tools 的技能
+- **WHEN** 技能未声明 `requires_tools`
+- **THEN** 全局工具状态 SHALL 不影响该技能的可用性
